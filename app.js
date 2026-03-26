@@ -3,11 +3,12 @@
 // Inspectie, Oplevering & Kwaliteitsborging
 // =====================================================
 
-const CATEGORIES = ['Bouwkundig','Schilderwerk','Sanitair','Elektra','HVAC','Dakwerk','Kozijnen','Vloeren','Buitenruimte','Veiligheid','Overig'];
-const STATUS_LABELS = { open:'Open', assigned:'Toegewezen', completed:'Afgerond', verified:'Geverifieerd', archived:'Gearchiveerd' };
-const PRIORITY_LABELS = { high:'Hoog', medium:'Midden', low:'Laag' };
-const SEVERITY_LABELS = { cosmetic:'Cosmetisch', functional:'Functioneel', safety:'Veiligheid', structural:'Structureel' };
-const HO_TYPE_LABELS = { pre:'Vooroplevering', first:'Eerste oplevering', second:'Tweede oplevering' };
+const CATEGORY_KEYS = ['cat_bouwkundig','cat_schilderwerk','cat_sanitair','cat_elektra','cat_hvac','cat_dakwerk','cat_kozijnen','cat_vloeren','cat_buitenruimte','cat_veiligheid','cat_overig'];
+const CATEGORY_VALUES = ['Bouwkundig','Schilderwerk','Sanitair','Elektra','HVAC','Dakwerk','Kozijnen','Vloeren','Buitenruimte','Veiligheid','Overig'];
+const STATUS_KEYS = { open:'status_open', assigned:'status_assigned', completed:'status_completed', verified:'status_verified', archived:'status_archived' };
+const PRIORITY_KEYS = { high:'pri_high', medium:'pri_medium', low:'pri_low' };
+const SEVERITY_KEYS = { cosmetic:'sev_cosmetic', functional:'sev_functional', safety:'sev_safety', structural:'sev_structural' };
+const HO_TYPE_KEYS = { pre:'ho_pre', first:'ho_first', second:'ho_second' };
 
 class OpenFieldStudio {
     constructor() {
@@ -26,6 +27,7 @@ class OpenFieldStudio {
         this.currentInspectionId = null;
         this.currentHandoverId = null;
         this.activityLog = [];
+        this.lang = localStorage.getItem('ofs_lang') || 'nl';
         this.init();
     }
 
@@ -35,7 +37,90 @@ class OpenFieldStudio {
         this.loadFromLocalStorage();
         this.validateAndCleanData();
         this.populateCategoryFilter();
+        this.applyLanguage();
     }
+
+    // =====================================================
+    // INTERNATIONALIZATION
+    // =====================================================
+    t(key) { return (LANG[this.lang] && LANG[this.lang][key]) || (LANG.nl[key]) || key; }
+
+    tFormat(key, ...args) {
+        let s = this.t(key);
+        args.forEach((a, i) => { s = s.replace(`{${i}}`, a); });
+        return s;
+    }
+
+    setLanguage(lang) {
+        this.lang = lang;
+        localStorage.setItem('ofs_lang', lang);
+        document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+        this.applyLanguage();
+    }
+
+    applyLanguage() {
+        // data-i18n attributes (nav, headings)
+        document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = this.t(el.dataset.i18n); });
+
+        // Update active lang button
+        document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === this.lang));
+
+        // Project form labels and placeholders
+        const lp = (id, labelKey, phKey) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const label = el.closest('.form-group')?.querySelector('label');
+            if (label) label.textContent = this.t(labelKey);
+            if (phKey && el.placeholder !== undefined) el.placeholder = this.t(phKey);
+        };
+        lp('project-name','lbl_name','ph_name'); lp('project-number','lbl_number','ph_number');
+        lp('client-name','lbl_client','ph_client'); lp('contact-person','lbl_contact','ph_contact');
+        lp('street-address','lbl_address','ph_address'); lp('postal-code','lbl_postal','ph_postal');
+        lp('city','lbl_city','ph_city'); lp('survey-date','lbl_date');
+        lp('surveyor','lbl_surveyor','ph_surveyor'); lp('project-description','lbl_description','ph_description');
+        lp('project-notes','lbl_notes','ph_notes');
+
+        // Static headings and buttons via query
+        const setText = (sel, key) => { const el = document.querySelector(sel); if (el) el.textContent = this.t(key); };
+        setText('#project-tab > .panel > h2', 'h_project');
+        setText('#save-project span, #save-project', 'btn_save_project');
+        setText('#plattegrond-tab h2', 'h_plans');
+        setText('#inspectie-overview h2', 'h_inspections');
+        setText('#new-inspection-btn', 'btn_new_inspection');
+        setText('#inspectie-setup h2', 'h_new_inspection');
+        setText('#oplevering-overview h2', 'h_handovers');
+        setText('#new-handover-btn', 'btn_new_handover');
+        setText('#export-tab h2', 'h_export');
+
+        // Ticket modal labels
+        lp('point-label','lbl_label','ph_label'); lp('point-description','lbl_desc','ph_desc');
+        lp('point-deadline','lbl_deadline');
+
+        // Inspectie form
+        lp('insp-name','lbl_insp_name'); lp('insp-inspector','lbl_inspector');
+        lp('insp-notes','lbl_general_notes','ph_insp_notes');
+
+        // Dashboard stat cards
+        const setStatLabel = (id, key) => { const el = document.querySelector(`#${id} h4`); if (el) el.textContent = this.t(key); };
+        setStatLabel('stat-total','stat_total'); setStatLabel('stat-open','stat_open');
+        setStatLabel('stat-assigned','stat_assigned'); setStatLabel('stat-completed','stat_completed');
+        setStatLabel('stat-overdue','stat_overdue'); setStatLabel('stat-inspections','stat_inspections');
+
+        // Re-render dynamic content
+        this.populateCategoryFilter();
+        this.renderPointsList();
+        this.renderContacts();
+        this.renderInspectionsList();
+        this.renderHandoversList();
+        if (document.getElementById('dashboard-tab').classList.contains('active')) this.updateDashboard();
+    }
+
+    // Translated label helpers
+    statusLabel(s) { return this.t(STATUS_KEYS[s] || 'status_open'); }
+    priorityLabel(p) { return this.t(PRIORITY_KEYS[p] || 'pri_medium'); }
+    severityLabel(s) { return this.t(SEVERITY_KEYS[s] || 'sev_cosmetic'); }
+    hoTypeLabel(t) { return this.t(HO_TYPE_KEYS[t] || t); }
+    categoryLabel(c) { const idx = CATEGORY_VALUES.indexOf(c); return idx >= 0 ? this.t(CATEGORY_KEYS[idx]) : c; }
 
     // =====================================================
     // DEFAULT CHECKLIST TEMPLATES
@@ -203,6 +288,11 @@ class OpenFieldStudio {
     // EVENT BINDINGS
     // =====================================================
     bindEvents() {
+        // Language switcher
+        document.querySelectorAll('.lang-btn').forEach(btn => {
+            btn.addEventListener('click', () => this.setLanguage(btn.dataset.lang));
+        });
+
         // Navigation
         document.querySelectorAll('.nav-btn').forEach(btn => {
             btn.addEventListener('click', (e) => this.switchTab(e.target.closest('.nav-btn').dataset.tab));
@@ -425,7 +515,7 @@ class OpenFieldStudio {
 
     saveContact() {
         const name = document.getElementById('contact-name-input').value.trim();
-        if (!name) { this.showNotification('Vul een naam in', 'error'); return; }
+        if (!name) { this.showNotification(this.t('msg_fill_name'), 'error'); return; }
         const id = document.getElementById('contact-id-input').value || this.genId();
         const ct = { id, name, role: document.getElementById('contact-role-input').value,
             company: document.getElementById('contact-company-input').value,
@@ -434,7 +524,7 @@ class OpenFieldStudio {
         const idx = this.contacts.findIndex(c => c.id === id);
         if (idx !== -1) this.contacts[idx] = ct; else this.contacts.push(ct);
         this.renderContacts(); this.saveToLocalStorage(); this.closeContactModal();
-        this.showNotification('Contact opgeslagen', 'success');
+        this.showNotification(this.t('msg_contact_saved'), 'success');
     }
 
     deleteContact() {
@@ -465,7 +555,7 @@ class OpenFieldStudio {
 
     async processPDFFile(file) {
         try {
-            this.showNotification('PDF wordt verwerkt...', 'info');
+            this.showNotification(this.t('msg_pdf_processing'), 'info');
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
             const ab = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
@@ -479,8 +569,8 @@ class OpenFieldStudio {
                 this.floorPlans.push({ id:this.genId(), name: pdf.numPages > 1 ? `${bn} - Pagina ${i}` : bn, data:canvas.toDataURL('image/png'), type:'image/png', originalType:'application/pdf' });
             }
             this.renderFloorPlansList(); this.updateFloorPlanSelector(); this.saveToLocalStorage();
-            this.showNotification(`PDF: ${pdf.numPages} pagina('s) toegevoegd!`, 'success');
-        } catch(e) { console.error(e); this.showNotification('Fout bij PDF verwerking', 'error'); }
+            this.showNotification(`PDF: ${pdf.numPages} ${this.t('msg_pdf_done')}`, 'success');
+        } catch(e) { console.error(e); this.showNotification(this.t('msg_pdf_error'), 'error'); }
     }
 
     renderFloorPlansList() {
@@ -594,7 +684,7 @@ class OpenFieldStudio {
 
     savePoint() {
         const label = document.getElementById('point-label').value.trim();
-        if (!label) { this.showNotification('Vul een label in', 'error'); return; }
+        if (!label) { this.showNotification(this.t('msg_fill_label'), 'error'); return; }
         const existingTicket = this.editingPointId ? this.tickets.find(t => t.id === this.editingPointId) : null;
         const td = {
             id: document.getElementById('point-id').value || this.genId(),
@@ -622,7 +712,7 @@ class OpenFieldStudio {
         }
         this.logActivity(`Ticket "${label}" ${this.editingPointId ? 'bewerkt' : 'aangemaakt'}`);
         this.renderLocationPoints(); this.renderPointsList(); this.saveToLocalStorage(); this.closePointModal();
-        this.showNotification('Ticket opgeslagen!', 'success');
+        this.showNotification(this.t('msg_ticket_saved'), 'success');
     }
 
     deletePoint() {
@@ -682,13 +772,13 @@ class OpenFieldStudio {
             <div class="point-item priority-${p.priority||'medium'}" onclick="app.openPointModal('${p.id}')">
                 <div class="point-item-icon">${i + 1}</div>
                 <div class="point-item-info"><h4>${this.esc(p.label)}</h4><p>${p.category||''} · ${p.photos?.length||0} foto's${p.assignedTo ? ' · '+this.esc(p.assignedTo) : ''}</p></div>
-                <span class="status-badge status-${p.status||'open'}">${STATUS_LABELS[p.status]||'Open'}</span>
+                <span class="status-badge status-${p.status||'open'}">${this.statusLabel(p.status)}</span>
             </div>
         `).join('');
     }
 
     populateCategoryFilter() {
-        document.getElementById('filter-category').innerHTML = '<option value="">Alle categorieën</option>' + CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
+        document.getElementById('filter-category').innerHTML = `<option value="">${this.t('filter_all_cat')}</option>` + CATEGORY_VALUES.map((c, i) => `<option value="${c}">${this.t(CATEGORY_KEYS[i])}</option>`).join('');
     }
 
     // =====================================================
@@ -729,7 +819,7 @@ class OpenFieldStudio {
             document.getElementById('camera-modal').classList.add('active');
         } catch (e) {
             console.error('Camera error:', e);
-            this.showNotification('Camera niet beschikbaar. Controleer uw toestemming.', 'error');
+            this.showNotification(this.t('msg_camera_error'), 'error');
         }
     }
 
@@ -742,7 +832,7 @@ class OpenFieldStudio {
         const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
         this.currentPhotos.push({ id: this.genId(), data: dataUrl, name: `foto_${new Date().toISOString().slice(11,19).replace(/:/g,'')}.jpg` });
         this.renderPhotoPreview();
-        this.showNotification('Foto vastgelegd!', 'success');
+        this.showNotification(this.t('msg_photo_captured'), 'success');
     }
 
     async switchCamera() {
@@ -757,7 +847,7 @@ class OpenFieldStudio {
             document.getElementById('camera-video').srcObject = stream;
             document.getElementById('camera-modal').classList.add('active');
         } catch (e) {
-            this.showNotification('Camera wisselen mislukt', 'error');
+            this.showNotification(this.t('msg_camera_switch_fail'), 'error');
         }
     }
 
@@ -802,7 +892,7 @@ class OpenFieldStudio {
 
     startInspection() {
         const name = document.getElementById('insp-name').value.trim();
-        if (!name) { this.showNotification('Vul een naam in', 'error'); return; }
+        if (!name) { this.showNotification(this.t('msg_fill_name'), 'error'); return; }
         const type = document.getElementById('insp-type').value;
         const templateId = document.getElementById('insp-template').value;
         const template = this.checklistTemplates.find(t => t.id === templateId);
@@ -929,12 +1019,12 @@ class OpenFieldStudio {
         const insp = this.inspections.find(i => i.id === this.currentInspectionId);
         if (!insp) return;
         const name = document.getElementById('sign-name').value.trim();
-        if (!name) { this.showNotification('Vul uw naam in', 'error'); return; }
+        if (!name) { this.showNotification(this.t('msg_fill_name'), 'error'); return; }
         insp.signature = { name, date: new Date().toISOString(), data: document.getElementById('signature-canvas').toDataURL() };
         insp.status = 'signed';
         this.logActivity(`Inspectie "${insp.name}" ondertekend door ${name}`);
         this.saveToLocalStorage();
-        this.showNotification('Inspectie ondertekend en afgerond!', 'success');
+        this.showNotification(this.t('msg_insp_signed'), 'success');
         this.showInspectionOverview();
     }
 
@@ -1038,7 +1128,7 @@ class OpenFieldStudio {
         };
         this.handovers.push(ho);
         this.currentHandoverId = ho.id;
-        this.logActivity(`${HO_TYPE_LABELS[type]} gestart`);
+        this.logActivity(`${this.hoTypeLabel(type)} gestart`);
         this.saveToLocalStorage();
         this.renderHandoverExecution();
         this.showHandoverExecution();
@@ -1047,14 +1137,14 @@ class OpenFieldStudio {
     renderHandoverExecution() {
         const ho = this.handovers.find(h => h.id === this.currentHandoverId);
         if (!ho) return;
-        document.getElementById('ho-exec-title').textContent = HO_TYPE_LABELS[ho.type] || 'Oplevering';
+        document.getElementById('ho-exec-title').textContent = this.hoTypeLabel(ho.type) || 'Oplevering';
         const c = document.getElementById('ho-items-list');
         if (!ho.items.length) { c.innerHTML = '<p class="empty-state">Geen openstaande tickets</p>'; return; }
         c.innerHTML = ho.items.map((item, idx) => {
             const t = this.tickets.find(tk => tk.id === item.ticketId);
             if (!t) return '';
             return `<div class="ho-item">
-                <div class="ho-item-info"><h4>${this.esc(t.label)}</h4><p>${t.category||''} · ${PRIORITY_LABELS[t.priority]||''} · ${SEVERITY_LABELS[t.severity]||''}</p></div>
+                <div class="ho-item-info"><h4>${this.esc(t.label)}</h4><p>${t.category||''} · ${this.priorityLabel(t.priority)} · ${this.severityLabel(t.severity)}</p></div>
                 <div class="ho-item-verdict">
                     <button class="verdict-btn approved ${item.verdict==='approved'?'selected':''}" onclick="app.setHandoverVerdict(${idx},'approved')">&#10003;</button>
                     <button class="verdict-btn conditional ${item.verdict==='conditional'?'selected':''}" onclick="app.setHandoverVerdict(${idx},'conditional')">&#9888;</button>
@@ -1149,9 +1239,9 @@ class OpenFieldStudio {
             const t = this.tickets.find(tk => tk.id === item.ticketId);
             if (t && item.verdict === 'approved') t.status = 'verified';
         });
-        this.logActivity(`${HO_TYPE_LABELS[ho.type]} afgerond: ${ho.verdict === 'approved' ? 'Goedgekeurd' : ho.verdict === 'conditional' ? 'Onder voorbehoud' : 'Afgekeurd'}`);
+        this.logActivity(`${this.hoTypeLabel(ho.type)} afgerond: ${ho.verdict === 'approved' ? 'Goedgekeurd' : ho.verdict === 'conditional' ? 'Onder voorbehoud' : 'Afgekeurd'}`);
         this.saveToLocalStorage();
-        this.showNotification('Oplevering ondertekend!', 'success');
+        this.showNotification(this.t('msg_ho_signed'), 'success');
         this.showHandoverOverview();
     }
 
@@ -1161,7 +1251,7 @@ class OpenFieldStudio {
         c.innerHTML = this.handovers.map(ho => {
             const approved = ho.items.filter(i => i.verdict === 'approved').length;
             return `<div class="handover-card" onclick="app.viewHandover('${ho.id}')">
-                <div class="handover-card-info"><h4>${HO_TYPE_LABELS[ho.type]||ho.type}</h4><p>${ho.date} · ${ho.items.length} punten · ${approved} goedgekeurd</p></div>
+                <div class="handover-card-info"><h4>${this.hoTypeLabel(ho.type)}</h4><p>${ho.date} · ${ho.items.length} punten · ${approved} goedgekeurd</p></div>
                 <span class="status-badge status-${ho.status==='completed'?'verified':'assigned'}">${ho.status==='completed'?'Afgerond':'In uitvoering'}</span>
             </div>`;
         }).join('');
@@ -1302,8 +1392,8 @@ ${this.floorPlans.map(fp => {
     ${incMap?`<div style="position:relative;display:inline-block;max-width:100%;margin-bottom:1rem;"><img src="${fp.data}" style="max-width:100%;border-radius:8px;border:1px solid var(--border);">
     ${pts.map((p,i)=>`<div style="position:absolute;left:${p.x}%;top:${p.y}%;width:24px;height:24px;transform:translate(-50%,-100%);"><svg viewBox="0 0 24 24" fill="${{open:'#D97706',assigned:'#2563EB',completed:'#16A34A',verified:'#71717A'}[p.status]||'#D97706'}"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg></div>`).join('')}
     </div>`:''}
-    ${pts.length?pts.map((p,i)=>`<div class="ticket-card"><div class="ticket-header"><strong>${i+1}. ${this.esc(p.label)}</strong><span class="ticket-badge tb-${p.status}">${STATUS_LABELS[p.status]||'Open'}</span></div>
-    <p style="font-size:0.8rem;color:var(--gray);">${p.category||''} · ${PRIORITY_LABELS[p.priority]||''} · ${SEVERITY_LABELS[p.severity]||''}${p.assignedTo?' · '+this.esc(p.assignedTo):''}${p.deadline?' · Deadline: '+p.deadline:''}</p>
+    ${pts.length?pts.map((p,i)=>`<div class="ticket-card"><div class="ticket-header"><strong>${i+1}. ${this.esc(p.label)}</strong><span class="ticket-badge tb-${p.status}">${this.statusLabel(p.status)}</span></div>
+    <p style="font-size:0.8rem;color:var(--gray);">${p.category||''} · ${this.priorityLabel(p.priority)} · ${this.severityLabel(p.severity)}${p.assignedTo?' · '+this.esc(p.assignedTo):''}${p.deadline?' · Deadline: '+p.deadline:''}</p>
     ${p.description?`<p style="margin-top:0.5rem;">${this.esc(p.description)}</p>`:''}
     ${incPhotos&&p.photos?.length?`<div class="photos-grid">${p.photos.map(ph=>`<img src="${ph.data}">`).join('')}</div>`:''}
     </div>`).join(''):'<p style="color:var(--gray);">Geen tickets</p>'}
@@ -1320,7 +1410,7 @@ ${this.floorPlans.map(fp => {
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Inter',sans-serif;color:#36363E;line-height:1.6;padding:2rem;max-width:900px;margin:0 auto;}h1{font-family:'Space Grotesk',sans-serif;font-size:1.8rem;margin-bottom:0.5rem;}h2{font-family:'Space Grotesk',sans-serif;font-size:1.3rem;margin:1.5rem 0 0.75rem;border-bottom:2px solid #E7E5E4;padding-bottom:0.5rem;}.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:1.5rem;}.meta-row{display:flex;gap:0.5rem;}.meta-label{font-weight:600;min-width:140px;font-size:0.85rem;color:#A1A1AA;}.meta-val{font-size:0.85rem;}table{width:100%;border-collapse:collapse;margin:1rem 0;}th,td{border:1px solid #E7E5E4;padding:0.5rem 0.75rem;text-align:left;font-size:0.85rem;}th{background:#F5F5F4;font-weight:600;}.verdict-ok{color:#16A34A;font-weight:600;}.verdict-cond{color:#F59E0B;font-weight:600;}.verdict-nok{color:#DC2626;font-weight:600;}.sig-block{display:inline-block;width:45%;margin:1rem 2%;vertical-align:top;}.sig-block img{max-width:100%;border:1px solid #E7E5E4;border-radius:4px;}@media print{body{padding:1rem;}}</style></head><body>
 <h1>Proces-Verbaal van Oplevering</h1>
-<p style="color:#A1A1AA;margin-bottom:2rem;">${HO_TYPE_LABELS[ho.type]} · ${ho.date}</p>
+<p style="color:#A1A1AA;margin-bottom:2rem;">${this.hoTypeLabel(ho.type)} · ${ho.date}</p>
 <h2>Projectgegevens</h2>
 <div class="meta-grid">
 <div class="meta-row"><span class="meta-label">Project:</span><span class="meta-val">${this.esc(this.project.name)}</span></div>
@@ -1335,7 +1425,7 @@ ${(ho.participants||[]).map(p=>`<tr><td>${this.esc(p.name)}</td><td>${this.esc(p
 </table>
 <h2>Opleverpunten</h2>
 <table><tr><th>#</th><th>Punt</th><th>Categorie</th><th>Prioriteit</th><th>Oordeel</th></tr>
-${ho.items.map((item,i)=>{const t=this.tickets.find(tk=>tk.id===item.ticketId);if(!t)return'';const vc=item.verdict==='approved'?'verdict-ok':item.verdict==='conditional'?'verdict-cond':'verdict-nok';const vl=item.verdict==='approved'?'Goedgekeurd':item.verdict==='conditional'?'Onder voorbehoud':item.verdict==='rejected'?'Afgekeurd':'Niet beoordeeld';return`<tr><td>${i+1}</td><td>${this.esc(t.label)}</td><td>${t.category||''}</td><td>${PRIORITY_LABELS[t.priority]||''}</td><td class="${vc}">${vl}</td></tr>`;}).join('')}
+${ho.items.map((item,i)=>{const t=this.tickets.find(tk=>tk.id===item.ticketId);if(!t)return'';const vc=item.verdict==='approved'?'verdict-ok':item.verdict==='conditional'?'verdict-cond':'verdict-nok';const vl=item.verdict==='approved'?'Goedgekeurd':item.verdict==='conditional'?'Onder voorbehoud':item.verdict==='rejected'?'Afgekeurd':'Niet beoordeeld';return`<tr><td>${i+1}</td><td>${this.esc(t.label)}</td><td>${t.category||''}</td><td>${this.priorityLabel(t.priority)}</td><td class="${vc}">${vl}</td></tr>`;}).join('')}
 </table>
 <h2>Eindoordeel</h2>
 <p style="font-size:1.2rem;font-weight:700;color:${ho.verdict==='approved'?'#16A34A':ho.verdict==='conditional'?'#F59E0B':'#DC2626'}">${ho.verdict==='approved'?'GOEDGEKEURD':ho.verdict==='conditional'?'GOEDGEKEURD ONDER VOORBEHOUD':'AFGEKEURD'}</p>
@@ -1374,8 +1464,8 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
                 if (d.checklistTemplates) this.checklistTemplates = d.checklistTemplates;
                 if (d.activityLog) this.activityLog = d.activityLog;
                 this.loadProjectForm(); this.renderContacts(); this.renderFloorPlansList(); this.updateFloorPlanSelector(); this.saveToLocalStorage();
-                this.showNotification('Project geladen!', 'success');
-            } catch(err) { this.showNotification('Fout bij laden', 'error'); console.error(err); }
+                this.showNotification(this.t('msg_loaded'), 'success');
+            } catch(err) { this.showNotification(this.t('msg_load_error'), 'error'); console.error(err); }
         };
         r.readAsText(file); e.target.value = '';
     }
@@ -1419,13 +1509,13 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
         this.contacts = []; this.floorPlans = []; this.tickets = []; this.inspections = []; this.handovers = []; this.activityLog = [];
         this.activeFloorPlanId = null;
         this.loadProjectForm(); this.renderContacts(); this.renderFloorPlansList(); this.updateFloorPlanSelector(); this.clearCanvas(); this.setDefaultDate();
-        this.showNotification('Alle data gewist!', 'success');
+        this.showNotification(this.t('msg_cleared'), 'success');
     }
 
     validateAndCleanData() {
         let dirty = false;
         const valid = this.floorPlans.filter(fp => { if (!fp.data || typeof fp.data !== 'string' || !fp.data.startsWith('data:image/')) { dirty = true; return false; } const b = fp.data.split(',')[1]; if (!b || b.length < 100) { dirty = true; return false; } return true; });
-        if (dirty) { this.floorPlans = valid; const ids = valid.map(fp => fp.id); this.tickets = this.tickets.filter(t => ids.includes(t.floorPlanId)); this.renderFloorPlansList(); this.updateFloorPlanSelector(); this.saveToLocalStorage(); setTimeout(() => this.showNotification('Corrupte data opgeschoond', 'error'), 500); }
+        if (dirty) { this.floorPlans = valid; const ids = valid.map(fp => fp.id); this.tickets = this.tickets.filter(t => ids.includes(t.floorPlanId)); this.renderFloorPlansList(); this.updateFloorPlanSelector(); this.saveToLocalStorage(); setTimeout(() => this.showNotification(this.t('msg_corrupt'), 'error'), 500); }
     }
 
     // =====================================================
@@ -1442,7 +1532,7 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
                 const writable = await handle.createWritable();
                 await writable.write(blob);
                 await writable.close();
-                this.showNotification('Bestand opgeslagen!', 'success');
+                this.showNotification(this.t('msg_json_saved'), 'success');
                 return;
             } catch (e) {
                 if (e.name === 'AbortError') return; // Gebruiker annuleerde
@@ -1452,7 +1542,7 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a'); a.href = url; a.download = filename;
         a.click(); URL.revokeObjectURL(url);
-        this.showNotification('Bestand gedownload!', 'success');
+        this.showNotification(this.t('msg_json_downloaded'), 'success');
     }
 
     showNotification(msg, type = 'info') {
@@ -1474,4 +1564,4 @@ if ('serviceWorker' in navigator) {
 }
 
 // Initialize
-const app = new OpenFieldStudio();
+window.app = new OpenFieldStudio();

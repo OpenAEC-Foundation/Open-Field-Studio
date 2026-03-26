@@ -117,6 +117,37 @@ body {
     color: #ffffff;
 }
 
+/* Language Switcher */
+.lang-switcher {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.lang-btn {
+    padding: 4px 8px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: transparent;
+    color: var(--scaffold-gray);
+    font-family: var(--font-body);
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: all 0.2s;
+}
+
+.lang-btn:hover {
+    color: #fff;
+    border-color: rgba(255,255,255,0.3);
+}
+
+.lang-btn.active {
+    background: var(--construction-amber);
+    color: #fff;
+    border-color: var(--construction-amber);
+}
+
 .main-nav {
     display: flex;
     gap: var(--sp-1);

@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Open Field Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="icon_256.png" type="image/png">
+    <link rel="apple-touch-icon" href="icon_256.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Open Field Studio">
+    <meta name="theme-color" content="#2A2A32">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="logo">
+                <svg viewBox="0 0 32 32" width="32" height="32" fill="none">
+                    <path d="M16 2L4 9v14l12 7 12-7V9L16 2z" fill="none" stroke="currentColor" stroke-width="2"/>
+                    <path d="M4 9l12 7v14" stroke="currentColor" stroke-width="2"/>
+                    <path d="M28 9l-12 7" stroke="currentColor" stroke-width="2"/>
+                    <path d="M16 2l-6 3.5L16 9l6-3.5L16 2z" fill="currentColor" opacity="0.3"/>
+                </svg>
+                <h1>Open Field Studio</h1>
+            </div>
+            <nav class="main-nav">
+                <button class="nav-btn active" data-tab="project">
+                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" fill="currentColor"/></svg>
+                    Project
+                </button>
+                <button class="nav-btn" data-tab="plattegrond">
+                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z" fill="currentColor"/></svg>
+                    Plattegronden
+                </button>
+                <button class="nav-btn" data-tab="opname">
+                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="currentColor"/></svg>
+                    Opname
+                </button>
+                <button class="nav-btn" data-tab="inspectie">
+                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M19.5 3.5L18 2l-1.5 1.5L15 2l-1.5 1.5L12 2l-1.5 1.5L9 2 7.5 3.5 6 2 4.5 3.5 3 2v20l1.5-1.5L6 22l1.5-1.5L9 22l1.5-1.5L12 22l1.5-1.5L15 22l1.5-1.5L18 22l1.5-1.5L21 22V2l-1.5 1.5zM19 19H5V5h14v14zM6 15h12v2H6zm0-4h12v2H6zm0-4h12v2H6z" fill="currentColor"/></svg>
+                    Inspectie
+                </button>
+                <button class="nav-btn" data-tab="oplevering">
+                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm4.24-1.41L11.66 16.17 7.48 12l-1.41 1.41L11.66 19l12-12-1.42-1.41zM.41 13.41L6 19l1.41-1.41L1.83 12 .41 13.41z" fill="currentColor"/></svg>
+                    Oplevering
+                </button>
+                <button class="nav-btn" data-tab="dashboard">
+                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" fill="currentColor"/></svg>
+                    Dashboard
+                </button>
+                <button class="nav-btn" data-tab="export">
+                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" fill="currentColor"/></svg>
+                    Export
+                </button>
+                <button class="nav-btn" data-tab="handleiding">
+                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z" fill="currentColor"/></svg>
+                    Handleiding
+                </button>
+            </nav>
+        </header>
+
+        <main class="main-content">
+            <!-- ==================== PROJECT TAB ==================== -->
+            <section id="project-tab" class="tab-content active">
+                <div class="panel">
+                    <h2>Projectgegevens</h2>
+                    <form id="project-form" class="form-grid">
+                        <div class="form-group">
+                            <label for="project-name">Projectnaam *</label>
+                            <input type="text" id="project-name" required placeholder="Bijv. Renovatie Kantoorpand">
+                        </div>
+                        <div class="form-group">
+                            <label for="project-number">Projectnummer</label>
+                            <input type="text" id="project-number" placeholder="Bijv. 2024-001">
+                        </div>
+                        <div class="form-group">
+                            <label for="client-name">Opdrachtgever</label>
+                            <input type="text" id="client-name" placeholder="Naam opdrachtgever">
+                        </div>
+                        <div class="form-group">
+                            <label for="contact-person">Contactpersoon</label>
+                            <input type="text" id="contact-person" placeholder="Naam contactpersoon">
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="street-address">Straat en huisnummer *</label>
+                            <input type="text" id="street-address" required placeholder="Bijv. Hoofdstraat 123">
+                        </div>
+                        <div class="form-group">
+                            <label for="postal-code">Postcode *</label>
+                            <input type="text" id="postal-code" required placeholder="1234 AB">
+                        </div>
+                        <div class="form-group">
+                            <label for="city">Plaats *</label>
+                            <input type="text" id="city" required placeholder="Amsterdam">
+                        </div>
+                        <div class="form-group">
+                            <label for="survey-date">Opnamedatum</label>
+                            <input type="date" id="survey-date">
+                        </div>
+                        <div class="form-group">
+                            <label for="surveyor">Opgenomen door</label>
+                            <input type="text" id="surveyor" placeholder="Uw naam">
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="project-description">Projectomschrijving</label>
+                            <textarea id="project-description" rows="4" placeholder="Korte beschrijving van het project..."></textarea>
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="project-notes">Opmerkingen</label>
+                            <textarea id="project-notes" rows="3" placeholder="Aanvullende opmerkingen..."></textarea>
+                        </div>
+                    </form>
+
+                    <!-- Contacten sectie -->
+                    <h2 style="margin-top:2rem;">Contacten</h2>
+                    <div id="contacts-list" class="contacts-list"></div>
+                    <button type="button" class="btn btn-secondary" id="add-contact-btn" style="margin-top:1rem;">+ Contact toevoegen</button>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-primary" id="save-project">
+                            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z" fill="currentColor"/></svg>
+                            Project Opslaan
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== PLATTEGROND TAB ==================== -->
+            <section id="plattegrond-tab" class="tab-content">
+                <div class="panel">
+                    <h2>Plattegronden</h2>
+                    <div class="upload-zone" id="floor-plan-upload">
+                        <svg viewBox="0 0 24 24" width="48" height="48"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" fill="currentColor"/></svg>
+                        <p>Sleep plattegronden hierheen of klik om te uploaden</p>
+                        <span class="upload-hint">JPG, PNG, PDF</span>
+                        <input type="file" id="floor-plan-input" accept="image/*,application/pdf,.pdf" multiple hidden>
+                    </div>
+                    <div class="floor-plans-list" id="floor-plans-list"></div>
+                </div>
+            </section>
+
+            <!-- ==================== OPNAME TAB ==================== -->
+            <section id="opname-tab" class="tab-content">
+                <div class="opname-container">
+                    <div class="floor-selector">
+                        <label for="active-floor">Plattegrond:</label>
+                        <select id="active-floor">
+                            <option value="">-- Kies een plattegrond --</option>
+                        </select>
+                        <div class="ticket-filters">
+                            <select id="filter-status">
+                                <option value="">Alle statussen</option>
+                                <option value="open">Open</option>
+                                <option value="assigned">Toegewezen</option>
+                                <option value="completed">Afgerond</option>
+                                <option value="verified">Geverifieerd</option>
+                            </select>
+                            <select id="filter-category">
+                                <option value="">Alle categorieën</option>
+                            </select>
+                            <select id="filter-priority">
+                                <option value="">Alle prioriteiten</option>
+                                <option value="high">Hoog</option>
+                                <option value="medium">Midden</option>
+                                <option value="low">Laag</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="canvas-wrapper">
+                        <div class="canvas-container" id="canvas-container">
+                            <div class="canvas-placeholder" id="canvas-placeholder">
+                                <svg viewBox="0 0 24 24" width="64" height="64"><path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z" fill="currentColor"/></svg>
+                                <p>Selecteer een plattegrond om tickets toe te voegen</p>
+                            </div>
+                            <div class="floor-plan-wrapper" id="floor-plan-wrapper" style="display: none;">
+                                <img id="floor-plan-image" src="" alt="Plattegrond">
+                                <div class="location-points" id="location-points"></div>
+                            </div>
+                        </div>
+                        <div class="canvas-toolbar">
+                            <button class="tool-btn" id="add-point-btn" title="Ticket toevoegen">
+                                <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="currentColor"/></svg>
+                                Ticket toevoegen
+                            </button>
+                            <button class="tool-btn" id="zoom-in-btn" title="Inzoomen">
+                                <svg viewBox="0 0 24 24" width="20" height="20"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14zm.5-7H9v2H7v1h2v2h1v-2h2V9h-2V7z" fill="currentColor"/></svg>
+                            </button>
+                            <button class="tool-btn" id="zoom-out-btn" title="Uitzoomen">
+                                <svg viewBox="0 0 24 24" width="20" height="20"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14zM7 9h5v1H7V9z" fill="currentColor"/></svg>
+                            </button>
+                            <button class="tool-btn" id="zoom-fit-btn" title="Passend maken">
+                                <svg viewBox="0 0 24 24" width="20" height="20"><path d="M3 5v4h2V5h4V3H5c-1.1 0-2 .9-2 2zm2 10H3v4c0 1.1.9 2 2 2h4v-2H5v-4zm14 4h-4v2h4c1.1 0 2-.9 2-2v-4h-2v4zm0-16h-4v2h4v4h2V5c0-1.1-.9-2-2-2z" fill="currentColor"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="points-panel">
+                        <h3>Tickets <span id="ticket-count" class="badge">0</span></h3>
+                        <div class="points-list" id="points-list">
+                            <p class="empty-state">Nog geen tickets toegevoegd</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== INSPECTIE TAB ==================== -->
+            <section id="inspectie-tab" class="tab-content">
+                <div class="panel" id="inspectie-overview" style="display:block;">
+                    <h2>Inspecties</h2>
+                    <div class="form-actions" style="margin-top:0;margin-bottom:1.5rem;">
+                        <button type="button" class="btn btn-primary" id="new-inspection-btn">+ Nieuwe inspectie</button>
+                    </div>
+                    <div id="inspections-list" class="inspections-list">
+                        <p class="empty-state">Nog geen inspecties uitgevoerd</p>
+                    </div>
+                </div>
+
+                <!-- Inspectie starten -->
+                <div class="panel" id="inspectie-setup" style="display:none;">
+                    <h2>Nieuwe Inspectie</h2>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="insp-name">Naam inspectie *</label>
+                            <input type="text" id="insp-name" placeholder="Bijv. Vooroplevering BG">
+                        </div>
+                        <div class="form-group">
+                            <label for="insp-type">Type</label>
+                            <select id="insp-type">
+                                <option value="general">Vrije inspectie</option>
+                                <option value="checklist">Checklist-inspectie</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="insp-template">Checklist template</label>
+                            <select id="insp-template">
+                                <option value="">-- Kies template --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="insp-floor">Plattegrond</label>
+                            <select id="insp-floor">
+                                <option value="">-- Optioneel --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="insp-inspector">Inspecteur</label>
+                            <input type="text" id="insp-inspector" placeholder="Uw naam">
+                        </div>
+                        <div class="form-group">
+                            <label for="insp-date">Datum</label>
+                            <input type="date" id="insp-date">
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancel-inspection-setup">Annuleren</button>
+                        <button type="button" class="btn btn-primary" id="start-inspection-btn">Inspectie Starten</button>
+                    </div>
+                </div>
+
+                <!-- Inspectie uitvoeren -->
+                <div class="panel" id="inspectie-execute" style="display:none;">
+                    <div class="inspectie-header">
+                        <h2 id="insp-exec-title">Inspectie</h2>
+                        <div class="inspectie-progress">
+                            <span id="insp-progress-text">0 / 0</span>
+                            <div class="progress-bar"><div class="progress-fill" id="insp-progress-bar"></div></div>
+                        </div>
+                    </div>
+                    <div id="checklist-items" class="checklist-items"></div>
+                    <div class="form-group full-width" style="margin-top:1.5rem;">
+                        <label for="insp-notes">Algemene opmerkingen</label>
+                        <textarea id="insp-notes" rows="3" placeholder="Opmerkingen bij deze inspectie..."></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="back-to-inspections">Terug</button>
+                        <button type="button" class="btn btn-primary" id="finish-inspection-btn">Inspectie Afronden</button>
+                    </div>
+                </div>
+
+                <!-- Handtekening modal (herbruikbaar) -->
+                <div class="panel" id="inspectie-sign" style="display:none;">
+                    <h2>Inspectie Ondertekenen</h2>
+                    <div class="form-group">
+                        <label for="sign-name">Naam ondertekenaar</label>
+                        <input type="text" id="sign-name" placeholder="Uw volledige naam">
+                    </div>
+                    <div class="form-group">
+                        <label>Handtekening</label>
+                        <canvas id="signature-canvas" width="500" height="200"></canvas>
+                        <button type="button" class="btn btn-secondary" id="clear-signature" style="margin-top:0.5rem;">Wissen</button>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancel-sign">Annuleren</button>
+                        <button type="button" class="btn btn-primary" id="confirm-sign">Ondertekenen & Afronden</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== OPLEVERING TAB ==================== -->
+            <section id="oplevering-tab" class="tab-content">
+                <div class="panel" id="oplevering-overview" style="display:block;">
+                    <h2>Opleveringen</h2>
+                    <div class="form-actions" style="margin-top:0;margin-bottom:1.5rem;">
+                        <button type="button" class="btn btn-primary" id="new-handover-btn">+ Nieuwe oplevering</button>
+                    </div>
+                    <div id="handovers-list" class="handovers-list">
+                        <p class="empty-state">Nog geen opleveringen aangemaakt</p>
+                    </div>
+                </div>
+
+                <!-- Oplevering aanmaken -->
+                <div class="panel" id="oplevering-setup" style="display:none;">
+                    <h2>Nieuwe Oplevering</h2>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="ho-type">Type oplevering</label>
+                            <select id="ho-type">
+                                <option value="pre">Vooroplevering</option>
+                                <option value="first">Eerste oplevering</option>
+                                <option value="second">Tweede oplevering / Naschouw</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="ho-date">Datum</label>
+                            <input type="date" id="ho-date">
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="ho-notes">Opmerkingen</label>
+                            <textarea id="ho-notes" rows="2" placeholder="Opmerkingen..."></textarea>
+                        </div>
+                    </div>
+                    <h3 style="margin:1.5rem 0 1rem;">Deelnemers</h3>
+                    <div id="ho-participants" class="ho-participants"></div>
+                    <button type="button" class="btn btn-secondary" id="add-ho-participant" style="margin-top:0.5rem;">+ Deelnemer</button>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancel-handover-setup">Annuleren</button>
+                        <button type="button" class="btn btn-primary" id="start-handover-btn">Oplevering Starten</button>
+                    </div>
+                </div>
+
+                <!-- Oplevering uitvoeren -->
+                <div class="panel" id="oplevering-execute" style="display:none;">
+                    <div class="inspectie-header">
+                        <h2 id="ho-exec-title">Oplevering</h2>
+                        <div class="inspectie-progress">
+                            <span id="ho-progress-text">0 / 0 beoordeeld</span>
+                            <div class="progress-bar"><div class="progress-fill" id="ho-progress-bar"></div></div>
+                        </div>
+                    </div>
+                    <div id="ho-items-list" class="ho-items-list"></div>
+
+                    <h3 style="margin:1.5rem 0 1rem;">Documenten</h3>
+                    <div class="upload-zone" id="ho-doc-upload" style="padding:1.5rem;">
+                        <p>Sleep documenten hierheen (garanties, certificaten, keuringsrapporten)</p>
+                        <input type="file" id="ho-doc-input" multiple hidden>
+                    </div>
+                    <div id="ho-documents-list" class="ho-documents-list"></div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="back-to-handovers">Terug</button>
+                        <button type="button" class="btn btn-primary" id="finish-handover-btn">Oplevering Afronden & Ondertekenen</button>
+                    </div>
+                </div>
+
+                <!-- Oplevering ondertekenen -->
+                <div class="panel" id="oplevering-sign" style="display:none;">
+                    <h2>Proces-Verbaal Ondertekenen</h2>
+                    <div class="form-group">
+                        <label for="ho-verdict">Eindoordeel</label>
+                        <select id="ho-verdict">
+                            <option value="approved">Goedgekeurd</option>
+                            <option value="conditional">Goedgekeurd onder voorbehoud</option>
+                            <option value="rejected">Afgekeurd</option>
+                        </select>
+                    </div>
+                    <div id="ho-signatures-area" class="ho-signatures-area"></div>
+                    <button type="button" class="btn btn-secondary" id="add-ho-signature">+ Handtekening toevoegen</button>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancel-ho-sign">Terug</button>
+                        <button type="button" class="btn btn-primary" id="confirm-ho-sign">Ondertekenen & Afronden</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== DASHBOARD TAB ==================== -->
+            <section id="dashboard-tab" class="tab-content">
+                <div class="dashboard-grid">
+                    <div class="stat-card" id="stat-total">
+                        <h4>Totaal Tickets</h4>
+                        <p class="stat-number">0</p>
+                    </div>
+                    <div class="stat-card stat-open" id="stat-open">
+                        <h4>Open</h4>
+                        <p class="stat-number">0</p>
+                    </div>
+                    <div class="stat-card stat-assigned" id="stat-assigned">
+                        <h4>Toegewezen</h4>
+                        <p class="stat-number">0</p>
+                    </div>
+                    <div class="stat-card stat-completed" id="stat-completed">
+                        <h4>Afgerond</h4>
+                        <p class="stat-number">0</p>
+                    </div>
+                    <div class="stat-card stat-overdue" id="stat-overdue">
+                        <h4>Verlopen deadline</h4>
+                        <p class="stat-number">0</p>
+                    </div>
+                    <div class="stat-card" id="stat-inspections">
+                        <h4>Inspecties</h4>
+                        <p class="stat-number">0</p>
+                    </div>
+                </div>
+
+                <div class="dashboard-panels">
+                    <div class="panel">
+                        <h3>Tickets per status</h3>
+                        <div id="chart-status" class="chart-bars"></div>
+                    </div>
+                    <div class="panel">
+                        <h3>Tickets per categorie</h3>
+                        <div id="chart-category" class="chart-bars"></div>
+                    </div>
+                    <div class="panel">
+                        <h3>Tickets per verantwoordelijke</h3>
+                        <div id="chart-assignee" class="chart-bars"></div>
+                    </div>
+                    <div class="panel">
+                        <h3>Recente activiteit</h3>
+                        <div id="activity-log" class="activity-log">
+                            <p class="empty-state">Nog geen activiteit</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== EXPORT TAB ==================== -->
+            <section id="export-tab" class="tab-content">
+                <div class="panel">
+                    <h2>Project Exporteren</h2>
+                    <div class="export-preview">
+                        <h3>Overzicht</h3>
+                        <div id="export-summary">
+                            <p>Vul eerst de projectgegevens in en voeg tickets toe.</p>
+                        </div>
+                    </div>
+                    <div class="export-options">
+                        <h3>Rapport type</h3>
+                        <div class="option-group">
+                            <label class="radio-label"><input type="radio" name="export-type" value="full" checked> Volledig projectrapport</label>
+                            <label class="radio-label"><input type="radio" name="export-type" value="tickets"> Puntenlijst (open tickets)</label>
+                            <label class="radio-label"><input type="radio" name="export-type" value="inspection"> Inspectie-rapport</label>
+                            <label class="radio-label"><input type="radio" name="export-type" value="handover"> Proces-verbaal van oplevering</label>
+                        </div>
+                        <div id="export-inspection-select" style="display:none;margin-top:1rem;">
+                            <label for="export-inspection-id">Selecteer inspectie:</label>
+                            <select id="export-inspection-id"></select>
+                        </div>
+                        <div id="export-handover-select" style="display:none;margin-top:1rem;">
+                            <label for="export-handover-id">Selecteer oplevering:</label>
+                            <select id="export-handover-id"></select>
+                        </div>
+                        <h3 style="margin-top:1.5rem;">Opties</h3>
+                        <div class="option-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="include-photos" checked>
+                                <span>Foto's insluiten</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="include-map" checked>
+                                <span>Plattegrond met markeringen</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-primary btn-large" id="export-html">
+                            <svg viewBox="0 0 24 24" width="20" height="20"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" fill="currentColor"/></svg>
+                            Exporteer als HTML
+                        </button>
+                        <button type="button" class="btn btn-secondary" id="save-json">Project Opslaan (JSON)</button>
+                        <button type="button" class="btn btn-secondary" id="load-json">Project Laden</button>
+                        <input type="file" id="load-json-input" accept=".json" hidden>
+                        <button type="button" class="btn btn-danger" id="clear-data">Alles Wissen</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== HANDLEIDING TAB ==================== -->
+            <section id="handleiding-tab" class="tab-content">
+                <div class="panel manual-panel">
+                    <h2>Handleiding</h2>
+                    <p class="manual-intro">Welkom bij Open Field Studio — uw tool voor inspectie, oplevering en kwaliteitsborging bij bouwprojecten. Hieronder vindt u een uitleg van alle onderdelen.</p>
+
+                    <div class="manual-toc">
+                        <h3>Inhoud</h3>
+                        <ol>
+                            <li><a href="#manual-project" onclick="event.preventDefault();document.getElementById('manual-project').scrollIntoView({behavior:'smooth'})">Project & Contacten</a></li>
+                            <li><a href="#manual-plattegronden" onclick="event.preventDefault();document.getElementById('manual-plattegronden').scrollIntoView({behavior:'smooth'})">Plattegronden</a></li>
+                            <li><a href="#manual-opname" onclick="event.preventDefault();document.getElementById('manual-opname').scrollIntoView({behavior:'smooth'})">Opname & Tickets</a></li>
+                            <li><a href="#manual-inspectie" onclick="event.preventDefault();document.getElementById('manual-inspectie').scrollIntoView({behavior:'smooth'})">Inspectie</a></li>
+                            <li><a href="#manual-oplevering" onclick="event.preventDefault();document.getElementById('manual-oplevering').scrollIntoView({behavior:'smooth'})">Oplevering</a></li>
+                            <li><a href="#manual-dashboard" onclick="event.preventDefault();document.getElementById('manual-dashboard').scrollIntoView({behavior:'smooth'})">Dashboard</a></li>
+                            <li><a href="#manual-export" onclick="event.preventDefault();document.getElementById('manual-export').scrollIntoView({behavior:'smooth'})">Export & Opslag</a></li>
+                            <li><a href="#manual-energielabel" onclick="event.preventDefault();document.getElementById('manual-energielabel').scrollIntoView({behavior:'smooth'})">Energielabel opname</a></li>
+                            <li><a href="#manual-monument" onclick="event.preventDefault();document.getElementById('manual-monument').scrollIntoView({behavior:'smooth'})">Monument inspectie</a></li>
+                            <li><a href="#manual-installatie" onclick="event.preventDefault();document.getElementById('manual-installatie').scrollIntoView({behavior:'smooth'})">Installatie op apparaten</a></li>
+                        </ol>
+                    </div>
+
+                    <div class="manual-section" id="manual-project">
+                        <h3>1. Project & Contacten</h3>
+                        <p>Het <strong>Project</strong>-tab is uw startpunt. Vul hier de projectgegevens in:</p>
+                        <ul>
+                            <li><strong>Projectnaam en -nummer</strong> — Identificatie van het project</li>
+                            <li><strong>Adresgegevens</strong> — Locatie van het bouwproject</li>
+                            <li><strong>Opdrachtgever en contactpersoon</strong> — Klantinformatie</li>
+                            <li><strong>Opnamedatum en inspecteur</strong> — Wie voert de inspectie uit</li>
+                        </ul>
+                        <p>Onder het formulier kunt u <strong>contacten</strong> toevoegen. Deze worden gebruikt bij het toewijzen van tickets en bij opleveringen. Elke contact heeft een naam, rol (Projectleider, Inspecteur, Uitvoerder, Onderaannemer, Opdrachtgever, Kwaliteitsborger), bedrijf, e-mail en telefoon.</p>
+                        <p>Projectgegevens worden automatisch opgeslagen na 2 seconden inactiviteit.</p>
+                    </div>
+
+                    <div class="manual-section" id="manual-plattegronden">
+                        <h3>2. Plattegronden</h3>
+                        <p>Upload uw plattegronden als basis voor de opname. Ondersteunde formaten:</p>
+                        <ul>
+                            <li><strong>Afbeeldingen</strong> — JPG, PNG</li>
+                            <li><strong>PDF</strong> — Wordt automatisch per pagina geconverteerd naar afbeeldingen</li>
+                        </ul>
+                        <p>U kunt bestanden slepen naar de upload-zone of klikken om bestanden te kiezen. Elke plattegrond kan hernoemd worden en vanuit dit overzicht direct geopend worden in het Opname-tab.</p>
+                    </div>
+
+                    <div class="manual-section" id="manual-opname">
+                        <h3>3. Opname & Tickets</h3>
+                        <p>Het Opname-tab is het hart van de applicatie. Hier registreert u gebreken en observaties als <strong>tickets</strong> op de plattegrond.</p>
+
+                        <h4>Ticket aanmaken</h4>
+                        <ol>
+                            <li>Selecteer een plattegrond bovenin</li>
+                            <li>Klik op <strong>"Ticket toevoegen"</strong> in de werkbalk</li>
+                            <li>Klik op de gewenste locatie op de plattegrond</li>
+                            <li>Vul het ticket-formulier in</li>
+                        </ol>
+
+                        <h4>Ticket-velden</h4>
+                        <ul>
+                            <li><strong>Label</strong> — Korte omschrijving (verplicht)</li>
+                            <li><strong>Categorie</strong> — Bouwkundig, Schilderwerk, Sanitair, Elektra, HVAC, Dakwerk, Kozijnen, Vloeren, Buitenruimte, Veiligheid, Overig</li>
+                            <li><strong>Prioriteit</strong> — Hoog, Midden, Laag</li>
+                            <li><strong>Ernst</strong> — Cosmetisch, Functioneel, Veiligheid, Structureel</li>
+                            <li><strong>Status</strong> — Open, Toegewezen, Afgerond, Geverifieerd</li>
+                            <li><strong>Toegewezen aan</strong> — Kies uit uw contacten</li>
+                            <li><strong>Deadline</strong> — Datum waarop het opgelost moet zijn</li>
+                            <li><strong>Foto's</strong> — Upload foto's of maak direct een foto met uw camera</li>
+                            <li><strong>Beschrijving</strong> — Gedetailleerde omschrijving</li>
+                            <li><strong>Commentaar</strong> — Voeg opmerkingen toe (bij bestaande tickets)</li>
+                        </ul>
+
+                        <h4>Filtering</h4>
+                        <p>Gebruik de filters bovenin om tickets te filteren op status, categorie en prioriteit. De markeringen op de plattegrond zijn kleurgecodeerd per status:</p>
+                        <ul>
+                            <li>Amber = Open</li>
+                            <li>Blauw = Toegewezen</li>
+                            <li>Groen = Afgerond</li>
+                            <li>Grijs = Geverifieerd</li>
+                        </ul>
+                    </div>
+
+                    <div class="manual-section" id="manual-inspectie">
+                        <h3>4. Inspectie</h3>
+                        <p>Het Inspectie-tab biedt gestructureerde checklists voor kwaliteitscontrole.</p>
+
+                        <h4>Inspectie starten</h4>
+                        <ol>
+                            <li>Klik <strong>"+ Nieuwe inspectie"</strong></li>
+                            <li>Geef de inspectie een naam</li>
+                            <li>Kies het type: <strong>Vrije inspectie</strong> (lege lijst) of <strong>Checklist-inspectie</strong> (met template)</li>
+                            <li>Selecteer een checklist-template</li>
+                            <li>Optioneel: koppel een plattegrond</li>
+                            <li>Vul inspecteur en datum in</li>
+                            <li>Klik <strong>"Inspectie Starten"</strong></li>
+                        </ol>
+
+                        <h4>Beschikbare templates</h4>
+                        <p><strong>Algemeen (pass/fail beoordeling):</strong></p>
+                        <ul>
+                            <li><strong>Bouwkundige opname</strong> — 16 items: gevel, dak, kozijnen, vloeren, wanden</li>
+                            <li><strong>Installatie-inspectie</strong> — 16 items: elektra, water, verwarming, ventilatie</li>
+                            <li><strong>Veiligheidsinspectie</strong> — 14 items: brandveiligheid, vluchtwegen, signalering</li>
+                            <li><strong>Oplevering voorinspectie</strong> — 16 items: afwerking, schoonmaak, functioneel</li>
+                            <li><strong>Wkb-basiscontrole</strong> — 16 items: constructie, brandveiligheid, energie, geluid</li>
+                        </ul>
+                        <p><strong>Energielabel opname (NEN 2767 scoring):</strong></p>
+                        <ul>
+                            <li><strong>Energielabel - Volledige opname</strong> — 43 items in 8 secties: woninggegevens, gebouwschil, verwarming, warm water, ventilatie, koeling, duurzame energie, fotodocumentatie. Alles in één checklist voor de complete energielabel opname.</li>
+                        </ul>
+                        <p><strong>Monument inspectie (NEN 2767 scoring):</strong></p>
+                        <ul>
+                            <li><strong>Monument - Constructie & Schil</strong> — 18 items: fundering, metselwerk, natuursteen, houtconstructie, dak, gevelankers, kozijnen, decoratie</li>
+                            <li><strong>Monument - Historisch Interieur</strong> — 15 items: originele vloeren, plafonds, schouwen, trappen, deuren, tegeltableaus, glas-in-lood, smeedwerk</li>
+                            <li><strong>Monument - Vocht & Schade</strong> — 18 items: vochtmetingen, zoutschade, houtaantasting, scheuren, verzakking, biologische aantasting</li>
+                            <li><strong>Monument - Instandhoudingsplan</strong> — 18 items: 6-jarig onderhoudsplan, kostenraming kort/middel/lang termijn, SIM-subsidie voorbereiding</li>
+                        </ul>
+
+                        <h4>Beoordelingsmethoden</h4>
+                        <p><strong>Pass/fail</strong> (algemene templates):</p>
+                        <ul>
+                            <li><strong>&#10003;</strong> Goedgekeurd (groen)</li>
+                            <li><strong>&#10007;</strong> Afgekeurd (rood) — maakt automatisch een ticket aan</li>
+                            <li><strong>-</strong> Niet van toepassing (grijs)</li>
+                        </ul>
+                        <p><strong>NEN 2767 conditiescore</strong> (energielabel en monument templates):</p>
+                        <ul>
+                            <li><strong>1</strong> Uitstekend (donkergroen)</li>
+                            <li><strong>2</strong> Goed (lichtgroen)</li>
+                            <li><strong>3</strong> Redelijk (geel)</li>
+                            <li><strong>4</strong> Matig (oranje)</li>
+                            <li><strong>5</strong> Slecht (rood)</li>
+                            <li><strong>6</strong> Zeer slecht (donkerrood)</li>
+                        </ul>
+                        <p>Bij NEN 2767 inspecties wordt automatisch een gemiddelde conditiescore berekend.</p>
+
+                        <h4>Afronden</h4>
+                        <p>Na het doorlopen van de checklist kunt u de inspectie afronden met een <strong>digitale handtekening</strong>. Teken op het canvas met uw muis of vinger (op touch-apparaten).</p>
+                    </div>
+
+                    <div class="manual-section" id="manual-oplevering">
+                        <h3>5. Oplevering</h3>
+                        <p>Het Oplevering-tab begeleidt u door het formele opleveringsproces conform het Nederlands bouwrecht.</p>
+
+                        <h4>Types oplevering</h4>
+                        <ul>
+                            <li><strong>Vooroplevering</strong> — Interne controle voorafgaand aan de formele oplevering</li>
+                            <li><strong>Eerste oplevering</strong> — Formele overdracht met opdrachtgever</li>
+                            <li><strong>Tweede oplevering / Naschouw</strong> — Controle na de herstelperiode</li>
+                        </ul>
+
+                        <h4>Werkwijze</h4>
+                        <ol>
+                            <li>Klik <strong>"+ Nieuwe oplevering"</strong></li>
+                            <li>Kies type, datum en voeg deelnemers toe</li>
+                            <li>Alle openstaande tickets worden als opleverpunten getoond</li>
+                            <li>Beoordeel elk punt: <strong>&#10003; Goedgekeurd</strong>, <strong>&#9888; Onder voorbehoud</strong>, of <strong>&#10007; Afgekeurd</strong></li>
+                            <li>Upload documenten (garanties, certificaten, keuringsrapporten)</li>
+                            <li>Rond af met <strong>eindoordeel</strong> en <strong>digitale handtekeningen</strong> van alle partijen</li>
+                        </ol>
+
+                        <h4>Proces-verbaal</h4>
+                        <p>Na ondertekening wordt een <strong>proces-verbaal van oplevering</strong> aangemaakt dat u kunt exporteren via het Export-tab. Dit document bevat alle opleverpunten, oordelen, deelnemers en handtekeningen.</p>
+                    </div>
+
+                    <div class="manual-section" id="manual-dashboard">
+                        <h3>6. Dashboard</h3>
+                        <p>Het Dashboard geeft u real-time inzicht in de status van uw project:</p>
+                        <ul>
+                            <li><strong>Statistieken</strong> — Totaal tickets, open, toegewezen, afgerond, verlopen deadlines, aantal inspecties</li>
+                            <li><strong>Tickets per status</strong> — Staafdiagram</li>
+                            <li><strong>Tickets per categorie</strong> — Welke categorieën hebben de meeste gebreken</li>
+                            <li><strong>Tickets per verantwoordelijke</strong> — Wie heeft de meeste items</li>
+                            <li><strong>Recente activiteit</strong> — Tijdlijn van acties</li>
+                        </ul>
+                    </div>
+
+                    <div class="manual-section" id="manual-export">
+                        <h3>7. Export & Opslag</h3>
+
+                        <h4>Rapporttypen</h4>
+                        <ul>
+                            <li><strong>Volledig projectrapport</strong> — Alle projectgegevens, plattegronden en tickets</li>
+                            <li><strong>Puntenlijst</strong> — Overzicht van openstaande tickets</li>
+                            <li><strong>Inspectie-rapport</strong> — Resultaten van een specifieke inspectie</li>
+                            <li><strong>Proces-verbaal van oplevering</strong> — Formeel opleveringsdocument met handtekeningen</li>
+                        </ul>
+
+                        <h4>Opties</h4>
+                        <ul>
+                            <li>Foto's insluiten in het rapport</li>
+                            <li>Plattegrond met markeringen tonen</li>
+                            <li>U kiest zelf de opslaglocatie bij elke export</li>
+                        </ul>
+
+                        <h4>Project opslaan en laden</h4>
+                        <p>Met <strong>Project Opslaan (JSON)</strong> slaat u het complete project op als bestand. Dit bevat alle gegevens, plattegronden, tickets, inspecties en opleveringen. U kiest zelf de opslaglocatie.</p>
+                        <p>Met <strong>Project Laden</strong> opent u een eerder opgeslagen projectbestand.</p>
+                        <p>Daarnaast worden alle gegevens automatisch opgeslagen in uw browser (localStorage). Bij het sluiten en heropenen van de applicatie zijn uw gegevens bewaard.</p>
+                    </div>
+
+                    <div class="manual-section" id="manual-energielabel">
+                        <h3>8. Energielabel opname</h3>
+                        <p>Open Field Studio ondersteunt de volledige data-verzameling voor een energielabel opname conform NTA 8800. De tool vervangt niet de berekening in Vabi EPA of Uniec, maar verzamelt alle benodigde gegevens op locatie.</p>
+
+                        <h4>Werkwijze</h4>
+                        <ol>
+                            <li>Ga naar <strong>Inspectie</strong> en start een nieuwe checklist-inspectie</li>
+                            <li>Kies een van de drie energielabel-templates</li>
+                            <li>Loop alle items door en geef een NEN 2767 conditiescore (1-6)</li>
+                            <li>Voeg foto's toe per item (CV-ketel typeplaatje, beglazing, zonnepanelen)</li>
+                            <li>Maak aanvullende tickets aan voor gebreken op de plattegrond</li>
+                            <li>Onderteken de inspectie digitaal</li>
+                        </ol>
+
+                        <h4>Drie templates</h4>
+                        <ul>
+                            <li><strong>Gebouwschil</strong> — Isolatie (gevel, dak, vloer), beglazing (type, U-waarde), kierdichting, thermische bruggen, oriëntatie</li>
+                            <li><strong>Installaties</strong> — Verwarming (type, merk, bouwjaar, rendement), warm water, ventilatie (WTW), zonnepanelen (aantal, Wp, merk), koeling, energieopslag</li>
+                            <li><strong>Woninggegevens</strong> — Woningtype, bouwjaar, oppervlak, foto-eisen per element, bewijsstukken verzamelen</li>
+                        </ul>
+
+                        <h4>Benodigde foto's</h4>
+                        <ul>
+                            <li>Buitenzijde: voor- en achtergevel</li>
+                            <li>CV-ketel: typeplaatje met merk en bouwjaar</li>
+                            <li>Groepenkast: overzicht</li>
+                            <li>Zonnepanelen: aantal telbaar</li>
+                            <li>Ventilatie-unit en roosters</li>
+                            <li>Beglazing: type herkenbaar (spacer, sticker)</li>
+                        </ul>
+
+                        <p>Na de inspectie kunt u het rapport exporteren en de gegevens gebruiken voor invoer in Vabi EPA-W of Uniec voor de officiële NTA 8800 berekening en EP-Online registratie.</p>
+                    </div>
+
+                    <div class="manual-section" id="manual-monument">
+                        <h3>9. Monument inspectie</h3>
+                        <p>Open Field Studio ondersteunt inspectie van Rijksmonumenten en gemeentelijke monumenten conform de Monumentenwacht-methodiek en NEN 2767 conditiemeting.</p>
+
+                        <h4>Werkwijze</h4>
+                        <ol>
+                            <li>Ga naar <strong>Inspectie</strong> en start een checklist-inspectie</li>
+                            <li>Kies een monument-template</li>
+                            <li>Beoordeel elk element met een NEN 2767 conditiescore (1-6)</li>
+                            <li>Documenteer met foto's (schade, details, referentiepunten)</li>
+                            <li>Voeg notities toe per element</li>
+                            <li>Gebruik het Instandhoudingsplan-template voor de 6-jarige onderhoudsplanning</li>
+                        </ol>
+
+                        <h4>Vier templates</h4>
+                        <ul>
+                            <li><strong>Constructie & Schil</strong> — Fundering, metselwerk, natuursteen, houtconstructie, dakbedekking, gevelankers, kozijnen, geveldecoratie</li>
+                            <li><strong>Historisch Interieur</strong> — Originele vloeren, plafonds, stucwerk, schouwen, trappen, paneeldeuren, tegeltableaus, glas-in-lood, smeedwerk</li>
+                            <li><strong>Vocht & Schade</strong> — Vochtmetingen, optrekkend/inregenend vocht, zoutschade, houtaantasting (zwam/boktor), scheurregistratie (richting, breedte), biologische aantasting</li>
+                            <li><strong>Instandhoudingsplan</strong> — 6-jarig onderhoudsplan per element, kostenraming kort/middellang/lang termijn, SIM-subsidie voorbereiding, monumentenvergunning check</li>
+                        </ul>
+
+                        <h4>NEN 2767 Conditiescore</h4>
+                        <p>Alle monument-templates gebruiken de NEN 2767 conditieschaal. De gemiddelde score wordt automatisch berekend en getoond in het rapport. Dit is de standaard die Monumentenwacht en vastgoedbeheerders gebruiken.</p>
+
+                        <h4>SIM-subsidie</h4>
+                        <p>Het Instandhoudingsplan-template is afgestemd op de vereisten van de Subsidieregeling Instandhouding Monumenten (SIM). Het rapport kan worden gebruikt als onderbouwing bij een subsidieaanvraag bij de Rijksdienst voor het Cultureel Erfgoed (RCE). Aanvragen lopen van 1 februari tot 31 maart.</p>
+                    </div>
+
+                    <div class="manual-section" id="manual-installatie">
+                        <h3>10. Installatie op apparaten</h3>
+
+                        <h4>Windows</h4>
+                        <p>Voer <strong>install.ps1</strong> uit. Dit maakt een snelkoppeling op uw bureaublad en in het startmenu. U kunt ook rechtstreeks <strong>index.html</strong> openen in uw browser.</p>
+
+                        <h4>Android</h4>
+                        <ol>
+                            <li>Open de applicatie in Chrome</li>
+                            <li>Tik op het menu (drie puntjes rechtsboven)</li>
+                            <li>Kies <strong>"App installeren"</strong> of <strong>"Toevoegen aan startscherm"</strong></li>
+                            <li>De app verschijnt als icoon op uw startscherm</li>
+                        </ol>
+
+                        <h4>iPhone / iPad</h4>
+                        <ol>
+                            <li>Open de applicatie in Safari</li>
+                            <li>Tik op het deel-icoon (vierkant met pijl omhoog)</li>
+                            <li>Kies <strong>"Zet op beginscherm"</strong></li>
+                            <li>De app verschijnt als icoon op uw beginscherm</li>
+                        </ol>
+
+                        <p>De applicatie werkt volledig offline nadat deze is geinstalleerd. Alle gegevens worden lokaal opgeslagen op uw apparaat.</p>
+                    </div>
+
+                    <div class="manual-section manual-footer">
+                        <p><strong>Open Field Studio v2.0</strong></p>
+                        <p>Licentie: CC BY-SA 4.0</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ==================== TICKET MODAL ==================== -->
+    <div class="modal" id="point-modal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content modal-wide">
+            <div class="modal-header">
+                <h3 id="modal-title">Ticket Toevoegen</h3>
+                <button class="modal-close" id="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="point-form">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="point-label">Label *</label>
+                            <input type="text" id="point-label" required placeholder="Bijv. Scheur in wand">
+                        </div>
+                        <div class="form-group">
+                            <label for="point-category">Categorie</label>
+                            <select id="point-category">
+                                <option value="Bouwkundig">Bouwkundig</option>
+                                <option value="Schilderwerk">Schilderwerk & afwerking</option>
+                                <option value="Sanitair">Sanitair & leidingwerk</option>
+                                <option value="Elektra">Elektra & verlichting</option>
+                                <option value="HVAC">HVAC / klimaat</option>
+                                <option value="Dakwerk">Dakwerk</option>
+                                <option value="Kozijnen">Kozijnen & beglazing</option>
+                                <option value="Vloeren">Vloeren & tegels</option>
+                                <option value="Buitenruimte">Buitenruimte</option>
+                                <option value="Veiligheid">Veiligheid</option>
+                                <option value="Overig">Overig</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="point-priority">Prioriteit</label>
+                            <select id="point-priority">
+                                <option value="medium">Midden</option>
+                                <option value="high">Hoog</option>
+                                <option value="low">Laag</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="point-severity">Ernst</label>
+                            <select id="point-severity">
+                                <option value="cosmetic">Cosmetisch</option>
+                                <option value="functional">Functioneel</option>
+                                <option value="safety">Veiligheid</option>
+                                <option value="structural">Structureel</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="point-status">Status</label>
+                            <select id="point-status">
+                                <option value="open">Open</option>
+                                <option value="assigned">Toegewezen</option>
+                                <option value="completed">Afgerond</option>
+                                <option value="verified">Geverifieerd</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="point-assigned">Toegewezen aan</label>
+                            <select id="point-assigned">
+                                <option value="">-- Niemand --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="point-deadline">Deadline</label>
+                            <input type="date" id="point-deadline">
+                        </div>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="point-description">Beschrijving</label>
+                        <textarea id="point-description" rows="3" placeholder="Beschrijving van het gebrek..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Foto's</label>
+                        <div class="photo-upload-zone" id="photo-upload">
+                            <svg viewBox="0 0 24 24" width="32" height="32"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" fill="currentColor"/></svg>
+                            <p>Sleep foto's hierheen of klik om te uploaden</p>
+                            <input type="file" id="photo-input" accept="image/*" multiple hidden>
+                        </div>
+                        <button type="button" class="btn btn-secondary" id="camera-btn" style="margin-top:0.5rem;width:100%;">
+                            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 15.2c1.77 0 3.2-1.43 3.2-3.2S13.77 8.8 12 8.8 8.8 10.23 8.8 12s1.43 3.2 3.2 3.2zM9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9z" fill="currentColor"/></svg>
+                            Maak foto met camera
+                        </button>
+                        <div class="photo-preview" id="photo-preview"></div>
+                    </div>
+                    <!-- Commentaar sectie -->
+                    <div class="form-group" id="comments-section" style="display:none;">
+                        <label>Commentaar</label>
+                        <div id="comments-list" class="comments-list"></div>
+                        <div class="comment-input">
+                            <input type="text" id="new-comment" placeholder="Commentaar toevoegen...">
+                            <button type="button" class="btn btn-secondary" id="add-comment-btn">Verstuur</button>
+                        </div>
+                    </div>
+                    <input type="hidden" id="point-id">
+                    <input type="hidden" id="point-x">
+                    <input type="hidden" id="point-y">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancel-point">Annuleren</button>
+                <button type="button" class="btn btn-danger" id="delete-point" style="display:none;">Verwijderen</button>
+                <button type="button" class="btn btn-primary" id="save-point">Opslaan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== PHOTO VIEWER MODAL ==================== -->
+    <div class="modal" id="photo-viewer-modal">
+        <div class="modal-overlay"></div>
+        <div class="photo-viewer-content">
+            <button class="photo-viewer-close" id="photo-viewer-close">&times;</button>
+            <button class="photo-viewer-nav prev" id="photo-prev">&lt;</button>
+            <img id="photo-viewer-image" src="" alt="Foto">
+            <button class="photo-viewer-nav next" id="photo-next">&gt;</button>
+            <div class="photo-viewer-caption" id="photo-viewer-caption"></div>
+        </div>
+    </div>
+
+    <!-- ==================== CONTACT MODAL ==================== -->
+    <div class="modal" id="contact-modal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="contact-modal-title">Contact Toevoegen</h3>
+                <button class="modal-close" id="contact-modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="contact-name-input">Naam *</label>
+                        <input type="text" id="contact-name-input" placeholder="Volledige naam">
+                    </div>
+                    <div class="form-group">
+                        <label for="contact-role-input">Rol</label>
+                        <select id="contact-role-input">
+                            <option value="Projectleider">Projectleider</option>
+                            <option value="Inspecteur">Inspecteur</option>
+                            <option value="Uitvoerder">Uitvoerder</option>
+                            <option value="Onderaannemer">Onderaannemer</option>
+                            <option value="Opdrachtgever">Opdrachtgever</option>
+                            <option value="Kwaliteitsborger">Kwaliteitsborger</option>
+                            <option value="Overig">Overig</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="contact-company-input">Bedrijf</label>
+                        <input type="text" id="contact-company-input" placeholder="Bedrijfsnaam">
+                    </div>
+                    <div class="form-group">
+                        <label for="contact-email-input">E-mail</label>
+                        <input type="email" id="contact-email-input" placeholder="email@voorbeeld.nl">
+                    </div>
+                    <div class="form-group">
+                        <label for="contact-phone-input">Telefoon</label>
+                        <input type="tel" id="contact-phone-input" placeholder="06-12345678">
+                    </div>
+                </div>
+                <input type="hidden" id="contact-id-input">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancel-contact">Annuleren</button>
+                <button type="button" class="btn btn-danger" id="delete-contact" style="display:none;">Verwijderen</button>
+                <button type="button" class="btn btn-primary" id="save-contact">Opslaan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== CAMERA MODAL ==================== -->
+    <div class="modal" id="camera-modal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Foto maken</h3>
+                <button class="modal-close" id="camera-modal-close">&times;</button>
+            </div>
+            <div class="modal-body" style="padding:0;text-align:center;background:#000;">
+                <video id="camera-video" autoplay playsinline style="width:100%;max-height:60vh;display:block;"></video>
+                <canvas id="camera-canvas" style="display:none;"></canvas>
+            </div>
+            <div class="modal-footer" style="justify-content:center;">
+                <button type="button" class="btn btn-secondary" id="camera-switch" title="Wissel camera">
+                    <svg viewBox="0 0 24 24" width="20" height="20"><path d="M20 5h-3.17L15 3H9L7.17 5H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-5 11V9l4 3.5L15 16zm-1 0H6V8h8v8z" fill="currentColor"/></svg>
+                </button>
+                <button type="button" class="btn btn-primary" id="camera-capture" style="width:64px;height:64px;border-radius:50%;font-size:1.5rem;padding:0;">
+                    <svg viewBox="0 0 24 24" width="32" height="32"><circle cx="12" cy="12" r="8" fill="currentColor"/></svg>
+                </button>
+                <button type="button" class="btn btn-secondary" id="camera-cancel">Sluiten</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

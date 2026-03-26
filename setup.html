@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Open Field Studio - Installeren</title>
+    <link rel="icon" href="icon_256.png" type="image/png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2A2A32">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="icon_256.png">
+    <style>
+        *{box-sizing:border-box;margin:0;padding:0;}
+        body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#2A2A32;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem;}
+        .s{width:100%;max-width:480px;background:#36363E;border-radius:16px;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,.5);}
+        .hd{background:linear-gradient(135deg,#D97706,#F59E0B,#EA580C);padding:2rem;text-align:center;}
+        .hd h1{font-size:1.5rem;font-weight:700;margin-top:.75rem;}
+        .hd p{font-size:.85rem;opacity:.9;margin-top:.3rem;}
+        .logo{width:56px;height:56px;margin:0 auto;}
+        .logo svg{width:100%;height:100%;}
+        .bd{padding:1.5rem 2rem;}
+        .det{background:rgba(217,119,6,.1);border:1px solid rgba(217,119,6,.3);border-radius:8px;padding:1rem;margin-bottom:1.5rem;text-align:center;}
+        .det .ico{font-size:2rem;margin-bottom:.4rem;}
+        .det h3{font-size:1rem;}
+        .det p{font-size:.8rem;color:#A1A1AA;}
+        .steps{list-style:none;counter-reset:s;}
+        .steps li{counter-increment:s;display:flex;gap:.75rem;padding:.7rem 0;border-bottom:1px solid rgba(255,255,255,.05);align-items:flex-start;}
+        .steps li:last-child{border-bottom:none;}
+        .num{width:26px;height:26px;background:#D97706;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem;flex-shrink:0;}
+        .num::before{content:counter(s);}
+        .txt{flex:1;font-size:.88rem;color:#d4d4d8;line-height:1.5;}
+        .txt b{color:#fff;}
+        .btn{display:block;width:100%;padding:.9rem;border:none;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;margin-top:1.25rem;text-align:center;text-decoration:none;color:#fff;background:#D97706;}
+        .btn:hover{background:#EA580C;}
+        .tabs{display:flex;gap:.4rem;margin-top:1.5rem;padding-top:1rem;border-top:1px solid rgba(255,255,255,.06);}
+        .tab{flex:1;padding:.5rem;border:1px solid rgba(255,255,255,.1);background:0;color:#A1A1AA;border-radius:6px;cursor:pointer;font-size:.75rem;text-align:center;}
+        .tab.on{background:rgba(217,119,6,.15);color:#D97706;border-color:#D97706;}
+        .pc{display:none;}
+        .pc.on{display:block;animation:fi .3s ease;}
+        @keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+        .ft{padding:.75rem 2rem;text-align:center;font-size:.65rem;color:#52525b;border-top:1px solid rgba(255,255,255,.06);}
+        .ok{display:none;text-align:center;padding:1.5rem 0;}
+        .ok .ch{width:56px;height:56px;background:rgba(22,163,74,.15);border-radius:50%;line-height:56px;font-size:1.8rem;margin:0 auto .75rem;}
+        .ok h2{font-size:1.2rem;margin-bottom:.4rem;}
+        .ok p{color:#A1A1AA;font-size:.85rem;}
+    </style>
+</head>
+<body>
+<div class="s">
+    <div class="hd">
+        <div class="logo"><svg viewBox="0 0 32 32" fill="none"><path d="M16 2L4 9v14l12 7 12-7V9L16 2z" fill="rgba(255,255,255,.15)" stroke="#fff" stroke-width="1.5"/><path d="M4 9l12 7v14" stroke="#fff" stroke-width="1.5"/><path d="M28 9l-12 7" stroke="#fff" stroke-width="1.5"/><path d="M16 2l-6 3.5L16 9l6-3.5L16 2z" fill="#fff" opacity=".4"/></svg></div>
+        <h1>Open Field Studio</h1>
+        <p>Inspectie, Oplevering & Kwaliteitsborging</p>
+    </div>
+    <div class="bd" id="main">
+        <div class="det"><div class="ico" id="di"></div><h3 id="dn"></h3><p id="dd"></p></div>
+
+        <div class="pc" id="p-android">
+            <ol class="steps">
+                <li><div class="num"></div><div class="txt">Tik op het <b>menu</b> rechtsboven (&#8942;) in Chrome</div></li>
+                <li><div class="num"></div><div class="txt">Kies <b>"App installeren"</b> of <b>"Toevoegen aan startscherm"</b></div></li>
+                <li><div class="num"></div><div class="txt">Bevestig door op <b>"Installeren"</b> te tikken</div></li>
+                <li><div class="num"></div><div class="txt">De app verschijnt als icoon op uw <b>startscherm</b></div></li>
+            </ol>
+            <button class="btn" onclick="pwa()">Installeren als app</button>
+            <p style="font-size:.7rem;color:#71717A;text-align:center;margin-top:.4rem;">Werkt niet? Gebruik het Chrome-menu hierboven</p>
+        </div>
+
+        <div class="pc" id="p-ios">
+            <ol class="steps">
+                <li><div class="num"></div><div class="txt">Open deze pagina in <b>Safari</b> (niet Chrome)</div></li>
+                <li><div class="num"></div><div class="txt">Tik onderaan op het <b>deel-icoon</b> (vierkant met pijl &#8593;)</div></li>
+                <li><div class="num"></div><div class="txt">Scroll en kies <b>"Zet op beginscherm"</b></div></li>
+                <li><div class="num"></div><div class="txt">Tik <b>"Voeg toe"</b> rechtsboven</div></li>
+            </ol>
+            <a class="btn" href="index.html">Open de app in Safari</a>
+        </div>
+
+        <div class="pc" id="p-macos">
+            <ol class="steps">
+                <li><div class="num"></div><div class="txt">Open <b>index.html</b> in <b>Chrome</b> of <b>Edge</b></div></li>
+                <li><div class="num"></div><div class="txt">Klik op het <b>installatie-icoon</b> in de adresbalk (&#x2913;)</div></li>
+                <li><div class="num"></div><div class="txt">Klik <b>"Installeren"</b> in het venster</div></li>
+                <li><div class="num"></div><div class="txt">De app verschijnt in uw <b>Launchpad</b></div></li>
+            </ol>
+            <a class="btn" href="index.html">Open de app</a>
+        </div>
+
+        <div class="pc" id="p-linux">
+            <ol class="steps">
+                <li><div class="num"></div><div class="txt">Open <b>index.html</b> in <b>Chrome</b> of <b>Edge</b></div></li>
+                <li><div class="num"></div><div class="txt">Klik op het <b>installatie-icoon</b> in de adresbalk</div></li>
+                <li><div class="num"></div><div class="txt">Of maak een <b>snelkoppeling</b> naar index.html</div></li>
+            </ol>
+            <a class="btn" href="index.html">Open de app</a>
+        </div>
+
+        <div class="pc" id="p-windows">
+            <ol class="steps">
+                <li><div class="num"></div><div class="txt">Dubbelklik op <b>Setup.hta</b> in de map</div></li>
+                <li><div class="num"></div><div class="txt">Klik <b>"Installeren"</b> in het setup-venster</div></li>
+                <li><div class="num"></div><div class="txt">Snelkoppelingen worden <b>automatisch</b> aangemaakt</div></li>
+            </ol>
+            <a class="btn" href="index.html">Of open de app direct</a>
+        </div>
+
+        <div class="tabs">
+            <button class="tab" onclick="show('android')">Android</button>
+            <button class="tab" onclick="show('ios')">iPhone</button>
+            <button class="tab" onclick="show('macos')">macOS</button>
+            <button class="tab" onclick="show('windows')">Windows</button>
+            <button class="tab" onclick="show('linux')">Linux</button>
+        </div>
+    </div>
+    <div class="bd ok" id="done">
+        <div class="ch">&#10003;</div>
+        <h2>Geinstalleerd!</h2>
+        <p>Open Field Studio staat op uw startscherm.</p>
+        <a class="btn" href="index.html">Open de app</a>
+    </div>
+    <div class="ft">Open Field Studio v2.0</div>
+</div>
+<script>
+let dp=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e;});
+window.addEventListener('appinstalled',()=>{document.getElementById('main').style.display='none';document.getElementById('done').style.display='block';});
+const pi={android:{i:'📱',n:'Android',d:'Installeer als app op uw startscherm'},ios:{i:'📱',n:'iPhone / iPad',d:'Voeg toe aan uw beginscherm via Safari'},macos:{i:'🖥️',n:'macOS',d:'Installeer via Chrome of Edge'},windows:{i:'💻',n:'Windows',d:'Gebruik Setup.hta voor automatische installatie'},linux:{i:'🐧',n:'Linux',d:'Installeer als PWA via Chrome'}};
+function show(p){document.querySelectorAll('.pc').forEach(e=>e.classList.remove('on'));document.querySelectorAll('.tab').forEach(e=>e.classList.remove('on'));document.getElementById('p-'+p).classList.add('on');document.querySelector('.tab[onclick*="'+p+'"]').classList.add('on');const i=pi[p];document.getElementById('di').textContent=i.i;document.getElementById('dn').textContent=i.n;document.getElementById('dd').textContent=i.d;}
+async function pwa(){if(dp){dp.prompt();const r=await dp.userChoice;if(r.outcome==='accepted'){document.getElementById('main').style.display='none';document.getElementById('done').style.display='block';}dp=null;}else{alert('Gebruik het browsermenu:\nChrome: ⋮ → "App installeren"\nSafari: Deel → "Zet op beginscherm"');}}
+const ua=navigator.userAgent;let pl=/Android/i.test(ua)?'android':/iPhone|iPad|iPod/i.test(ua)?'ios':/Macintosh/i.test(ua)&&!('ontouchend' in document)?'macos':/Linux/i.test(ua)?'linux':'windows';
+show(pl);
+</script>
+</body>
+</html>

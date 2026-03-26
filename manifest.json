@@ -1,0 +1,20 @@
+{
+  "name": "Open Field Studio",
+  "short_name": "Field Studio",
+  "description": "Inspectie, Oplevering & Kwaliteitsborging voor bouwprojecten",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#2A2A32",
+  "theme_color": "#2A2A32",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icon_256.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "lang": "nl"
+}

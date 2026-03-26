@@ -13,6 +13,7 @@ Open-source tool voor het uitvoeren van bouwkundige inspecties, energielabel opn
 - **Oplevering** met proces-verbaal, digitale handtekeningen en documenten
 - **Dashboard** met real-time statistieken en grafieken
 - **Camera-integratie** voor directe foto-opname op locatie
+- **4 talen** — Nederlands, Engels, Duits, Frans (taalkiezer in header)
 - **Offline beschikbaar** als PWA op alle apparaten
 - **HTML/PDF rapporten** met opslaglocatie-keuze
 
@@ -41,6 +42,17 @@ Open `index.html` direct in een moderne browser.
 | Monument - Historisch Interieur | 15 | NEN 2767 |
 | Monument - Vocht & Schade | 18 | NEN 2767 |
 | Monument - Instandhoudingsplan | 18 | NEN 2767 |
+
+## Talen
+
+| Taal | Code |
+|------|------|
+| Nederlands | NL (standaard) |
+| English | EN |
+| Deutsch | DE |
+| Français | FR |
+
+Taalvoorkeur wordt opgeslagen en blijft behouden.
 
 ## Technologie
 

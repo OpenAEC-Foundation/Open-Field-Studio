@@ -320,10 +320,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ needs.create-release.outputs.version }}"
+          echo "Looking for signed APK..."
+          find src-tauri/gen/android -name "*.apk" -type f
           SIGNED_APK=$(find src-tauri/gen/android -name "open-field-studio-release.apk" -type f | head -1)
-          if [ -n "$SIGNED_APK" ]; then
-            gh release upload "$VERSION" "$SIGNED_APK" --clobber --repo "${{ github.repository }}"
+          if [ -z "$SIGNED_APK" ]; then
+            echo "ERROR: No signed APK found!"
+            exit 1
           fi
+          echo "Uploading: $SIGNED_APK"
+          ls -la "$SIGNED_APK"
+          gh release upload "$VERSION" "$SIGNED_APK" --clobber --repo "${{ github.repository }}"
+          echo "APK uploaded successfully"
 
   publish-release:
     permissions:

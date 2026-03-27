@@ -142,7 +142,7 @@ jobs:
           timestamp-digest: SHA256
 
       - name: Re-sign updater artifacts after Authenticode signing
-        if: matrix.target == 'windows-system'
+        if: matrix.target == 'windows-system' && env.TAURI_SIGNING_PRIVATE_KEY != ''
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

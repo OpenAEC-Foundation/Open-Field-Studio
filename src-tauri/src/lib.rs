@@ -14,7 +14,8 @@ pub fn run() {
         )?;
       }
 
-      // Set window icon for taskbar/alt-tab
+      // Set window icon for taskbar/alt-tab (desktop only)
+      #[cfg(desktop)]
       if let Some(window) = app.get_webview_window("main") {
         let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/icon.png"))?;
         window.set_icon(icon)?;

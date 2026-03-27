@@ -7,22 +7,51 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
-    <link rel="manifest" href="manifest.json">
-    <link rel="icon" href="icon_256.png" type="image/png">
-    <link rel="apple-touch-icon" href="icon_256.png">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Open Field Studio">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/titlebar.css">
+    <link rel="stylesheet" href="/themes.css">
+    <link rel="icon" href="/icon_256.png" type="image/png">
     <meta name="theme-color" content="#2A2A32">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script src="lang.js"></script>
+    <script src="/pdf.min.js"></script>
+    <!-- i18next translations loaded via main.tsx module -->
 </head>
 <body>
+    <!-- Custom Title Bar -->
+    <div class="title-bar" data-tauri-drag-region>
+        <div class="title-bar-left">
+            <div class="title-bar-icon">
+                <svg viewBox="0 0 32 32" fill="none">
+                    <path d="M16 2L4 9v14l12 7 12-7V9L16 2z" fill="rgba(217,119,6,0.15)" stroke="#D97706" stroke-width="2"/>
+                    <path d="M4 9l12 7v14" stroke="#D97706" stroke-width="2"/>
+                    <path d="M28 9l-12 7" stroke="#D97706" stroke-width="2"/>
+                    <path d="M16 2l-6 3.5L16 9l6-3.5L16 2z" fill="#D97706" opacity="0.4"/>
+                </svg>
+            </div>
+        </div>
+
+        <div class="title-bar-center">
+            <span class="title-bar-app-name">Open Field Studio</span>
+            <span class="title-bar-version">v0.1.0</span>
+        </div>
+
+        <div class="window-controls">
+            <button class="window-btn" id="tb-minimize" title="Minimaliseren">
+                <svg width="10" height="1" viewBox="0 0 10 1"><rect width="10" height="1" fill="currentColor"/></svg>
+            </button>
+            <button class="window-btn" id="tb-maximize" title="Maximaliseren">
+                <svg width="10" height="10" viewBox="0 0 10 10"><rect x="0.5" y="0.5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+            </button>
+            <button class="window-btn window-btn-close" id="tb-close" title="Sluiten">
+                <svg width="10" height="10" viewBox="0 0 10 10"><line x1="0" y1="0" x2="10" y2="10" stroke="currentColor" stroke-width="1.2"/><line x1="10" y1="0" x2="0" y2="10" stroke="currentColor" stroke-width="1.2"/></svg>
+            </button>
+        </div>
+    </div>
+
     <div class="app-container">
-        <header class="app-header">
+        <!-- App header with logo and name -->
+        <div class="app-toolbar">
             <div class="logo">
-                <svg viewBox="0 0 32 32" width="32" height="32" fill="none">
+                <svg viewBox="0 0 32 32" width="28" height="28" fill="none">
                     <path d="M16 2L4 9v14l12 7 12-7V9L16 2z" fill="none" stroke="currentColor" stroke-width="2"/>
                     <path d="M4 9l12 7v14" stroke="currentColor" stroke-width="2"/>
                     <path d="M28 9l-12 7" stroke="currentColor" stroke-width="2"/>
@@ -30,13 +59,28 @@
                 </svg>
                 <h1>Open Field Studio</h1>
             </div>
-            <div class="lang-switcher">
-                <button class="lang-btn active" data-lang="nl">NL</button>
-                <button class="lang-btn" data-lang="en">EN</button>
-                <button class="lang-btn" data-lang="de">DE</button>
-                <button class="lang-btn" data-lang="fr">FR</button>
+            <div class="toolbar-right">
+              <button class="theme-toggle-btn" id="theme-toggle" title="Thema wisselen / Toggle theme">
+                <svg id="theme-icon-light" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg>
+                <svg id="theme-icon-dark" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+              </button>
+              <div class="tb-lang-dropdown" id="tb-lang-dropdown">
+                <button class="tb-lang-toggle" id="tb-lang-toggle" title="Taal / Language">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                    <span id="tb-lang-current">NL</span>
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor" style="opacity:0.6"><path d="M1 2.5L4 5.5L7 2.5"/></svg>
+                </button>
+                <div class="tb-lang-menu" id="tb-lang-menu">
+                    <button class="tb-lang-option active" data-lang="nl"><span class="tb-lang-code">NL</span> Nederlands</button>
+                    <button class="tb-lang-option" data-lang="en"><span class="tb-lang-code">EN</span> English</button>
+                    <button class="tb-lang-option" data-lang="de"><span class="tb-lang-code">DE</span> Deutsch</button>
+                    <button class="tb-lang-option" data-lang="fr"><span class="tb-lang-code">FR</span> Français</button>
+                </div>
+              </div>
             </div>
-            <nav class="main-nav">
+        </div>
+        <!-- Tab strip attached to content -->
+        <nav class="tab-strip">
                 <button class="nav-btn active" data-tab="project">
                     <svg viewBox="0 0 24 24" width="18" height="18"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" fill="currentColor"/></svg>
                     <span data-i18n="nav_project">Project</span>
@@ -69,8 +113,7 @@
                     <svg viewBox="0 0 24 24" width="18" height="18"><path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z" fill="currentColor"/></svg>
                     <span data-i18n="nav_handleiding">Handleiding</span>
                 </button>
-            </nav>
-        </header>
+        </nav>
 
         <main class="main-content">
             <!-- ==================== PROJECT TAB ==================== -->
@@ -193,7 +236,7 @@
                         <div class="canvas-toolbar">
                             <button class="tool-btn" id="add-point-btn" title="Ticket toevoegen">
                                 <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="currentColor"/></svg>
-                                Ticket toevoegen
+                                <span data-i18n="btn_add_ticket">Ticket toevoegen</span>
                             </button>
                             <button class="tool-btn" id="zoom-in-btn" title="Inzoomen">
                                 <svg viewBox="0 0 24 24" width="20" height="20"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14zm.5-7H9v2H7v1h2v2h1v-2h2V9h-2V7z" fill="currentColor"/></svg>
@@ -289,7 +332,7 @@
                     </div>
                 </div>
 
-                <!-- Handtekening modal (herbruikbaar) -->
+                <!-- Handtekening modal -->
                 <div class="panel" id="inspectie-sign" style="display:none;">
                     <h2>Inspectie Ondertekenen</h2>
                     <div class="form-group">
@@ -341,7 +384,7 @@
                             <textarea id="ho-notes" rows="2" placeholder="Opmerkingen..."></textarea>
                         </div>
                     </div>
-                    <h3 style="margin:1.5rem 0 1rem;">Deelnemers</h3>
+                    <h3 style="margin:1.5rem 0 1rem;" data-i18n="h_participants">Deelnemers</h3>
                     <div id="ho-participants" class="ho-participants"></div>
                     <button type="button" class="btn btn-secondary" id="add-ho-participant" style="margin-top:0.5rem;">+ Deelnemer</button>
                     <div class="form-actions">
@@ -361,9 +404,9 @@
                     </div>
                     <div id="ho-items-list" class="ho-items-list"></div>
 
-                    <h3 style="margin:1.5rem 0 1rem;">Documenten</h3>
+                    <h3 style="margin:1.5rem 0 1rem;" data-i18n="h_documents">Documenten</h3>
                     <div class="upload-zone" id="ho-doc-upload" style="padding:1.5rem;">
-                        <p>Sleep documenten hierheen (garanties, certificaten, keuringsrapporten)</p>
+                        <p data-i18n="upload_docs">Sleep documenten hierheen (garanties, certificaten, keuringsrapporten)</p>
                         <input type="file" id="ho-doc-input" multiple hidden>
                     </div>
                     <div id="ho-documents-list" class="ho-documents-list"></div>
@@ -439,7 +482,7 @@
                     <div class="panel">
                         <h3>Recente activiteit</h3>
                         <div id="activity-log" class="activity-log">
-                            <p class="empty-state">Nog geen activiteit</p>
+                            <p class="empty-state" data-i18n="empty_activity">Nog geen activiteit</p>
                         </div>
                     </div>
                 </div>
@@ -498,299 +541,23 @@
 
             <!-- ==================== HANDLEIDING TAB ==================== -->
             <section id="handleiding-tab" class="tab-content">
-                <div class="panel manual-panel">
-                    <h2>Handleiding</h2>
-                    <p class="manual-intro">Welkom bij Open Field Studio — uw tool voor inspectie, oplevering en kwaliteitsborging bij bouwprojecten. Hieronder vindt u een uitleg van alle onderdelen.</p>
-
-                    <div class="manual-toc">
-                        <h3>Inhoud</h3>
-                        <ol>
-                            <li><a href="#manual-project" onclick="event.preventDefault();document.getElementById('manual-project').scrollIntoView({behavior:'smooth'})">Project & Contacten</a></li>
-                            <li><a href="#manual-plattegronden" onclick="event.preventDefault();document.getElementById('manual-plattegronden').scrollIntoView({behavior:'smooth'})">Plattegronden</a></li>
-                            <li><a href="#manual-opname" onclick="event.preventDefault();document.getElementById('manual-opname').scrollIntoView({behavior:'smooth'})">Opname & Tickets</a></li>
-                            <li><a href="#manual-inspectie" onclick="event.preventDefault();document.getElementById('manual-inspectie').scrollIntoView({behavior:'smooth'})">Inspectie</a></li>
-                            <li><a href="#manual-oplevering" onclick="event.preventDefault();document.getElementById('manual-oplevering').scrollIntoView({behavior:'smooth'})">Oplevering</a></li>
-                            <li><a href="#manual-dashboard" onclick="event.preventDefault();document.getElementById('manual-dashboard').scrollIntoView({behavior:'smooth'})">Dashboard</a></li>
-                            <li><a href="#manual-export" onclick="event.preventDefault();document.getElementById('manual-export').scrollIntoView({behavior:'smooth'})">Export & Opslag</a></li>
-                            <li><a href="#manual-energielabel" onclick="event.preventDefault();document.getElementById('manual-energielabel').scrollIntoView({behavior:'smooth'})">Energielabel opname</a></li>
-                            <li><a href="#manual-monument" onclick="event.preventDefault();document.getElementById('manual-monument').scrollIntoView({behavior:'smooth'})">Monument inspectie</a></li>
-                            <li><a href="#manual-installatie" onclick="event.preventDefault();document.getElementById('manual-installatie').scrollIntoView({behavior:'smooth'})">Installatie op apparaten</a></li>
-                        </ol>
-                    </div>
-
-                    <div class="manual-section" id="manual-project">
-                        <h3>1. Project & Contacten</h3>
-                        <p>Het <strong>Project</strong>-tab is uw startpunt. Vul hier de projectgegevens in:</p>
-                        <ul>
-                            <li><strong>Projectnaam en -nummer</strong> — Identificatie van het project</li>
-                            <li><strong>Adresgegevens</strong> — Locatie van het bouwproject</li>
-                            <li><strong>Opdrachtgever en contactpersoon</strong> — Klantinformatie</li>
-                            <li><strong>Opnamedatum en inspecteur</strong> — Wie voert de inspectie uit</li>
-                        </ul>
-                        <p>Onder het formulier kunt u <strong>contacten</strong> toevoegen. Deze worden gebruikt bij het toewijzen van tickets en bij opleveringen. Elke contact heeft een naam, rol (Projectleider, Inspecteur, Uitvoerder, Onderaannemer, Opdrachtgever, Kwaliteitsborger), bedrijf, e-mail en telefoon.</p>
-                        <p>Projectgegevens worden automatisch opgeslagen na 2 seconden inactiviteit.</p>
-                    </div>
-
-                    <div class="manual-section" id="manual-plattegronden">
-                        <h3>2. Plattegronden</h3>
-                        <p>Upload uw plattegronden als basis voor de opname. Ondersteunde formaten:</p>
-                        <ul>
-                            <li><strong>Afbeeldingen</strong> — JPG, PNG</li>
-                            <li><strong>PDF</strong> — Wordt automatisch per pagina geconverteerd naar afbeeldingen</li>
-                        </ul>
-                        <p>U kunt bestanden slepen naar de upload-zone of klikken om bestanden te kiezen. Elke plattegrond kan hernoemd worden en vanuit dit overzicht direct geopend worden in het Opname-tab.</p>
-                    </div>
-
-                    <div class="manual-section" id="manual-opname">
-                        <h3>3. Opname & Tickets</h3>
-                        <p>Het Opname-tab is het hart van de applicatie. Hier registreert u gebreken en observaties als <strong>tickets</strong> op de plattegrond.</p>
-
-                        <h4>Ticket aanmaken</h4>
-                        <ol>
-                            <li>Selecteer een plattegrond bovenin</li>
-                            <li>Klik op <strong>"Ticket toevoegen"</strong> in de werkbalk</li>
-                            <li>Klik op de gewenste locatie op de plattegrond</li>
-                            <li>Vul het ticket-formulier in</li>
-                        </ol>
-
-                        <h4>Ticket-velden</h4>
-                        <ul>
-                            <li><strong>Label</strong> — Korte omschrijving (verplicht)</li>
-                            <li><strong>Categorie</strong> — Bouwkundig, Schilderwerk, Sanitair, Elektra, HVAC, Dakwerk, Kozijnen, Vloeren, Buitenruimte, Veiligheid, Overig</li>
-                            <li><strong>Prioriteit</strong> — Hoog, Midden, Laag</li>
-                            <li><strong>Ernst</strong> — Cosmetisch, Functioneel, Veiligheid, Structureel</li>
-                            <li><strong>Status</strong> — Open, Toegewezen, Afgerond, Geverifieerd</li>
-                            <li><strong>Toegewezen aan</strong> — Kies uit uw contacten</li>
-                            <li><strong>Deadline</strong> — Datum waarop het opgelost moet zijn</li>
-                            <li><strong>Foto's</strong> — Upload foto's of maak direct een foto met uw camera</li>
-                            <li><strong>Beschrijving</strong> — Gedetailleerde omschrijving</li>
-                            <li><strong>Commentaar</strong> — Voeg opmerkingen toe (bij bestaande tickets)</li>
-                        </ul>
-
-                        <h4>Filtering</h4>
-                        <p>Gebruik de filters bovenin om tickets te filteren op status, categorie en prioriteit. De markeringen op de plattegrond zijn kleurgecodeerd per status:</p>
-                        <ul>
-                            <li>Amber = Open</li>
-                            <li>Blauw = Toegewezen</li>
-                            <li>Groen = Afgerond</li>
-                            <li>Grijs = Geverifieerd</li>
-                        </ul>
-                    </div>
-
-                    <div class="manual-section" id="manual-inspectie">
-                        <h3>4. Inspectie</h3>
-                        <p>Het Inspectie-tab biedt gestructureerde checklists voor kwaliteitscontrole.</p>
-
-                        <h4>Inspectie starten</h4>
-                        <ol>
-                            <li>Klik <strong>"+ Nieuwe inspectie"</strong></li>
-                            <li>Geef de inspectie een naam</li>
-                            <li>Kies het type: <strong>Vrije inspectie</strong> (lege lijst) of <strong>Checklist-inspectie</strong> (met template)</li>
-                            <li>Selecteer een checklist-template</li>
-                            <li>Optioneel: koppel een plattegrond</li>
-                            <li>Vul inspecteur en datum in</li>
-                            <li>Klik <strong>"Inspectie Starten"</strong></li>
-                        </ol>
-
-                        <h4>Beschikbare templates</h4>
-                        <p><strong>Algemeen (pass/fail beoordeling):</strong></p>
-                        <ul>
-                            <li><strong>Bouwkundige opname</strong> — 16 items: gevel, dak, kozijnen, vloeren, wanden</li>
-                            <li><strong>Installatie-inspectie</strong> — 16 items: elektra, water, verwarming, ventilatie</li>
-                            <li><strong>Veiligheidsinspectie</strong> — 14 items: brandveiligheid, vluchtwegen, signalering</li>
-                            <li><strong>Oplevering voorinspectie</strong> — 16 items: afwerking, schoonmaak, functioneel</li>
-                            <li><strong>Wkb-basiscontrole</strong> — 16 items: constructie, brandveiligheid, energie, geluid</li>
-                        </ul>
-                        <p><strong>Energielabel opname (NEN 2767 scoring):</strong></p>
-                        <ul>
-                            <li><strong>Energielabel - Volledige opname</strong> — 43 items in 8 secties: woninggegevens, gebouwschil, verwarming, warm water, ventilatie, koeling, duurzame energie, fotodocumentatie. Alles in één checklist voor de complete energielabel opname.</li>
-                        </ul>
-                        <p><strong>Monument inspectie (NEN 2767 scoring):</strong></p>
-                        <ul>
-                            <li><strong>Monument - Constructie & Schil</strong> — 18 items: fundering, metselwerk, natuursteen, houtconstructie, dak, gevelankers, kozijnen, decoratie</li>
-                            <li><strong>Monument - Historisch Interieur</strong> — 15 items: originele vloeren, plafonds, schouwen, trappen, deuren, tegeltableaus, glas-in-lood, smeedwerk</li>
-                            <li><strong>Monument - Vocht & Schade</strong> — 18 items: vochtmetingen, zoutschade, houtaantasting, scheuren, verzakking, biologische aantasting</li>
-                            <li><strong>Monument - Instandhoudingsplan</strong> — 18 items: 6-jarig onderhoudsplan, kostenraming kort/middel/lang termijn, SIM-subsidie voorbereiding</li>
-                        </ul>
-
-                        <h4>Beoordelingsmethoden</h4>
-                        <p><strong>Pass/fail</strong> (algemene templates):</p>
-                        <ul>
-                            <li><strong>&#10003;</strong> Goedgekeurd (groen)</li>
-                            <li><strong>&#10007;</strong> Afgekeurd (rood) — maakt automatisch een ticket aan</li>
-                            <li><strong>-</strong> Niet van toepassing (grijs)</li>
-                        </ul>
-                        <p><strong>NEN 2767 conditiescore</strong> (energielabel en monument templates):</p>
-                        <ul>
-                            <li><strong>1</strong> Uitstekend (donkergroen)</li>
-                            <li><strong>2</strong> Goed (lichtgroen)</li>
-                            <li><strong>3</strong> Redelijk (geel)</li>
-                            <li><strong>4</strong> Matig (oranje)</li>
-                            <li><strong>5</strong> Slecht (rood)</li>
-                            <li><strong>6</strong> Zeer slecht (donkerrood)</li>
-                        </ul>
-                        <p>Bij NEN 2767 inspecties wordt automatisch een gemiddelde conditiescore berekend.</p>
-
-                        <h4>Afronden</h4>
-                        <p>Na het doorlopen van de checklist kunt u de inspectie afronden met een <strong>digitale handtekening</strong>. Teken op het canvas met uw muis of vinger (op touch-apparaten).</p>
-                    </div>
-
-                    <div class="manual-section" id="manual-oplevering">
-                        <h3>5. Oplevering</h3>
-                        <p>Het Oplevering-tab begeleidt u door het formele opleveringsproces conform het Nederlands bouwrecht.</p>
-
-                        <h4>Types oplevering</h4>
-                        <ul>
-                            <li><strong>Vooroplevering</strong> — Interne controle voorafgaand aan de formele oplevering</li>
-                            <li><strong>Eerste oplevering</strong> — Formele overdracht met opdrachtgever</li>
-                            <li><strong>Tweede oplevering / Naschouw</strong> — Controle na de herstelperiode</li>
-                        </ul>
-
-                        <h4>Werkwijze</h4>
-                        <ol>
-                            <li>Klik <strong>"+ Nieuwe oplevering"</strong></li>
-                            <li>Kies type, datum en voeg deelnemers toe</li>
-                            <li>Alle openstaande tickets worden als opleverpunten getoond</li>
-                            <li>Beoordeel elk punt: <strong>&#10003; Goedgekeurd</strong>, <strong>&#9888; Onder voorbehoud</strong>, of <strong>&#10007; Afgekeurd</strong></li>
-                            <li>Upload documenten (garanties, certificaten, keuringsrapporten)</li>
-                            <li>Rond af met <strong>eindoordeel</strong> en <strong>digitale handtekeningen</strong> van alle partijen</li>
-                        </ol>
-
-                        <h4>Proces-verbaal</h4>
-                        <p>Na ondertekening wordt een <strong>proces-verbaal van oplevering</strong> aangemaakt dat u kunt exporteren via het Export-tab. Dit document bevat alle opleverpunten, oordelen, deelnemers en handtekeningen.</p>
-                    </div>
-
-                    <div class="manual-section" id="manual-dashboard">
-                        <h3>6. Dashboard</h3>
-                        <p>Het Dashboard geeft u real-time inzicht in de status van uw project:</p>
-                        <ul>
-                            <li><strong>Statistieken</strong> — Totaal tickets, open, toegewezen, afgerond, verlopen deadlines, aantal inspecties</li>
-                            <li><strong>Tickets per status</strong> — Staafdiagram</li>
-                            <li><strong>Tickets per categorie</strong> — Welke categorieën hebben de meeste gebreken</li>
-                            <li><strong>Tickets per verantwoordelijke</strong> — Wie heeft de meeste items</li>
-                            <li><strong>Recente activiteit</strong> — Tijdlijn van acties</li>
-                        </ul>
-                    </div>
-
-                    <div class="manual-section" id="manual-export">
-                        <h3>7. Export & Opslag</h3>
-
-                        <h4>Rapporttypen</h4>
-                        <ul>
-                            <li><strong>Volledig projectrapport</strong> — Alle projectgegevens, plattegronden en tickets</li>
-                            <li><strong>Puntenlijst</strong> — Overzicht van openstaande tickets</li>
-                            <li><strong>Inspectie-rapport</strong> — Resultaten van een specifieke inspectie</li>
-                            <li><strong>Proces-verbaal van oplevering</strong> — Formeel opleveringsdocument met handtekeningen</li>
-                        </ul>
-
-                        <h4>Opties</h4>
-                        <ul>
-                            <li>Foto's insluiten in het rapport</li>
-                            <li>Plattegrond met markeringen tonen</li>
-                            <li>U kiest zelf de opslaglocatie bij elke export</li>
-                        </ul>
-
-                        <h4>Project opslaan en laden</h4>
-                        <p>Met <strong>Project Opslaan (JSON)</strong> slaat u het complete project op als bestand. Dit bevat alle gegevens, plattegronden, tickets, inspecties en opleveringen. U kiest zelf de opslaglocatie.</p>
-                        <p>Met <strong>Project Laden</strong> opent u een eerder opgeslagen projectbestand.</p>
-                        <p>Daarnaast worden alle gegevens automatisch opgeslagen in uw browser (localStorage). Bij het sluiten en heropenen van de applicatie zijn uw gegevens bewaard.</p>
-                    </div>
-
-                    <div class="manual-section" id="manual-energielabel">
-                        <h3>8. Energielabel opname</h3>
-                        <p>Open Field Studio ondersteunt de volledige data-verzameling voor een energielabel opname conform NTA 8800. De tool vervangt niet de berekening in Vabi EPA of Uniec, maar verzamelt alle benodigde gegevens op locatie.</p>
-
-                        <h4>Werkwijze</h4>
-                        <ol>
-                            <li>Ga naar <strong>Inspectie</strong> en start een nieuwe checklist-inspectie</li>
-                            <li>Kies een van de drie energielabel-templates</li>
-                            <li>Loop alle items door en geef een NEN 2767 conditiescore (1-6)</li>
-                            <li>Voeg foto's toe per item (CV-ketel typeplaatje, beglazing, zonnepanelen)</li>
-                            <li>Maak aanvullende tickets aan voor gebreken op de plattegrond</li>
-                            <li>Onderteken de inspectie digitaal</li>
-                        </ol>
-
-                        <h4>Drie templates</h4>
-                        <ul>
-                            <li><strong>Gebouwschil</strong> — Isolatie (gevel, dak, vloer), beglazing (type, U-waarde), kierdichting, thermische bruggen, oriëntatie</li>
-                            <li><strong>Installaties</strong> — Verwarming (type, merk, bouwjaar, rendement), warm water, ventilatie (WTW), zonnepanelen (aantal, Wp, merk), koeling, energieopslag</li>
-                            <li><strong>Woninggegevens</strong> — Woningtype, bouwjaar, oppervlak, foto-eisen per element, bewijsstukken verzamelen</li>
-                        </ul>
-
-                        <h4>Benodigde foto's</h4>
-                        <ul>
-                            <li>Buitenzijde: voor- en achtergevel</li>
-                            <li>CV-ketel: typeplaatje met merk en bouwjaar</li>
-                            <li>Groepenkast: overzicht</li>
-                            <li>Zonnepanelen: aantal telbaar</li>
-                            <li>Ventilatie-unit en roosters</li>
-                            <li>Beglazing: type herkenbaar (spacer, sticker)</li>
-                        </ul>
-
-                        <p>Na de inspectie kunt u het rapport exporteren en de gegevens gebruiken voor invoer in Vabi EPA-W of Uniec voor de officiële NTA 8800 berekening en EP-Online registratie.</p>
-                    </div>
-
-                    <div class="manual-section" id="manual-monument">
-                        <h3>9. Monument inspectie</h3>
-                        <p>Open Field Studio ondersteunt inspectie van Rijksmonumenten en gemeentelijke monumenten conform de Monumentenwacht-methodiek en NEN 2767 conditiemeting.</p>
-
-                        <h4>Werkwijze</h4>
-                        <ol>
-                            <li>Ga naar <strong>Inspectie</strong> en start een checklist-inspectie</li>
-                            <li>Kies een monument-template</li>
-                            <li>Beoordeel elk element met een NEN 2767 conditiescore (1-6)</li>
-                            <li>Documenteer met foto's (schade, details, referentiepunten)</li>
-                            <li>Voeg notities toe per element</li>
-                            <li>Gebruik het Instandhoudingsplan-template voor de 6-jarige onderhoudsplanning</li>
-                        </ol>
-
-                        <h4>Vier templates</h4>
-                        <ul>
-                            <li><strong>Constructie & Schil</strong> — Fundering, metselwerk, natuursteen, houtconstructie, dakbedekking, gevelankers, kozijnen, geveldecoratie</li>
-                            <li><strong>Historisch Interieur</strong> — Originele vloeren, plafonds, stucwerk, schouwen, trappen, paneeldeuren, tegeltableaus, glas-in-lood, smeedwerk</li>
-                            <li><strong>Vocht & Schade</strong> — Vochtmetingen, optrekkend/inregenend vocht, zoutschade, houtaantasting (zwam/boktor), scheurregistratie (richting, breedte), biologische aantasting</li>
-                            <li><strong>Instandhoudingsplan</strong> — 6-jarig onderhoudsplan per element, kostenraming kort/middellang/lang termijn, SIM-subsidie voorbereiding, monumentenvergunning check</li>
-                        </ul>
-
-                        <h4>NEN 2767 Conditiescore</h4>
-                        <p>Alle monument-templates gebruiken de NEN 2767 conditieschaal. De gemiddelde score wordt automatisch berekend en getoond in het rapport. Dit is de standaard die Monumentenwacht en vastgoedbeheerders gebruiken.</p>
-
-                        <h4>SIM-subsidie</h4>
-                        <p>Het Instandhoudingsplan-template is afgestemd op de vereisten van de Subsidieregeling Instandhouding Monumenten (SIM). Het rapport kan worden gebruikt als onderbouwing bij een subsidieaanvraag bij de Rijksdienst voor het Cultureel Erfgoed (RCE). Aanvragen lopen van 1 februari tot 31 maart.</p>
-                    </div>
-
-                    <div class="manual-section" id="manual-installatie">
-                        <h3>10. Installatie op apparaten</h3>
-
-                        <h4>Windows</h4>
-                        <p>Voer <strong>install.ps1</strong> uit. Dit maakt een snelkoppeling op uw bureaublad en in het startmenu. U kunt ook rechtstreeks <strong>index.html</strong> openen in uw browser.</p>
-
-                        <h4>Android</h4>
-                        <ol>
-                            <li>Open de applicatie in Chrome</li>
-                            <li>Tik op het menu (drie puntjes rechtsboven)</li>
-                            <li>Kies <strong>"App installeren"</strong> of <strong>"Toevoegen aan startscherm"</strong></li>
-                            <li>De app verschijnt als icoon op uw startscherm</li>
-                        </ol>
-
-                        <h4>iPhone / iPad</h4>
-                        <ol>
-                            <li>Open de applicatie in Safari</li>
-                            <li>Tik op het deel-icoon (vierkant met pijl omhoog)</li>
-                            <li>Kies <strong>"Zet op beginscherm"</strong></li>
-                            <li>De app verschijnt als icoon op uw beginscherm</li>
-                        </ol>
-
-                        <p>De applicatie werkt volledig offline nadat deze is geinstalleerd. Alle gegevens worden lokaal opgeslagen op uw apparaat.</p>
-                    </div>
-
-                    <div class="manual-section manual-footer">
-                        <p><strong>Open Field Studio v2.0</strong></p>
-                        <p>Licentie: CC BY-SA 4.0</p>
-                    </div>
+                <div class="panel manual-panel" id="manual-content">
+                    <!-- Rendered dynamically by renderManual() -->
                 </div>
             </section>
         </main>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar" id="status-bar">
+        <span class="status-bar-item" id="sb-project">—</span>
+        <span class="status-bar-sep">|</span>
+        <span class="status-bar-item" id="sb-tickets">0 tickets</span>
+        <span class="status-bar-sep">|</span>
+        <span class="status-bar-item" id="sb-plans">0 plans</span>
+        <span class="status-bar-right">
+            <span class="status-bar-item" id="sb-saved">—</span>
+        </span>
     </div>
 
     <!-- ==================== TICKET MODAL ==================== -->
@@ -985,6 +752,112 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <script src="/app.js"></script>
+    <script src="/titlebar.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        // =====================================================
+        // THEME TOGGLE
+        // =====================================================
+        var savedTheme = localStorage.getItem('ofs_theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        updateThemeIcon(savedTheme);
+
+        document.getElementById('theme-toggle').addEventListener('click', function() {
+          var current = document.documentElement.getAttribute('data-theme') || 'light';
+          var next = current === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          localStorage.setItem('ofs_theme', next);
+          updateThemeIcon(next);
+        });
+
+        function updateThemeIcon(theme) {
+          document.getElementById('theme-icon-light').style.display = theme === 'light' ? 'block' : 'none';
+          document.getElementById('theme-icon-dark').style.display = theme === 'dark' ? 'block' : 'none';
+        }
+
+        // =====================================================
+        // LANGUAGE DROPDOWN
+        // =====================================================
+        var langToggle = document.getElementById('tb-lang-toggle');
+        var langMenu = document.getElementById('tb-lang-menu');
+        var langCurrent = document.getElementById('tb-lang-current');
+        var savedLang = localStorage.getItem('ofs_lang') || 'nl';
+
+        window._setActiveLang = function(lang) {
+          langCurrent.textContent = lang.toUpperCase();
+          document.querySelectorAll('.tb-lang-option').forEach(function(btn) {
+            btn.classList.toggle('active', btn.dataset.lang === lang);
+          });
+        };
+        window._setActiveLang(savedLang);
+
+        langToggle.addEventListener('click', function(e) {
+          e.stopPropagation();
+          var isOpen = langMenu.classList.toggle('open');
+          langToggle.classList.toggle('open', isOpen);
+        });
+
+        document.querySelectorAll('.tb-lang-option').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            var lang = this.dataset.lang;
+            if (window.app) window.app.setLanguage(lang);
+            window._setActiveLang(lang);
+            langMenu.classList.remove('open');
+            langToggle.classList.remove('open');
+          });
+        });
+
+        document.addEventListener('click', function() {
+          langMenu.classList.remove('open');
+          langToggle.classList.remove('open');
+        });
+
+        // =====================================================
+        // KEYBOARD SHORTCUTS
+        // =====================================================
+        document.addEventListener('keydown', function(e) {
+          // Don't fire shortcuts when typing in inputs
+          var tag = document.activeElement && document.activeElement.tagName;
+          var isInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+
+          if (e.ctrlKey || e.metaKey) {
+            switch (e.key.toLowerCase()) {
+              case 's':
+                e.preventDefault();
+                if (window.app) window.app.saveProject();
+                break;
+              case 'e':
+                if (!isInput) {
+                  e.preventDefault();
+                  if (window.app) window.app.exportHTML();
+                }
+                break;
+              case 'o':
+                e.preventDefault();
+                document.getElementById('load-json-input').click();
+                break;
+              case 'd':
+                if (!isInput) {
+                  e.preventDefault();
+                  // Toggle theme
+                  document.getElementById('theme-toggle').click();
+                }
+                break;
+            }
+          }
+
+          // Number keys 1-8 for tab switching (no modifier, not in input)
+          if (!isInput && !e.ctrlKey && !e.altKey && !e.metaKey) {
+            var tabs = ['project','plattegrond','opname','inspectie','oplevering','dashboard','export','handleiding'];
+            var num = parseInt(e.key);
+            if (num >= 1 && num <= 8 && window.app) {
+              window.app.switchTab(tabs[num - 1]);
+            }
+          }
+        });
+      });
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>

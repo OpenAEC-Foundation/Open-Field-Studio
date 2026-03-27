@@ -27,7 +27,7 @@ class OpenFieldStudio {
         this.currentInspectionId = null;
         this.currentHandoverId = null;
         this.activityLog = [];
-        this.lang = localStorage.getItem('ofs_lang') || 'nl';
+        this.lang = (window.i18next && window.i18next.language) || localStorage.getItem('ofs_lang') || 'nl';
         this.init();
     }
 
@@ -43,18 +43,27 @@ class OpenFieldStudio {
     // =====================================================
     // INTERNATIONALIZATION
     // =====================================================
-    t(key) { return (LANG[this.lang] && LANG[this.lang][key]) || (LANG.nl[key]) || key; }
+    t(key) {
+        if (window.i18next) return window.i18next.t(key, { defaultValue: key });
+        return key;
+    }
 
     tFormat(key, ...args) {
-        let s = this.t(key);
-        args.forEach((a, i) => { s = s.replace(`{${i}}`, a); });
-        return s;
+        if (window.i18next) {
+            const params = {};
+            args.forEach((a, i) => { params[String(i)] = a; });
+            // i18next interpolation: replace {0}, {1} etc.
+            let s = window.i18next.t(key, { defaultValue: key });
+            args.forEach((a, i) => { s = s.replace(`{${i}}`, a); });
+            return s;
+        }
+        return key;
     }
 
     setLanguage(lang) {
         this.lang = lang;
         localStorage.setItem('ofs_lang', lang);
-        document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+        if (window.i18next) window.i18next.changeLanguage(lang);
         this.applyLanguage();
     }
 
@@ -82,23 +91,132 @@ class OpenFieldStudio {
 
         // Static headings and buttons via query
         const setText = (sel, key) => { const el = document.querySelector(sel); if (el) el.textContent = this.t(key); };
+        const setTitle = (sel, key) => { const el = document.querySelector(sel); if (el) el.title = this.t(key); };
+
+        // Project tab
         setText('#project-tab > .panel > h2', 'h_project');
-        setText('#save-project span, #save-project', 'btn_save_project');
+        setText('#save-project', 'btn_save_project');
+        setText('#add-contact-btn', 'btn_add_contact');
+        setText('#project-tab > .panel > h2:nth-of-type(2)', 'h_contacts');
+
+        // Plattegrond tab
         setText('#plattegrond-tab h2', 'h_plans');
+        setText('#floor-plan-upload > p', 'upload_text');
+        setText('#floor-plan-upload > .upload-hint', 'upload_hint');
+
+        // Opname tab
+        setText('#canvas-placeholder p', 'placeholder_canvas');
+        // Update tickets heading but preserve the badge span
+        const ticketsH3 = document.querySelector('.points-panel h3');
+        if (ticketsH3) {
+            const badge = ticketsH3.querySelector('#ticket-count');
+            const badgeVal = badge ? badge.textContent : '0';
+            ticketsH3.innerHTML = `${this.t('h_tickets')} <span id="ticket-count" class="badge">${badgeVal}</span>`;
+        }
+        setText('#points-list .empty-state', 'empty_tickets');
+        setTitle('#add-point-btn', 'btn_add_ticket');
+        setTitle('#zoom-in-btn', 'tb_zoom_in');
+        setTitle('#zoom-out-btn', 'tb_zoom_out');
+        setTitle('#zoom-fit-btn', 'tb_zoom_fit');
+
+        // Inspectie tab
         setText('#inspectie-overview h2', 'h_inspections');
         setText('#new-inspection-btn', 'btn_new_inspection');
+        setText('#inspections-list .empty-state', 'empty_inspections');
         setText('#inspectie-setup h2', 'h_new_inspection');
+        setText('#cancel-inspection-setup', 'btn_cancel');
+        setText('#start-inspection-btn', 'btn_start_inspection');
+        setText('#back-to-inspections', 'btn_back');
+        setText('#finish-inspection-btn', 'btn_finish_inspection');
+        setText('#inspectie-sign h2', 'h_sign');
+        setText('#clear-signature', 'btn_clear');
+        setText('#cancel-sign', 'btn_cancel');
+        setText('#confirm-sign', 'btn_sign');
+
+        // Oplevering tab
         setText('#oplevering-overview h2', 'h_handovers');
         setText('#new-handover-btn', 'btn_new_handover');
-        setText('#export-tab h2', 'h_export');
+        setText('#handovers-list .empty-state', 'empty_handovers');
+        setText('#oplevering-setup h2', 'h_new_handover');
+        setText('#add-ho-participant', 'btn_add_participant');
+        setText('#cancel-handover-setup', 'btn_cancel');
+        setText('#start-handover-btn', 'btn_start_handover');
+        setText('#back-to-handovers', 'btn_back');
+        setText('#finish-handover-btn', 'btn_finish_handover');
+        setText('#oplevering-sign h2', 'h_ho_sign');
+        setText('#add-ho-signature', 'btn_add_signature');
+        setText('#cancel-ho-sign', 'btn_back');
+        setText('#confirm-ho-sign', 'btn_sign');
 
-        // Ticket modal labels
+        // Export tab
+        setText('#export-tab h2', 'h_export');
+        setText('#export-html', 'btn_export_html');
+        setText('#save-json', 'btn_save_json');
+        setText('#load-json', 'btn_load_json');
+        setText('#clear-data', 'btn_clear_all');
+
+        // Ticket modal
         lp('point-label','lbl_label','ph_label'); lp('point-description','lbl_desc','ph_desc');
         lp('point-deadline','lbl_deadline');
+        setText('#cancel-point', 'btn_cancel');
+        setText('#delete-point', 'btn_remove');
+        setText('#save-point', 'btn_save');
+        setText('#add-comment-btn', 'btn_send');
+        setText('#photo-upload p', 'upload_photos');
+        setText('#camera-btn', 'btn_camera');
+
+        // Contact modal
+        setText('#cancel-contact', 'btn_cancel');
+        setText('#delete-contact', 'btn_remove');
+        setText('#save-contact', 'btn_save');
+        lp('contact-name-input','lbl_contact_name','ph_contact_name');
+        lp('contact-company-input','lbl_contact_company','ph_contact_company');
+        lp('contact-email-input','lbl_contact_email','ph_contact_email');
+        lp('contact-phone-input','lbl_contact_phone','ph_contact_phone');
+
+        // Camera modal
+        setText('#camera-cancel', 'btn_close');
 
         // Inspectie form
         lp('insp-name','lbl_insp_name'); lp('insp-inspector','lbl_inspector');
         lp('insp-notes','lbl_general_notes','ph_insp_notes');
+        lp('sign-name','lbl_sign_name','ph_sign_name');
+
+        // Handover form labels
+        lp('ho-notes','lbl_notes');
+
+        // Select options that need translation
+        const setOpt = (selId, valMap) => {
+            const sel = document.getElementById(selId);
+            if (!sel) return;
+            sel.querySelectorAll('option').forEach(opt => {
+                if (valMap[opt.value] !== undefined) opt.textContent = this.t(valMap[opt.value]);
+            });
+        };
+        setOpt('filter-status', {'':'filter_all_status', open:'status_open', assigned:'status_assigned', completed:'status_completed', verified:'status_verified'});
+        setOpt('filter-priority', {'':'filter_all_pri', high:'pri_high', medium:'pri_medium', low:'pri_low'});
+        setOpt('point-priority', {high:'pri_high', medium:'pri_medium', low:'pri_low'});
+        setOpt('point-severity', {cosmetic:'sev_cosmetic', functional:'sev_functional', safety:'sev_safety', structural:'sev_structural'});
+        setOpt('point-status', {open:'status_open', assigned:'status_assigned', completed:'status_completed', verified:'status_verified'});
+        setOpt('insp-type', {general:'type_free', checklist:'type_checklist'});
+        setOpt('ho-type', {pre:'ho_pre', first:'ho_first', second:'ho_second'});
+        setOpt('ho-verdict', {approved:'verdict_approved', conditional:'verdict_conditional', rejected:'verdict_rejected'});
+
+        // Export radio labels
+        const setRadio = (val, key) => { const r = document.querySelector(`input[name="export-type"][value="${val}"]`); if (r && r.parentElement) { r.parentElement.childNodes[1].textContent = ' ' + this.t(key); } };
+        setRadio('full','export_full'); setRadio('tickets','export_tickets');
+        setRadio('inspection','export_inspection'); setRadio('handover','export_handover');
+
+        // Export checkboxes
+        const setCb = (id, key) => { const cb = document.getElementById(id); if (cb) { const span = cb.parentElement.querySelector('span'); if (span) span.textContent = this.t(key); } };
+        setCb('include-photos','opt_photos'); setCb('include-map','opt_map');
+
+        // Toolbar titles
+        setTitle('#theme-toggle', 'tb_theme');
+        setTitle('#tb-lang-toggle', 'tb_language');
+        setTitle('#tb-minimize', 'tb_minimize');
+        setTitle('#tb-maximize', 'tb_maximize');
+        setTitle('#tb-close', 'tb_close_window');
 
         // Dashboard stat cards
         const setStatLabel = (id, key) => { const el = document.querySelector(`#${id} h4`); if (el) el.textContent = this.t(key); };
@@ -106,13 +224,44 @@ class OpenFieldStudio {
         setStatLabel('stat-assigned','stat_assigned'); setStatLabel('stat-completed','stat_completed');
         setStatLabel('stat-overdue','stat_overdue'); setStatLabel('stat-inspections','stat_inspections');
 
+        // Dashboard panel headings
+        const dashPanels = document.querySelectorAll('.dashboard-panels .panel h3');
+        if (dashPanels[0]) dashPanels[0].textContent = this.t('chart_status');
+        if (dashPanels[1]) dashPanels[1].textContent = this.t('chart_category');
+        if (dashPanels[2]) dashPanels[2].textContent = this.t('chart_assignee');
+        if (dashPanels[3]) dashPanels[3].textContent = this.t('chart_activity');
+
+        // Export preview headings
+        const expH3 = document.querySelectorAll('.export-options h3');
+        if (expH3[0]) expH3[0].textContent = this.t('h_report_type');
+        if (expH3[1]) expH3[1].textContent = this.t('h_options');
+        setText('.export-preview h3', 'h_overview');
+
         // Re-render dynamic content
         this.populateCategoryFilter();
         this.renderPointsList();
         this.renderContacts();
         this.renderInspectionsList();
         this.renderHandoversList();
+        this.renderManual();
+        this.updateStatusBar();
         if (document.getElementById('dashboard-tab').classList.contains('active')) this.updateDashboard();
+    }
+
+    renderManual() {
+        const el = document.getElementById('manual-content');
+        if (el) el.innerHTML = this.t('manual_html');
+    }
+
+    updateStatusBar() {
+        const sbProject = document.getElementById('sb-project');
+        const sbTickets = document.getElementById('sb-tickets');
+        const sbPlans = document.getElementById('sb-plans');
+        const sbSaved = document.getElementById('sb-saved');
+        if (sbProject) sbProject.textContent = this.project.name || '—';
+        if (sbTickets) sbTickets.textContent = `${this.tickets.length} ${this.t('sum_tickets')}`;
+        if (sbPlans) sbPlans.textContent = `${this.floorPlans.length} ${this.t('sum_plans')}`;
+        if (sbSaved) sbSaved.textContent = this._lastSaved || '—';
     }
 
     // Translated label helpers
@@ -394,7 +543,10 @@ class OpenFieldStudio {
         // Export
         document.getElementById('export-html').addEventListener('click', () => this.exportHTML());
         document.getElementById('save-json').addEventListener('click', () => this.saveJSON());
-        document.getElementById('load-json').addEventListener('click', () => document.getElementById('load-json-input').click());
+        document.getElementById('load-json').addEventListener('click', () => {
+            if (window.__tauriDialog && window.__tauriFs) { this.loadJSONTauri(); }
+            else { document.getElementById('load-json-input').click(); }
+        });
         document.getElementById('load-json-input').addEventListener('change', (e) => this.loadJSON(e));
         document.getElementById('clear-data').addEventListener('click', () => this.clearLocalStorage());
 
@@ -470,7 +622,7 @@ class OpenFieldStudio {
     // Contacts
     renderContacts() {
         const c = document.getElementById('contacts-list');
-        if (!this.contacts.length) { c.innerHTML = '<p class="empty-state" style="padding:1rem;">Nog geen contacten</p>'; return; }
+        if (!this.contacts.length) { c.innerHTML = `<p class="empty-state" style="padding:1rem;">${this.t('empty_contacts')}</p>`; return; }
         c.innerHTML = this.contacts.map(ct => `
             <div class="contact-card" onclick="app.openContactModal('${ct.id}')">
                 <div class="contact-avatar">${(ct.name||'?')[0].toUpperCase()}</div>
@@ -490,7 +642,7 @@ class OpenFieldStudio {
         if (id) {
             const ct = this.contacts.find(c => c.id === id);
             if (!ct) return;
-            title.textContent = 'Contact Bewerken';
+            title.textContent = this.t('contact_edit');
             document.getElementById('contact-id-input').value = ct.id;
             document.getElementById('contact-name-input').value = ct.name;
             document.getElementById('contact-role-input').value = ct.role;
@@ -499,10 +651,10 @@ class OpenFieldStudio {
             document.getElementById('contact-phone-input').value = ct.phone || '';
             delBtn.style.display = 'block';
         } else {
-            title.textContent = 'Contact Toevoegen';
+            title.textContent = this.t('contact_add');
             document.getElementById('contact-id-input').value = '';
             document.getElementById('contact-name-input').value = '';
-            document.getElementById('contact-role-input').value = 'Uitvoerder';
+            document.getElementById('contact-role-input').value = 'Uitvoerder'; // value is key, not display
             document.getElementById('contact-company-input').value = '';
             document.getElementById('contact-email-input').value = '';
             document.getElementById('contact-phone-input').value = '';
@@ -527,16 +679,18 @@ class OpenFieldStudio {
         this.showNotification(this.t('msg_contact_saved'), 'success');
     }
 
-    deleteContact() {
+    async deleteContact() {
         const id = document.getElementById('contact-id-input').value;
-        if (id && confirm('Contact verwijderen?')) {
+        if (!id) return;
+        const ok = await this.asyncConfirm(this.t('msg_confirm_delete'));
+        if (ok) {
             this.contacts = this.contacts.filter(c => c.id !== id);
             this.renderContacts(); this.saveToLocalStorage(); this.closeContactModal();
         }
     }
 
     updateAssigneeDropdowns() {
-        const opts = '<option value="">-- Niemand --</option>' + this.contacts.map(c => `<option value="${c.name}">${this.esc(c.name)} (${c.role})</option>`).join('');
+        const opts = `<option value="">${this.t('ph_nobody')}</option>` + this.contacts.map(c => `<option value="${c.name}">${this.esc(c.name)} (${c.role})</option>`).join('');
         document.getElementById('point-assigned').innerHTML = opts;
     }
 
@@ -556,7 +710,7 @@ class OpenFieldStudio {
     async processPDFFile(file) {
         try {
             this.showNotification(this.t('msg_pdf_processing'), 'info');
-            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
             const ab = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
             for (let i = 1; i <= pdf.numPages; i++) {
@@ -577,19 +731,26 @@ class OpenFieldStudio {
         document.getElementById('floor-plans-list').innerHTML = this.floorPlans.map(fp => `
             <div class="floor-plan-card"><div class="floor-plan-thumbnail-wrapper"><img src="${fp.data}" alt="${fp.name}" class="floor-plan-thumbnail">${fp.originalType === 'application/pdf' ? '<span class="pdf-badge">PDF</span>' : ''}</div>
             <div class="floor-plan-info"><input type="text" value="${this.esc(fp.name)}" onchange="app.updateFloorPlanName('${fp.id}', this.value)">
-            <div class="floor-plan-actions"><button class="select-btn" onclick="app.selectFloorPlan('${fp.id}')">Selecteren</button><button class="delete-btn" onclick="app.deleteFloorPlan('${fp.id}')">Verwijderen</button></div></div></div>
+            <div class="floor-plan-actions"><button class="select-btn" onclick="app.selectFloorPlan('${fp.id}')">${this.t('btn_select')}</button><button class="delete-btn" onclick="app.deleteFloorPlan('${fp.id}')">${this.t('btn_delete')}</button></div></div></div>
         `).join('');
     }
 
     updateFloorPlanSelector() {
-        const base = '<option value="">-- Kies een plattegrond --</option>' + this.floorPlans.map(fp => `<option value="${fp.id}">${this.esc(fp.name)}</option>`).join('');
+        const base = `<option value="">${this.t('ph_select_plan')}</option>` + this.floorPlans.map(fp => `<option value="${fp.id}">${this.esc(fp.name)}</option>`).join('');
         document.getElementById('active-floor').innerHTML = base;
-        document.getElementById('insp-floor').innerHTML = '<option value="">-- Optioneel --</option>' + this.floorPlans.map(fp => `<option value="${fp.id}">${this.esc(fp.name)}</option>`).join('');
+        document.getElementById('insp-floor').innerHTML = `<option value="">${this.t('ph_floor')}</option>` + this.floorPlans.map(fp => `<option value="${fp.id}">${this.esc(fp.name)}</option>`).join('');
         if (this.activeFloorPlanId && this.floorPlans.find(fp => fp.id === this.activeFloorPlanId)) document.getElementById('active-floor').value = this.activeFloorPlanId;
     }
 
     updateFloorPlanName(id, name) { const fp = this.floorPlans.find(f => f.id === id); if (fp) { fp.name = name; this.updateFloorPlanSelector(); this.saveToLocalStorage(); } }
-    deleteFloorPlan(id) { if (!confirm('Plattegrond verwijderen?')) return; this.floorPlans = this.floorPlans.filter(fp => fp.id !== id); this.tickets = this.tickets.filter(t => t.floorPlanId !== id); if (this.activeFloorPlanId === id) { this.activeFloorPlanId = null; this.clearCanvas(); } this.renderFloorPlansList(); this.updateFloorPlanSelector(); this.renderPointsList(); this.saveToLocalStorage(); }
+    async deleteFloorPlan(id) {
+        const ok = await this.asyncConfirm(this.t('msg_confirm_delete_plan'));
+        if (!ok) return;
+        this.floorPlans = this.floorPlans.filter(fp => fp.id !== id);
+        this.tickets = this.tickets.filter(t => t.floorPlanId !== id);
+        if (this.activeFloorPlanId === id) { this.activeFloorPlanId = null; this.clearCanvas(); }
+        this.renderFloorPlansList(); this.updateFloorPlanSelector(); this.renderPointsList(); this.saveToLocalStorage();
+    }
     selectFloorPlan(id) { this.switchTab('opname'); document.getElementById('active-floor').value = id; this.setActiveFloorPlan(id); }
 
     setActiveFloorPlan(id) {
@@ -641,7 +802,7 @@ class OpenFieldStudio {
         if (pointId) {
             const t = this.tickets.find(p => p.id === pointId);
             if (!t) return;
-            title.textContent = 'Ticket Bewerken';
+            title.textContent = this.t('ticket_edit');
             document.getElementById('point-id').value = t.id;
             document.getElementById('point-label').value = t.label;
             document.getElementById('point-description').value = t.description || '';
@@ -659,7 +820,7 @@ class OpenFieldStudio {
             commentsSection.style.display = 'block';
             this.renderComments(t.comments || []);
         } else {
-            title.textContent = 'Ticket Toevoegen';
+            title.textContent = this.t('ticket_add');
             document.getElementById('point-id').value = '';
             document.getElementById('point-label').value = '';
             document.getElementById('point-description').value = '';
@@ -710,16 +871,18 @@ class OpenFieldStudio {
             td.history.push({ action:'Aangemaakt', date:new Date().toISOString() });
             this.tickets.push(td);
         }
-        this.logActivity(`Ticket "${label}" ${this.editingPointId ? 'bewerkt' : 'aangemaakt'}`);
+        this.logActivity(this.editingPointId ? this.tFormat('log_ticket_edited', label) : this.tFormat('log_ticket_created', label));
         this.renderLocationPoints(); this.renderPointsList(); this.saveToLocalStorage(); this.closePointModal();
         this.showNotification(this.t('msg_ticket_saved'), 'success');
     }
 
-    deletePoint() {
-        if (this.editingPointId && confirm('Ticket verwijderen?')) {
+    async deletePoint() {
+        if (!this.editingPointId) return;
+        const ok = await this.asyncConfirm(this.t('msg_confirm_delete'));
+        if (ok) {
             const t = this.tickets.find(p => p.id === this.editingPointId);
             this.tickets = this.tickets.filter(p => p.id !== this.editingPointId);
-            this.logActivity(`Ticket "${t?.label}" verwijderd`);
+            this.logActivity(this.tFormat('log_ticket_deleted', t?.label || ''));
             this.renderLocationPoints(); this.renderPointsList(); this.saveToLocalStorage(); this.closePointModal();
         }
     }
@@ -732,7 +895,7 @@ class OpenFieldStudio {
         const t = this.tickets.find(p => p.id === this.editingPointId);
         if (!t) return;
         if (!t.comments) t.comments = [];
-        t.comments.push({ text, date: new Date().toISOString(), author: this.project.surveyor || 'Gebruiker' });
+        t.comments.push({ text, date: new Date().toISOString(), author: this.project.surveyor || this.t('lbl_surveyor') });
         input.value = '';
         this.renderComments(t.comments);
         this.saveToLocalStorage();
@@ -766,12 +929,12 @@ class OpenFieldStudio {
         if (fStatus) pts = pts.filter(p => p.status === fStatus);
         if (fCat) pts = pts.filter(p => p.category === fCat);
         if (fPri) pts = pts.filter(p => p.priority === fPri);
-        document.getElementById('ticket-count').textContent = pts.length;
-        if (!pts.length) { container.innerHTML = '<p class="empty-state">Geen tickets gevonden</p>'; return; }
+        const tc = document.getElementById('ticket-count'); if (tc) tc.textContent = pts.length;
+        if (!pts.length) { container.innerHTML = `<p class="empty-state">${this.t('empty_filtered')}</p>`; return; }
         container.innerHTML = pts.map((p, i) => `
             <div class="point-item priority-${p.priority||'medium'}" onclick="app.openPointModal('${p.id}')">
                 <div class="point-item-icon">${i + 1}</div>
-                <div class="point-item-info"><h4>${this.esc(p.label)}</h4><p>${p.category||''} · ${p.photos?.length||0} foto's${p.assignedTo ? ' · '+this.esc(p.assignedTo) : ''}</p></div>
+                <div class="point-item-info"><h4>${this.esc(p.label)}</h4><p>${p.category||''} · ${p.photos?.length||0} ${this.t('lbl_photos')}${p.assignedTo ? ' · '+this.esc(p.assignedTo) : ''}</p></div>
                 <span class="status-badge status-${p.status||'open'}">${this.statusLabel(p.status)}</span>
             </div>
         `).join('');
@@ -879,7 +1042,7 @@ class OpenFieldStudio {
     showInspectionSetup() {
         document.getElementById('inspectie-overview').style.display = 'none';
         document.getElementById('inspectie-setup').style.display = 'block';
-        document.getElementById('insp-template').innerHTML = '<option value="">-- Kies template --</option>' +
+        document.getElementById('insp-template').innerHTML = `<option value="">${this.t('ph_template')}</option>` +
             this.checklistTemplates.map(t => `<option value="${t.id}">${this.esc(t.name)}</option>`).join('');
         document.getElementById('insp-inspector').value = this.project.surveyor || '';
     }
@@ -909,7 +1072,7 @@ class OpenFieldStudio {
         };
         this.inspections.push(insp);
         this.currentInspectionId = insp.id;
-        this.logActivity(`Inspectie "${name}" gestart`);
+        this.logActivity(this.tFormat('log_insp_started', name));
         this.saveToLocalStorage();
         this.renderChecklistExecution();
         this.showInspectionExecution();
@@ -945,7 +1108,7 @@ class OpenFieldStudio {
     }
 
     getNENLabel(score) {
-        return {1:'Uitstekend',2:'Goed',3:'Redelijk',4:'Matig',5:'Slecht',6:'Zeer slecht'}[score] || '';
+        return {1:this.t('nen_1'),2:this.t('nen_2'),3:this.t('nen_3'),4:this.t('nen_4'),5:this.t('nen_5'),6:this.t('nen_6')}[score] || '';
     }
 
     updateChecklistItem(idx, field, value) {
@@ -966,7 +1129,7 @@ class OpenFieldStudio {
         if (isNEN && done > 0) {
             const scores = insp.items.filter(i => i.score).map(i => i.score);
             const avg = (scores.reduce((a,b) => a+b, 0) / scores.length).toFixed(1);
-            extra = ` · Gem. ${avg} (${this.getNENLabel(Math.round(avg))})`;
+            extra = ` · ${this.t('nen_avg')} ${avg} (${this.getNENLabel(Math.round(avg))})`;
         }
         document.getElementById('insp-progress-text').textContent = `${done} / ${total}${extra}`;
         document.getElementById('insp-progress-bar').style.width = total ? `${(done/total)*100}%` : '0%';
@@ -978,11 +1141,12 @@ class OpenFieldStudio {
         insp.notes = document.getElementById('insp-notes').value;
         // Create tickets for failed items
         insp.items.filter(i => i.result === 'fail').forEach(item => {
-            const exists = this.tickets.some(t => t.label === `[Inspectie] ${item.question}` && t.floorPlanId === insp.floorPlanId);
+            const prefix = `[${this.t('nav_inspectie')}] `;
+            const exists = this.tickets.some(t => t.label === `${prefix}${item.question}` && t.floorPlanId === insp.floorPlanId);
             if (!exists && insp.floorPlanId) {
                 this.tickets.push({
-                    id: this.genId(), floorPlanId: insp.floorPlanId, label: `[Inspectie] ${item.question}`,
-                    description: `Afgekeurd tijdens inspectie "${insp.name}"\n${item.notes||''}`,
+                    id: this.genId(), floorPlanId: insp.floorPlanId, label: `${prefix}${item.question}`,
+                    description: `${this.t('insp_rejected')} - ${insp.name}\n${item.notes||''}`,
                     category: 'Bouwkundig', priority: 'medium', severity: 'functional', status: 'open',
                     assignedTo: '', deadline: '', x: 50, y: 50, photos: [], comments: [], history: [{ action:'Aangemaakt vanuit inspectie', date:new Date().toISOString() }],
                     createdAt: new Date().toISOString()
@@ -1022,7 +1186,7 @@ class OpenFieldStudio {
         if (!name) { this.showNotification(this.t('msg_fill_name'), 'error'); return; }
         insp.signature = { name, date: new Date().toISOString(), data: document.getElementById('signature-canvas').toDataURL() };
         insp.status = 'signed';
-        this.logActivity(`Inspectie "${insp.name}" ondertekend door ${name}`);
+        this.logActivity(this.tFormat('log_insp_signed', insp.name, name));
         this.saveToLocalStorage();
         this.showNotification(this.t('msg_insp_signed'), 'success');
         this.showInspectionOverview();
@@ -1030,7 +1194,7 @@ class OpenFieldStudio {
 
     renderInspectionsList() {
         const c = document.getElementById('inspections-list');
-        if (!this.inspections.length) { c.innerHTML = '<p class="empty-state">Nog geen inspecties uitgevoerd</p>'; return; }
+        if (!this.inspections.length) { c.innerHTML = `<p class="empty-state">${this.t('empty_inspections')}</p>`; return; }
         c.innerHTML = this.inspections.map(insp => {
             const isNEN = insp.scoring === 'nen2767';
             const done = isNEN ? insp.items.filter(i => i.score).length : insp.items.filter(i => i.result).length;
@@ -1038,14 +1202,14 @@ class OpenFieldStudio {
             let extra = '';
             if (isNEN && done > 0) {
                 const avg = (insp.items.filter(i => i.score).map(i => i.score).reduce((a,b)=>a+b,0) / done).toFixed(1);
-                extra = ` · Gem. score: ${avg}`;
+                extra = ` · ${this.t('nen_score')}: ${avg}`;
             } else if (fail) {
-                extra = ` · ${fail} afgekeurd`;
+                extra = ` · ${fail} ${this.t('insp_rejected')}`;
             }
             const catLabel = insp.scoring === 'nen2767' ? ' · NEN 2767' : '';
             return `<div class="inspection-card" onclick="app.viewInspection('${insp.id}')">
                 <div class="inspection-card-info"><h4>${this.esc(insp.name)}</h4><p>${insp.date} · ${insp.inspector||''}${catLabel} · ${done}/${insp.items.length} items${extra}</p></div>
-                <span class="status-badge status-${insp.status==='signed'?'verified':'assigned'}">${insp.status==='signed'?'Ondertekend':'In uitvoering'}</span>
+                <span class="status-badge status-${insp.status==='signed'?'verified':'assigned'}">${insp.status==='signed'?this.t('insp_signed'):this.t('insp_in_progress')}</span>
             </div>`;
         }).join('');
     }
@@ -1105,7 +1269,7 @@ class OpenFieldStudio {
         const c = document.getElementById('ho-participants');
         const div = document.createElement('div');
         div.className = 'ho-participant-row';
-        div.innerHTML = `<input type="text" placeholder="Naam"><select><option value="Opdrachtgever">Opdrachtgever</option><option value="Aannemer">Aannemer</option><option value="Projectleider">Projectleider</option><option value="Inspecteur">Inspecteur</option><option value="Overig">Overig</option></select><input type="text" placeholder="Bedrijf"><button class="remove-btn" onclick="this.parentElement.remove()">&times;</button>`;
+        div.innerHTML = `<input type="text" placeholder="${this.t('ph_contact_name')}"><select><option value="Opdrachtgever">${this.t('role_opdrachtgever')}</option><option value="Aannemer">${this.t('role_aannemer')}</option><option value="Projectleider">${this.t('role_projectleider')}</option><option value="Inspecteur">${this.t('role_inspecteur')}</option><option value="Overig">${this.t('role_overig')}</option></select><input type="text" placeholder="${this.t('ph_contact_company')}"><button class="remove-btn" onclick="(window.app?window.app.asyncConfirm(window.app.t('msg_confirm_delete')):Promise.resolve(true)).then(ok=>{if(ok)this.parentElement.remove()})">&times;</button>`;
         c.appendChild(div);
     }
 
@@ -1128,7 +1292,7 @@ class OpenFieldStudio {
         };
         this.handovers.push(ho);
         this.currentHandoverId = ho.id;
-        this.logActivity(`${this.hoTypeLabel(type)} gestart`);
+        this.logActivity(this.tFormat('log_ho_started', this.hoTypeLabel(type)));
         this.saveToLocalStorage();
         this.renderHandoverExecution();
         this.showHandoverExecution();
@@ -1139,7 +1303,7 @@ class OpenFieldStudio {
         if (!ho) return;
         document.getElementById('ho-exec-title').textContent = this.hoTypeLabel(ho.type) || 'Oplevering';
         const c = document.getElementById('ho-items-list');
-        if (!ho.items.length) { c.innerHTML = '<p class="empty-state">Geen openstaande tickets</p>'; return; }
+        if (!ho.items.length) { c.innerHTML = `<p class="empty-state">${this.t('empty_ho_items')}</p>`; return; }
         c.innerHTML = ho.items.map((item, idx) => {
             const t = this.tickets.find(tk => tk.id === item.ticketId);
             if (!t) return '';
@@ -1168,7 +1332,7 @@ class OpenFieldStudio {
         const ho = this.handovers.find(h => h.id === this.currentHandoverId);
         if (!ho) return;
         const done = ho.items.filter(i => i.verdict).length;
-        document.getElementById('ho-progress-text').textContent = `${done} / ${ho.items.length} beoordeeld`;
+        document.getElementById('ho-progress-text').textContent = `${done} / ${ho.items.length} ${this.t('ho_assessed')}`;
         document.getElementById('ho-progress-bar').style.width = ho.items.length ? `${(done/ho.items.length)*100}%` : '0%';
     }
 
@@ -1193,7 +1357,7 @@ class OpenFieldStudio {
         `).join('');
     }
 
-    removeHandoverDoc(docId) {
+    async removeHandoverDoc(docId) { const ok = await this.asyncConfirm(this.t('msg_confirm_delete')); if (!ok) return;
         const ho = this.handovers.find(h => h.id === this.currentHandoverId);
         if (ho) { ho.documents = ho.documents.filter(d => d.id !== docId); this.saveToLocalStorage(); this.renderHandoverDocs(); }
     }
@@ -1239,7 +1403,7 @@ class OpenFieldStudio {
             const t = this.tickets.find(tk => tk.id === item.ticketId);
             if (t && item.verdict === 'approved') t.status = 'verified';
         });
-        this.logActivity(`${this.hoTypeLabel(ho.type)} afgerond: ${ho.verdict === 'approved' ? 'Goedgekeurd' : ho.verdict === 'conditional' ? 'Onder voorbehoud' : 'Afgekeurd'}`);
+        this.logActivity(this.tFormat('log_ho_completed', this.hoTypeLabel(ho.type), ho.verdict === 'approved' ? this.t('verdict_approved') : ho.verdict === 'conditional' ? this.t('verdict_conditional') : this.t('verdict_rejected')));
         this.saveToLocalStorage();
         this.showNotification(this.t('msg_ho_signed'), 'success');
         this.showHandoverOverview();
@@ -1247,12 +1411,12 @@ class OpenFieldStudio {
 
     renderHandoversList() {
         const c = document.getElementById('handovers-list');
-        if (!this.handovers.length) { c.innerHTML = '<p class="empty-state">Nog geen opleveringen</p>'; return; }
+        if (!this.handovers.length) { c.innerHTML = `<p class="empty-state">${this.t('empty_handovers')}</p>`; return; }
         c.innerHTML = this.handovers.map(ho => {
             const approved = ho.items.filter(i => i.verdict === 'approved').length;
             return `<div class="handover-card" onclick="app.viewHandover('${ho.id}')">
-                <div class="handover-card-info"><h4>${this.hoTypeLabel(ho.type)}</h4><p>${ho.date} · ${ho.items.length} punten · ${approved} goedgekeurd</p></div>
-                <span class="status-badge status-${ho.status==='completed'?'verified':'assigned'}">${ho.status==='completed'?'Afgerond':'In uitvoering'}</span>
+                <div class="handover-card-info"><h4>${this.hoTypeLabel(ho.type)}</h4><p>${ho.date} · ${ho.items.length} ${this.t('sum_tickets')} · ${approved} ${this.t('ho_approved')}</p></div>
+                <span class="status-badge status-${ho.status==='completed'?'verified':'assigned'}">${ho.status==='completed'?this.t('ho_completed'):this.t('ho_in_progress')}</span>
             </div>`;
         }).join('');
     }
@@ -1286,10 +1450,10 @@ class OpenFieldStudio {
 
         // Status chart
         const statusData = [
-            { label: 'Open', count: open, color: '#D97706' },
-            { label: 'Toegewezen', count: assigned, color: '#2563EB' },
-            { label: 'Afgerond', count: completed, color: '#16A34A' },
-            { label: 'Verlopen', count: overdue, color: '#DC2626' }
+            { label: this.t('status_open'), count: open, color: '#D97706' },
+            { label: this.t('status_assigned'), count: assigned, color: '#2563EB' },
+            { label: this.t('status_completed'), count: completed, color: '#16A34A' },
+            { label: this.t('lbl_overdue'), count: overdue, color: '#DC2626' }
         ];
         this.renderBarChart('chart-status', statusData);
 
@@ -1303,11 +1467,11 @@ class OpenFieldStudio {
         const assignCounts = {};
         tickets.filter(t => t.assignedTo).forEach(t => { assignCounts[t.assignedTo] = (assignCounts[t.assignedTo]||0) + 1; });
         const assignData = Object.entries(assignCounts).map(([label, count]) => ({ label, count, color: '#2563EB' })).sort((a,b) => b.count - a.count);
-        this.renderBarChart('chart-assignee', assignData.length ? assignData : [{ label: 'Geen toewijzingen', count: 0, color: '#A1A1AA' }]);
+        this.renderBarChart('chart-assignee', assignData.length ? assignData : [{ label: this.t('no_assignments'), count: 0, color: '#A1A1AA' }]);
 
         // Activity log
         const logC = document.getElementById('activity-log');
-        if (!this.activityLog.length) { logC.innerHTML = '<p class="empty-state">Nog geen activiteit</p>'; return; }
+        if (!this.activityLog.length) { logC.innerHTML = `<p class="empty-state">${this.t('empty_activity')}</p>`; return; }
         logC.innerHTML = this.activityLog.slice(-20).reverse().map(a => `
             <div class="activity-item"><span class="activity-time">${new Date(a.date).toLocaleString('nl-NL',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'})}</span><span>${this.esc(a.text)}</span></div>
         `).join('');
@@ -1342,15 +1506,15 @@ class OpenFieldStudio {
     updateExportSummary() {
         const totalPhotos = this.tickets.reduce((a, p) => a + (p.photos?.length || 0), 0);
         const s = document.getElementById('export-summary');
-        if (!this.project.name && !this.tickets.length) { s.innerHTML = '<p>Vul eerst projectgegevens in.</p>'; return; }
+        if (!this.project.name && !this.tickets.length) { s.innerHTML = `<p>${this.t('empty_export')}</p>`; return; }
         s.innerHTML = `
-            <div class="summary-item"><h4>Project</h4><p>${this.project.name || 'Niet ingevuld'}</p></div>
-            <div class="summary-item"><h4>Adres</h4><p>${this.project.address || 'Niet ingevuld'}</p></div>
-            <div class="summary-item"><h4>Plattegronden</h4><p>${this.floorPlans.length}</p></div>
-            <div class="summary-item"><h4>Tickets</h4><p>${this.tickets.length}</p></div>
-            <div class="summary-item"><h4>Foto's</h4><p>${totalPhotos}</p></div>
-            <div class="summary-item"><h4>Inspecties</h4><p>${this.inspections.length}</p></div>
-            <div class="summary-item"><h4>Opleveringen</h4><p>${this.handovers.length}</p></div>`;
+            <div class="summary-item"><h4>${this.t('sum_project')}</h4><p>${this.project.name || this.t('sum_not_filled')}</p></div>
+            <div class="summary-item"><h4>${this.t('sum_address')}</h4><p>${this.project.address || this.t('sum_not_filled')}</p></div>
+            <div class="summary-item"><h4>${this.t('sum_plans')}</h4><p>${this.floorPlans.length}</p></div>
+            <div class="summary-item"><h4>${this.t('sum_tickets')}</h4><p>${this.tickets.length}</p></div>
+            <div class="summary-item"><h4>${this.t('sum_photos')}</h4><p>${totalPhotos}</p></div>
+            <div class="summary-item"><h4>${this.t('sum_inspections')}</h4><p>${this.inspections.length}</p></div>
+            <div class="summary-item"><h4>${this.t('sum_handovers')}</h4><p>${this.handovers.length}</p></div>`;
         this.updateExportTypeUI();
     }
 
@@ -1448,26 +1612,48 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
     }
 
     loadJSON(e) {
+        // Tauri native open dialog
+        if (window.__tauriDialog && window.__tauriFs && (!e || !e.target || !e.target.files)) {
+            this.loadJSONTauri();
+            return;
+        }
         const file = e.target.files[0]; if (!file) return;
         const r = new FileReader();
-        r.onload = (ev) => {
-            try {
-                const d = JSON.parse(ev.target.result);
-                if (d.project) this.project = d.project;
-                if (d.contacts) this.contacts = d.contacts;
-                if (d.floorPlans) this.floorPlans = d.floorPlans;
-                // Support v1 locationPoints
-                if (d.locationPoints) this.tickets = d.locationPoints;
-                if (d.tickets) this.tickets = d.tickets;
-                if (d.inspections) this.inspections = d.inspections;
-                if (d.handovers) this.handovers = d.handovers;
-                if (d.checklistTemplates) this.checklistTemplates = d.checklistTemplates;
-                if (d.activityLog) this.activityLog = d.activityLog;
-                this.loadProjectForm(); this.renderContacts(); this.renderFloorPlansList(); this.updateFloorPlanSelector(); this.saveToLocalStorage();
-                this.showNotification(this.t('msg_loaded'), 'success');
-            } catch(err) { this.showNotification(this.t('msg_load_error'), 'error'); console.error(err); }
-        };
+        r.onload = (ev) => { this.applyLoadedJSON(ev.target.result); };
         r.readAsText(file); e.target.value = '';
+    }
+
+    async loadJSONTauri() {
+        try {
+            const path = await window.__tauriDialog.open({
+                filters: [{ name: 'JSON', extensions: ['json'] }],
+                multiple: false
+            });
+            if (!path) return;
+            const text = await window.__tauriFs.readTextFile(path);
+            this.applyLoadedJSON(text);
+        } catch (e) {
+            if (e && e.toString().includes('cancelled')) return;
+            this.showNotification(this.t('msg_load_error'), 'error');
+            console.error(e);
+        }
+    }
+
+    applyLoadedJSON(text) {
+        try {
+            const d = JSON.parse(text);
+            if (d.project) this.project = d.project;
+            if (d.contacts) this.contacts = d.contacts;
+            if (d.floorPlans) this.floorPlans = d.floorPlans;
+            if (d.locationPoints) this.tickets = d.locationPoints;
+            if (d.tickets) this.tickets = d.tickets;
+            if (d.inspections) this.inspections = d.inspections;
+            if (d.handovers) this.handovers = d.handovers;
+            if (d.checklistTemplates) this.checklistTemplates = d.checklistTemplates;
+            if (d.activityLog) this.activityLog = d.activityLog;
+            this.loadProjectForm(); this.renderContacts(); this.renderFloorPlansList(); this.updateFloorPlanSelector(); this.saveToLocalStorage();
+            this.showNotification(this.t('msg_loaded'), 'success');
+        } catch(err) { this.showNotification(this.t('msg_load_error'), 'error'); console.error(err); }
     }
 
     saveToLocalStorage() {
@@ -1475,6 +1661,8 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
             project:this.project, contacts:this.contacts, floorPlans:this.floorPlans, tickets:this.tickets,
             inspections:this.inspections, handovers:this.handovers, checklistTemplates:this.checklistTemplates, activityLog:this.activityLog
         }));
+        this._lastSaved = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+        this.updateStatusBar();
     }
 
     loadFromLocalStorage() {
@@ -1502,8 +1690,9 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
         } catch(err) { console.error('localStorage load error:', err); localStorage.removeItem('openFieldStudio'); }
     }
 
-    clearLocalStorage() {
-        if (!confirm('Alle data wissen? Dit kan niet ongedaan worden.')) return;
+    async clearLocalStorage() {
+        const ok = await this.asyncConfirm(this.t('msg_confirm_clear'));
+        if (!ok) return;
         localStorage.removeItem('openFieldStudio');
         this.project = { name:'',number:'',client:'',contactPerson:'',address:'',postalCode:'',city:'',surveyDate:'',surveyor:'',description:'',notes:'' };
         this.contacts = []; this.floorPlans = []; this.tickets = []; this.inspections = []; this.handovers = []; this.activityLog = [];
@@ -1524,8 +1713,56 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
     genId() { return 'id_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now(); }
     esc(text) { if (!text) return ''; const d = document.createElement('div'); d.textContent = text; return d.innerHTML; }
 
+    // Async confirm dialog — uses Tauri native dialog or custom HTML modal
+    asyncConfirm(message) {
+        // Try Tauri native dialog
+        if (window.__tauriDialog && window.__tauriDialog.ask) {
+            return window.__tauriDialog.ask(message, { title: 'Open Field Studio', kind: 'warning' });
+        }
+        // Custom HTML modal confirm
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;animation:modalFadeIn 0.15s ease;';
+            const box = document.createElement('div');
+            box.style.cssText = 'background:var(--surface,#fff);border-radius:12px;padding:24px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);font-family:Inter,sans-serif;';
+            box.innerHTML = `<p style="margin:0 0 20px;font-size:0.95rem;color:var(--text-primary,#333);line-height:1.5;">${this.esc(message)}</p>
+                <div style="display:flex;gap:12px;justify-content:flex-end;">
+                    <button id="_confirm_no" style="padding:8px 20px;border:2px solid var(--deep-forge,#36363E);background:transparent;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.9rem;font-family:inherit;color:var(--text-primary,#333);">${this.t('btn_cancel')}</button>
+                    <button id="_confirm_yes" style="padding:8px 20px;border:none;background:#DC2626;color:#fff;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.9rem;font-family:inherit;">${this.t('btn_remove')}</button>
+                </div>`;
+            overlay.appendChild(box);
+            document.body.appendChild(overlay);
+            box.querySelector('#_confirm_yes').focus();
+            box.querySelector('#_confirm_yes').onclick = () => { overlay.remove(); resolve(true); };
+            box.querySelector('#_confirm_no').onclick = () => { overlay.remove(); resolve(false); };
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) { overlay.remove(); resolve(false); } });
+            document.addEventListener('keydown', function handler(e) {
+                if (e.key === 'Escape') { overlay.remove(); resolve(false); document.removeEventListener('keydown', handler); }
+            });
+        });
+    }
+
     async saveWithPicker(blob, filename, fileTypes) {
-        // Try File System Access API (opslaglocatie kiezen)
+        // Tauri native dialog
+        if (window.__tauriDialog && window.__tauriFs) {
+            try {
+                const ext = filename.split('.').pop() || 'json';
+                const filters = fileTypes.map(ft => ({
+                    name: ft.description || 'File',
+                    extensions: Object.values(ft.accept).flat().map(e => e.replace('.', ''))
+                }));
+                const path = await window.__tauriDialog.save({ defaultPath: filename, filters });
+                if (!path) return; // User cancelled
+                const text = await blob.text();
+                await window.__tauriFs.writeTextFile(path, text);
+                this.showNotification(this.t('msg_json_saved'), 'success');
+                return;
+            } catch (e) {
+                if (e && e.toString().includes('cancelled')) return;
+                console.error('Tauri save error:', e);
+            }
+        }
+        // Browser: File System Access API
         if (window.showSaveFilePicker) {
             try {
                 const handle = await window.showSaveFilePicker({ suggestedName: filename, types: fileTypes });
@@ -1535,10 +1772,10 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
                 this.showNotification(this.t('msg_json_saved'), 'success');
                 return;
             } catch (e) {
-                if (e.name === 'AbortError') return; // Gebruiker annuleerde
+                if (e.name === 'AbortError') return;
             }
         }
-        // Fallback: directe download
+        // Fallback: direct download
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a'); a.href = url; a.download = filename;
         a.click(); URL.revokeObjectURL(url);
@@ -1558,10 +1795,5 @@ const style = document.createElement('style');
 style.textContent = `@keyframes slideIn{from{transform:translateX(100px);opacity:0}to{transform:translateX(0);opacity:1}}@keyframes fadeOut{from{opacity:1}to{opacity:0}}`;
 document.head.appendChild(style);
 
-// Register Service Worker for PWA / offline
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
-}
-
-// Initialize
-window.app = new OpenFieldStudio();
+// Expose class globally — initialization is handled by main.tsx after i18next is ready
+window.OpenFieldStudio = OpenFieldStudio;

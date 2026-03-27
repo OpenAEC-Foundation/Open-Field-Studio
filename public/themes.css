@@ -1,0 +1,199 @@
+/* =====================================================
+   Open Field Studio - Theme System
+   Dark theme overrides via [data-theme="dark"] on <html>
+   ===================================================== */
+
+/* Dark Theme */
+[data-theme="dark"] {
+  --background: #1a1a22;
+  --surface: #2A2A32;
+  --text-primary: #FAFAF9;
+  --text-secondary: #A1A1AA;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --concrete: #36363E;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
+  color-scheme: dark;
+}
+
+/* Form inputs in dark mode */
+[data-theme="dark"] .form-group input,
+[data-theme="dark"] .form-group textarea,
+[data-theme="dark"] .form-group select {
+  background: #36363E;
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #FAFAF9;
+}
+
+[data-theme="dark"] .form-group input:focus,
+[data-theme="dark"] .form-group textarea:focus,
+[data-theme="dark"] .form-group select:focus {
+  border-color: var(--construction-amber);
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.25);
+}
+
+[data-theme="dark"] .form-group input::placeholder,
+[data-theme="dark"] .form-group textarea::placeholder {
+  color: #71717A;
+}
+
+/* Floor selector inputs */
+[data-theme="dark"] .floor-selector select,
+[data-theme="dark"] .ticket-filters select,
+[data-theme="dark"] .floor-plan-info input {
+  background: #36363E;
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #FAFAF9;
+}
+
+/* Upload zone */
+[data-theme="dark"] .upload-zone {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: #36363E;
+}
+
+[data-theme="dark"] .upload-zone:hover {
+  border-color: var(--construction-amber);
+  background: rgba(217, 119, 6, 0.08);
+}
+
+/* Photo upload zone in modal */
+[data-theme="dark"] .photo-upload-zone {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="dark"] .photo-upload-zone:hover {
+  border-color: var(--construction-amber);
+  background: rgba(217, 119, 6, 0.08);
+}
+
+/* Canvas background */
+[data-theme="dark"] .canvas-container {
+  background: repeating-conic-gradient(#2A2A32 0% 25%, #36363E 0% 50%) 50% / 20px 20px;
+}
+
+/* Modals */
+[data-theme="dark"] .modal-overlay {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="dark"] .modal-footer {
+  background: #2A2A32;
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Buttons — secondary */
+[data-theme="dark"] .btn-secondary {
+  color: #FAFAF9;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="dark"] .btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Checklist items */
+[data-theme="dark"] .checklist-btn {
+  background: #2A2A32;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="dark"] .checklist-item-detail textarea {
+  background: #2A2A32;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #FAFAF9;
+}
+
+/* Signature canvas */
+[data-theme="dark"] #signature-canvas,
+[data-theme="dark"] .ho-signature-block canvas {
+  background: #ffffff;
+}
+
+/* Handover participant inputs */
+[data-theme="dark"] .ho-participant-row input,
+[data-theme="dark"] .ho-participant-row select {
+  background: #36363E;
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #FAFAF9;
+}
+
+/* Comment input */
+[data-theme="dark"] .comment-input input {
+  background: #36363E;
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #FAFAF9;
+}
+
+/* Verdict buttons */
+[data-theme="dark"] .verdict-btn {
+  background: #2A2A32;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Radio/checkbox labels */
+[data-theme="dark"] .radio-label input,
+[data-theme="dark"] .checkbox-label input {
+  accent-color: var(--construction-amber);
+}
+
+/* Tool buttons */
+[data-theme="dark"] .tool-btn {
+  background: #2A2A32;
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #FAFAF9;
+}
+
+/* Handover signature block inputs */
+[data-theme="dark"] .ho-signature-block input {
+  background: #2A2A32;
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #FAFAF9;
+}
+
+/* Manual / Handleiding links */
+[data-theme="dark"] .manual-toc a {
+  color: #FAFAF9;
+}
+
+[data-theme="dark"] .manual-toc a:hover {
+  color: var(--construction-amber);
+}
+
+/* Export summary */
+[data-theme="dark"] .export-preview {
+  background: #36363E;
+}
+
+[data-theme="dark"] .summary-item {
+  background: #2A2A32;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Photo viewer */
+[data-theme="dark"] #photo-viewer-image {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .photo-viewer-close,
+[data-theme="dark"] .photo-viewer-nav {
+  background: #2A2A32;
+  color: #FAFAF9;
+}
+
+[data-theme="dark"] .photo-viewer-caption {
+  background: #2A2A32;
+  color: #FAFAF9;
+}
+
+/* Modal close button */
+[data-theme="dark"] .modal-close {
+  background: #36363E;
+  color: #A1A1AA;
+}
+
+[data-theme="dark"] .modal-close:hover {
+  background: var(--error);
+  color: #ffffff;
+}

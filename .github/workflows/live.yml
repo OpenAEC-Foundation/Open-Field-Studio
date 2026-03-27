@@ -22,8 +22,8 @@ jobs:
       deploy_user: ${{ vars.DEPLOY_USER }}
       deploy_path: /var/www/open-pdf-studio.open-aec.com
       node_version: "22"
-      install_command: cd Open-Field-Studio && npm ci
-      build_command: cd Open-Field-Studio && npm run build
+      install_command: npm ci
+      build_command: npm run build
       checkout_sparse: |
         open-pdf-studio
     secrets:

@@ -11,12 +11,14 @@ Free, open-source tool for performing construction inspections, energy label sur
 ## Features
 
 - **Tickets & defect registration** on floor plans with category, priority, status workflow and assignment
-- **Checklist inspections** with 10 built-in templates (pass/fail and NEN 2767 condition scoring)
+- **Checklist inspections** with 15 built-in templates (pass/fail and NEN 2767 condition scoring)
 - **Energy label survey** — full NTA 8800 data collection in 43 items
 - **Monument inspection** — construction, interior, moisture/damage, maintenance plan
 - **Handover** with formal certificate, digital signatures and document attachments
 - **Dashboard** with real-time statistics and charts
-- **Camera integration** for on-site photo capture
+- **Interactive checklists** — smart item rendering with choice chips, per-item photo capture, and prefix-based UI
+- **Camera integration** for on-site photo capture with permission handling and mobile fallback
+- **Mobile responsive** — optimized layout for 6-inch phones (360–412px)
 - **4 languages** — Dutch, English, German, French (i18next)
 - **Dark/Light theme** with system preference detection
 - **Keyboard shortcuts** — Ctrl+S save, Ctrl+E export, Ctrl+O load, 1-8 tab switch
@@ -134,6 +136,11 @@ Open-Field-Studio/
 | Veiligheidsinspectie | 14 | Pass/fail |
 | Oplevering voorinspectie | 16 | Pass/fail |
 | Wkb-basiscontrole | 16 | Pass/fail |
+| Vloerverwarming - Voorinspectie | 14 | Pass/fail |
+| Vloerverwarming - Druktest & Oplevering | 16 | Pass/fail |
+| Ventilatie - Kanaalwerk & Installatie | 14 | Pass/fail |
+| Ventilatie - Inregelen & Oplevering | 16 | Pass/fail |
+| Installatie - NEN 2767 Conditiemeting | 18 | NEN 2767 |
 | Energielabel - Volledige opname | 43 | NEN 2767 |
 | Monument - Constructie & Schil | 18 | NEN 2767 |
 | Monument - Historisch Interieur | 15 | NEN 2767 |
@@ -178,6 +185,19 @@ Open-Field-Studio/
 | Fran&ccedil;ais | FR | Complete |
 
 Language preference is auto-detected from the browser/OS and persisted in localStorage.
+
+## Changelog
+
+### v0.1.1
+
+- **5 new installer templates** — floor heating (pre-inspection, pressure test & handover), ventilation (ductwork & installation, commissioning & handover), NEN 2767 condition assessment for building services
+- **Interactive checklist items** — items with multiple-choice options (e.g. housing type) render as tappable chips; `[FOTO]` items show inline camera/upload buttons per item
+- **Mobile responsive** — new 480px breakpoint for 6-inch phones: single-column layouts, stacked filters, larger touch targets
+- **Camera permission fix** — specific error messages for denied/blocked camera on Android, permission pre-check, `capture="environment"` fallback for direct mobile camera access
+
+### v0.1.0
+
+- Initial release with 10 checklist templates, 4-language support, Tauri desktop/Android builds
 
 ## License
 

@@ -188,6 +188,11 @@ Language preference is auto-detected from the browser/OS and persisted in localS
 
 ## Changelog
 
+### v0.1.2
+
+- **Camera permissie fix voor Android APK** — app-specifieke foutmeldingen ("Ga naar Instellingen > Apps > Rechten > Camera") in plaats van browser-instructies
+- **CAMERA permissie in AndroidManifest.xml** — APK vraagt nu correct camera-toegang aan
+
 ### v0.1.1
 
 - **5 new installer templates** — floor heating (pre-inspection, pressure test & handover), ventilation (ductwork & installation, commissioning & handover), NEN 2767 condition assessment for building services

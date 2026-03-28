@@ -322,6 +322,111 @@ class OpenFieldStudio {
                     'Waterhuishouding: afvoer hemelwater correct','Funderingsrapport beschikbaar','Constructieberekening beschikbaar','Borgingsplan gevolgd'
                 ]
             },
+            // ===== INSTALLATEUR TEMPLATES =====
+            {
+                id: 'tpl_vloerverwarming_voor', name: 'Vloerverwarming - Voorinspectie', category: 'Installatie',
+                items: [
+                    'Warmteverliesberekening aanwezig (ISSO 51 / NEN-EN 12831)',
+                    'Ondergrond vlak, droog en structureel geschikt',
+                    'Isolatie aanwezig met voldoende Rc-waarde (>= 3,0 m²K/W begane grond)',
+                    'Minimale dekking boven leidingen >= 25 mm (ISSO 49)',
+                    'Hotspot-checklist legionella uitgevoerd (ISSO 110970)',
+                    'Verlegtekeningen beschikbaar en correct',
+                    'Drukverliesberekeningen per groep aanwezig',
+                    'Randzone/verblijfszone-indeling conform ontwerp',
+                    'Buigradius leidingen conform voorschrift fabrikant',
+                    'Verdeler correct geplaatst en gelabeld per groep',
+                    'Max. drukverlies per groep <= 20 kPa (ISSO 49)',
+                    'Max. aanvoertemperatuur ingesteld op <= 40°C',
+                    'CE-markering alle componenten aanwezig',
+                    'Verwerkingsvoorschriften fabrikant op locatie beschikbaar'
+                ]
+            },
+            {
+                id: 'tpl_vloerverwarming_opl', name: 'Vloerverwarming - Druktest & Oplevering', category: 'Installatie',
+                items: [
+                    'Druktest uitgevoerd VOOR storten dekvloer',
+                    'Druktest per groep gedocumenteerd (druk, duur, resultaat)',
+                    'Drukniveau stabiel gedurende voorgeschreven periode',
+                    'Spoelprotocol per groep uitgevoerd (lucht en vuil verwijderd)',
+                    'Waterzijdig inregelen uitgevoerd per groep',
+                    'Inregelstaten per groep vastgelegd en gedocumenteerd',
+                    'Opstookprotocol gevolgd (geleidelijke temperatuurverhoging)',
+                    'Thermografische inspectie uitgevoerd (warmtebeeld)',
+                    'Geen koude zones of luchtinsluiting geconstateerd',
+                    'Verlegtekeningen as-built bijgewerkt',
+                    'Foto\'s leidingwerk gemaakt voor bedekking',
+                    'Conformiteitsverklaringen en certificaten compleet',
+                    'Opleverdossier samengesteld conform Wkb-dossierplicht',
+                    'Systeemdocumentatie overhandigd aan opdrachtgever',
+                    'Garantieverklaring afgegeven',
+                    'Handtekening opdrachtgever voor akkoord'
+                ]
+            },
+            {
+                id: 'tpl_ventilatie_install', name: 'Ventilatie - Kanaalwerk & Installatie', category: 'Installatie',
+                items: [
+                    'Ventilatieberekening aanwezig conform NEN 1087',
+                    'Kanalen schoon, vrij van beschadigingen en obstakels',
+                    'Luchtdichtheidstest kanalen uitgevoerd (NEN-EN 15727)',
+                    'Luchtdichtheidsklasse bepaald en gedocumenteerd (ATC2-ATC5)',
+                    'Alle aansluitingen afgedicht en correct gemonteerd',
+                    'Flexibele verbindingen correct aangebracht (geen knikken)',
+                    'Isolatie kanaalwerk aanwezig en compleet',
+                    'WTW-unit correct geplaatst en bereikbaar voor onderhoud',
+                    'Buitenluchtaanzuiging: luchtsnelheid max. 3 m/s',
+                    'Filters geplaatst conform NEN-EN-ISO 16890',
+                    'Condensafvoer correct aangesloten en afschot gecontroleerd',
+                    'Geluidsniveau <= 30 dB(A) in verblijfsruimten',
+                    'CE-markering alle componenten aanwezig',
+                    'Elektra-aansluiting conform NEN 1010'
+                ]
+            },
+            {
+                id: 'tpl_ventilatie_opl', name: 'Ventilatie - Inregelen & Oplevering', category: 'Installatie',
+                items: [
+                    'Alle ventielen volledig geopend voor startmeting',
+                    'Totaal luchtdebiet ingesteld op WTW-unit',
+                    'Debietmeting per toevoerpunt uitgevoerd en genoteerd',
+                    'Debietmeting per afzuigpunt uitgevoerd en genoteerd',
+                    'Woonkamer: min. 1 dm³/s per m² (min. 21 dm³/s) behaald',
+                    'Keuken: min. 21 dm³/s afzuigcapaciteit behaald',
+                    'Badkamer: min. 14 dm³/s afzuigcapaciteit behaald',
+                    'Toilet: min. 7 dm³/s afzuigcapaciteit behaald',
+                    'Slaapkamers: min. 1 dm³/s per m² (min. 7 dm³/s) behaald',
+                    'Balans toevoer en afvoer correct (geen over-/onderdruk)',
+                    'CO2-meting uitgevoerd en genoteerd',
+                    'Temperatuurmeting toevoer/afvoer uitgevoerd',
+                    'Geluidsmeting per ruimte gedocumenteerd (max. 30 dB(A))',
+                    'Meetrapport opgesteld met alle waarden per ventilatiepunt',
+                    'Opleverdossier compleet conform Wkb-dossierplicht',
+                    'Instructie bewoner/gebruiker uitgevoerd (filteronderhoud, bediening)'
+                ]
+            },
+            {
+                id: 'tpl_installatie_nen2767', name: 'Installatie - NEN 2767 Conditiemeting', category: 'Installatie',
+                scoring: 'nen2767',
+                items: [
+                    'Verwarmingsinstallatie (ketel / warmtepomp)',
+                    'Vloerverwarmingssysteem',
+                    'Radiatoren / convectoren',
+                    'Verdeler / collectoren vloerverwarming',
+                    'Leidingwerk verwarming',
+                    'Mechanische ventilatie-unit (WTW / MVS)',
+                    'Kanaalwerk ventilatie',
+                    'Ventielen en roosters',
+                    'Filters luchtbehandeling',
+                    'Koudwaterinstallatie',
+                    'Warmwaterinstallatie (boiler / doorstromer)',
+                    'Riolering en afvoerleidingen',
+                    'Elektrische installatie / groepenkast',
+                    'Schakelmateriaal en wandcontactdozen',
+                    'Brandbeveiligingsinstallatie',
+                    'Zonwering en regeling',
+                    'Domotica / gebouwautomatisering',
+                    'Koelinstallatie (indien aanwezig)'
+                ]
+            },
             // ===== ENERGIELABEL TEMPLATE =====
             {
                 id: 'tpl_energielabel', name: 'Energielabel - Volledige opname', category: 'Energielabel',
@@ -970,8 +1075,22 @@ class OpenFieldStudio {
     // CAMERA
     // =====================================================
     async openCamera() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            this.showNotification('Camera niet beschikbaar. Gebruik HTTPS of open via bestandskeuze.', 'error');
+            document.getElementById('photo-input')?.click();
+            return;
+        }
         this._cameraFacingMode = 'environment';
         try {
+            if (navigator.permissions) {
+                try {
+                    const perm = await navigator.permissions.query({ name: 'camera' });
+                    if (perm.state === 'denied') {
+                        this.showNotification('Camera geblokkeerd. Ga naar browser-instellingen > Site-instellingen > Camera > Toestaan, en herlaad de pagina.', 'error');
+                        return;
+                    }
+                } catch (_) { /* permissions API not supported for camera, continue */ }
+            }
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: { facingMode: this._cameraFacingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
                 audio: false
@@ -982,11 +1101,18 @@ class OpenFieldStudio {
             document.getElementById('camera-modal').classList.add('active');
         } catch (e) {
             console.error('Camera error:', e);
-            this.showNotification(this.t('msg_camera_error'), 'error');
+            if (e.name === 'NotAllowedError') {
+                this.showNotification('Camera-toegang geweigerd. Tik op het slot-icoon in de adresbalk > Camera > Toestaan, en herlaad de pagina.', 'error');
+            } else if (e.name === 'NotFoundError') {
+                this.showNotification('Geen camera gevonden op dit apparaat.', 'error');
+            } else {
+                this.showNotification(this.t('msg_camera_error'), 'error');
+            }
         }
     }
 
     capturePhoto() {
+        if (this._itemPhotoIdx !== undefined) { this.captureItemPhoto(); this.closeCamera(); return; }
         const video = document.getElementById('camera-video');
         const canvas = document.getElementById('camera-canvas');
         canvas.width = video.videoWidth;
@@ -1085,10 +1211,17 @@ class OpenFieldStudio {
         document.getElementById('insp-notes').value = insp.notes || '';
         const isNEN = insp.scoring === 'nen2767';
         const container = document.getElementById('checklist-items');
-        container.innerHTML = insp.items.map((item, idx) => `
-            <div class="checklist-item" data-idx="${idx}">
+        container.innerHTML = insp.items.map((item, idx) => {
+            const q = item.question;
+            const isPhoto = q.startsWith('[FOTO]');
+            const displayQ = q.replace(/^\[[A-Z\s\/]+\]\s*/, '');
+            const choiceMatch = this.parseChoiceItem(q);
+            return `
+            <div class="checklist-item ${isPhoto ? 'checklist-item-photo' : ''}" data-idx="${idx}">
                 <div style="flex:1">
-                    <div class="checklist-item-question">${this.esc(item.question)}</div>
+                    <div class="checklist-item-question">${this.esc(displayQ)}</div>
+                    ${choiceMatch ? this.renderChoiceInput(choiceMatch, item, idx) : ''}
+                    ${isPhoto ? this.renderPhotoInput(item, idx) : ''}
                     <div class="checklist-item-detail">
                         <textarea rows="1" placeholder="Notitie..." onchange="app.updateChecklistItem(${idx},'notes',this.value)">${this.esc(item.notes)}</textarea>
                     </div>
@@ -1102,9 +1235,108 @@ class OpenFieldStudio {
                     <button class="checklist-btn fail ${item.result==='fail'?'selected':''}" onclick="app.updateChecklistItem(${idx},'result','fail')" title="Fout">&#10007;</button>
                     <button class="checklist-btn na ${item.result==='na'?'selected':''}" onclick="app.updateChecklistItem(${idx},'result','na')" title="N.v.t.">-</button>
                 </div>`}
-            </div>
-        `).join('');
+            </div>`;
+        }).join('');
         this.updateInspectionProgress();
+    }
+
+    parseChoiceItem(question) {
+        const colonIdx = question.indexOf(':');
+        if (colonIdx < 0) return null;
+        const afterColon = question.substring(colonIdx + 1).trim();
+        const parts = afterColon.split('/').map(s => s.trim()).filter(s => s.length > 0);
+        if (parts.length >= 2 && parts.every(p => p.length < 40)) return { label: question.substring(0, colonIdx).replace(/^\[[A-Z\s\/]+\]\s*/, ''), options: parts };
+        return null;
+    }
+
+    renderChoiceInput(choice, item, idx) {
+        const selected = (item.choice || '').split(',').map(s => s.trim()).filter(Boolean);
+        return `<div class="checklist-choices">${choice.options.map(opt => {
+            const isActive = selected.includes(opt);
+            return `<button type="button" class="checklist-choice ${isActive ? 'selected' : ''}" onclick="app.toggleChoice(${idx},'${this.esc(opt)}')">${this.esc(opt)}</button>`;
+        }).join('')}</div>`;
+    }
+
+    toggleChoice(idx, option) {
+        const insp = this.inspections.find(i => i.id === this.currentInspectionId);
+        if (!insp) return;
+        const item = insp.items[idx];
+        let selected = (item.choice || '').split(',').map(s => s.trim()).filter(Boolean);
+        if (selected.includes(option)) selected = selected.filter(s => s !== option);
+        else selected.push(option);
+        item.choice = selected.join(', ');
+        this.saveToLocalStorage();
+        this.renderChecklistExecution();
+    }
+
+    renderPhotoInput(item, idx) {
+        const photos = item.photos || [];
+        return `<div class="checklist-photo-input">
+            <div class="checklist-photo-thumbs">${photos.map((p, pi) => `
+                <div class="checklist-photo-thumb">
+                    <img src="${p.data}" alt="${this.esc(p.name)}" onclick="app.viewItemPhoto(${idx},${pi})">
+                    <button class="remove-photo" onclick="event.stopPropagation();app.removeItemPhoto(${idx},${pi})">&times;</button>
+                </div>`).join('')}</div>
+            <div class="checklist-photo-actions">
+                <button type="button" class="btn btn-sm btn-secondary" onclick="app.openItemCamera(${idx})">&#128247; Foto</button>
+                <label class="btn btn-sm btn-secondary" style="cursor:pointer">&#128206; Upload<input type="file" accept="image/*" multiple hidden onchange="app.uploadItemPhotos(${idx},this.files);this.value='';"></label>
+            </div>
+        </div>`;
+    }
+
+    async openItemCamera(idx) {
+        this._itemPhotoIdx = idx;
+        await this.openCamera();
+    }
+
+    captureItemPhoto() {
+        const video = document.getElementById('camera-video');
+        const canvas = document.getElementById('camera-canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const insp = this.inspections.find(i => i.id === this.currentInspectionId);
+        if (insp && this._itemPhotoIdx !== undefined) {
+            const item = insp.items[this._itemPhotoIdx];
+            if (!item.photos) item.photos = [];
+            item.photos.push({ id: this.genId(), data: dataUrl, name: `foto_${new Date().toISOString().slice(11,19).replace(/:/g,'')}.jpg` });
+            this.saveToLocalStorage();
+            this.renderChecklistExecution();
+            this.showNotification(this.t('msg_photo_captured'), 'success');
+        }
+        this._itemPhotoIdx = undefined;
+    }
+
+    uploadItemPhotos(idx, files) {
+        const insp = this.inspections.find(i => i.id === this.currentInspectionId);
+        if (!insp) return;
+        const item = insp.items[idx];
+        if (!item.photos) item.photos = [];
+        Array.from(files).forEach(file => {
+            if (!file.type.startsWith('image/')) return;
+            const r = new FileReader();
+            r.onload = (e) => { item.photos.push({ id: this.genId(), data: e.target.result, name: file.name }); this.saveToLocalStorage(); this.renderChecklistExecution(); };
+            r.readAsDataURL(file);
+        });
+    }
+
+    removeItemPhoto(idx, photoIdx) {
+        const insp = this.inspections.find(i => i.id === this.currentInspectionId);
+        if (!insp) return;
+        insp.items[idx].photos.splice(photoIdx, 1);
+        this.saveToLocalStorage();
+        this.renderChecklistExecution();
+    }
+
+    viewItemPhoto(idx, photoIdx) {
+        const insp = this.inspections.find(i => i.id === this.currentInspectionId);
+        if (!insp) return;
+        const photo = insp.items[idx].photos[photoIdx];
+        if (photo) {
+            document.getElementById('photo-viewer-image').src = photo.data;
+            document.getElementById('photo-viewer-modal').classList.add('active');
+        }
     }
 
     getNENLabel(score) {

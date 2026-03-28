@@ -1901,3 +1901,215 @@ body {
         flex-direction: column;
     }
 }
+
+/* ===== INTERACTIEVE CHECKLIST COMPONENTEN ===== */
+
+.checklist-choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: var(--sp-2);
+}
+
+.checklist-choice {
+    padding: 6px 14px;
+    border: 1.5px solid var(--border-color);
+    border-radius: 20px;
+    background: var(--surface);
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: var(--font-body);
+    color: var(--text-primary);
+}
+
+.checklist-choice:hover {
+    border-color: var(--primary);
+    background: rgba(59, 130, 246, 0.05);
+}
+
+.checklist-choice.selected {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+
+.checklist-photo-input {
+    margin-top: var(--sp-2);
+}
+
+.checklist-photo-thumbs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.checklist-photo-thumb {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.checklist-photo-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    cursor: pointer;
+}
+
+.checklist-photo-thumb .remove-photo {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.6);
+    color: #fff;
+    border: none;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.checklist-photo-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-sm {
+    padding: 4px 12px;
+    font-size: 0.8rem;
+}
+
+/* ===== MOBILE 6-INCH (max 480px) ===== */
+
+@media (max-width: 480px) {
+    .main-content {
+        padding: var(--sp-2);
+    }
+
+    .panel {
+        padding: var(--sp-3);
+    }
+
+    .form-grid {
+        gap: var(--sp-2);
+    }
+
+    .dashboard-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--sp-2);
+    }
+
+    .dashboard-panels {
+        grid-template-columns: 1fr;
+    }
+
+    .opname-container {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
+
+    .points-panel {
+        max-height: 250px;
+    }
+
+    .checklist-item {
+        flex-direction: column;
+        padding: var(--sp-3);
+        gap: var(--sp-2);
+    }
+
+    .checklist-item-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .checklist-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 1.1rem;
+    }
+
+    .nen-scores {
+        flex-wrap: wrap;
+    }
+
+    .form-actions {
+        flex-direction: column;
+    }
+
+    .form-actions .btn {
+        width: 100%;
+    }
+
+    .floor-selector {
+        flex-direction: column;
+        gap: var(--sp-2);
+    }
+
+    .floor-selector select {
+        max-width: 100%;
+    }
+
+    .ticket-filters {
+        flex-direction: column;
+        gap: var(--sp-2);
+    }
+
+    .ticket-filters select {
+        width: 100%;
+    }
+
+    .modal-content {
+        width: 96%;
+        max-height: 95vh;
+    }
+
+    .modal-wide {
+        max-width: 100%;
+    }
+
+    .nav-btn {
+        padding: var(--sp-1) var(--sp-2);
+        font-size: 0.75rem;
+    }
+
+    .nav-btn svg {
+        display: none;
+    }
+
+    .inspection-card {
+        flex-direction: column;
+        gap: var(--sp-2);
+    }
+
+    .ho-participant-row {
+        grid-template-columns: 1fr;
+    }
+
+    .chart-container {
+        min-height: 150px;
+    }
+
+    .checklist-photo-actions {
+        flex-wrap: wrap;
+    }
+
+    .checklist-choices {
+        gap: 4px;
+    }
+
+    .checklist-choice {
+        padding: 5px 10px;
+        font-size: 0.78rem;
+    }
+}

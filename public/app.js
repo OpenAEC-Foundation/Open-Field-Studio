@@ -1075,6 +1075,7 @@ class OpenFieldStudio {
     // CAMERA
     // =====================================================
     async openCamera() {
+        const isApp = !!window.__TAURI_INTERNALS__;
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             this.showNotification('Camera niet beschikbaar. Gebruik HTTPS of open via bestandskeuze.', 'error');
             document.getElementById('photo-input')?.click();
@@ -1086,7 +1087,11 @@ class OpenFieldStudio {
                 try {
                     const perm = await navigator.permissions.query({ name: 'camera' });
                     if (perm.state === 'denied') {
-                        this.showNotification('Camera geblokkeerd. Ga naar browser-instellingen > Site-instellingen > Camera > Toestaan, en herlaad de pagina.', 'error');
+                        if (isApp) {
+                            this.showNotification('Camera geblokkeerd. Ga naar Android Instellingen > Apps > Open Field Studio > Rechten > Camera > Toestaan.', 'error');
+                        } else {
+                            this.showNotification('Camera geblokkeerd. Ga naar browser-instellingen > Site-instellingen > Camera > Toestaan, en herlaad de pagina.', 'error');
+                        }
                         return;
                     }
                 } catch (_) { /* permissions API not supported for camera, continue */ }
@@ -1102,7 +1107,11 @@ class OpenFieldStudio {
         } catch (e) {
             console.error('Camera error:', e);
             if (e.name === 'NotAllowedError') {
-                this.showNotification('Camera-toegang geweigerd. Tik op het slot-icoon in de adresbalk > Camera > Toestaan, en herlaad de pagina.', 'error');
+                if (isApp) {
+                    this.showNotification('Camera-toegang geweigerd. Ga naar Android Instellingen > Apps > Open Field Studio > Rechten > Camera > Toestaan.', 'error');
+                } else {
+                    this.showNotification('Camera-toegang geweigerd. Tik op het slot-icoon in de adresbalk > Camera > Toestaan, en herlaad de pagina.', 'error');
+                }
             } else if (e.name === 'NotFoundError') {
                 this.showNotification('Geen camera gevonden op dit apparaat.', 'error');
             } else {

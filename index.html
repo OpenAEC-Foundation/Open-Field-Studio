@@ -31,7 +31,7 @@
 
         <div class="title-bar-center">
             <span class="title-bar-app-name">Open Field Studio</span>
-            <span class="title-bar-version">v0.1.0</span>
+            <span class="title-bar-version">v0.1.3</span>
         </div>
 
         <div class="window-controls">
@@ -314,12 +314,37 @@
 
                 <!-- Inspectie uitvoeren -->
                 <div class="panel" id="inspectie-execute" style="display:none;">
-                    <div class="inspectie-header">
-                        <h2 id="insp-exec-title">Inspectie</h2>
-                        <div class="inspectie-progress">
-                            <span id="insp-progress-text">0 / 0</span>
-                            <div class="progress-bar"><div class="progress-fill" id="insp-progress-bar"></div></div>
+                    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;">
+                        <button type="button" class="btn btn-secondary btn-sm" id="back-to-inspections" style="flex-shrink:0;">&larr; Terug</button>
+                        <h2 id="insp-exec-title" style="flex:1;margin:0;">Inspectie</h2>
+                        <button type="button" class="btn btn-secondary btn-sm" id="edit-insp-info-btn" title="Bewerk basisinfo">&#9998; Bewerken</button>
+                    </div>
+                    <div id="insp-edit-info" class="form-grid" style="display:none;margin-bottom:1rem;padding:1rem;background:var(--concrete);border-radius:var(--radius);border:1px solid var(--border-color);">
+                        <div class="form-group">
+                            <label for="insp-edit-name">Naam inspectie</label>
+                            <input type="text" id="insp-edit-name">
                         </div>
+                        <div class="form-group">
+                            <label for="insp-edit-inspector">Inspecteur</label>
+                            <input type="text" id="insp-edit-inspector">
+                        </div>
+                        <div class="form-group">
+                            <label for="insp-edit-date">Datum</label>
+                            <input type="date" id="insp-edit-date">
+                        </div>
+                        <div class="form-group">
+                            <label for="insp-edit-floor">Plattegrond</label>
+                            <select id="insp-edit-floor">
+                                <option value="">-- Optioneel --</option>
+                            </select>
+                        </div>
+                        <div class="form-actions" style="grid-column:1/-1;">
+                            <button type="button" class="btn btn-primary btn-sm" id="save-insp-info-btn">Opslaan</button>
+                        </div>
+                    </div>
+                    <div class="inspectie-progress" style="margin-bottom:1rem;">
+                        <span id="insp-progress-text">0 / 0</span>
+                        <div class="progress-bar"><div class="progress-fill" id="insp-progress-bar"></div></div>
                     </div>
                     <div id="checklist-items" class="checklist-items"></div>
                     <div class="form-group full-width" style="margin-top:1.5rem;">
@@ -327,7 +352,7 @@
                         <textarea id="insp-notes" rows="3" placeholder="Opmerkingen bij deze inspectie..."></textarea>
                     </div>
                     <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" id="back-to-inspections">Terug</button>
+                        <button type="button" class="btn btn-secondary" id="back-to-inspections-bottom">&larr; Terug naar overzicht</button>
                         <button type="button" class="btn btn-primary" id="finish-inspection-btn">Inspectie Afronden</button>
                     </div>
                 </div>

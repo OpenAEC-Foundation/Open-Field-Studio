@@ -129,23 +129,23 @@ Open-Field-Studio/
 
 ## Checklist Templates
 
-| Template | Items | Scoring |
-|----------|-------|---------|
-| Bouwkundige opname | 16 | Pass/fail |
-| Installatie-inspectie | 16 | Pass/fail |
-| Veiligheidsinspectie | 14 | Pass/fail |
-| Oplevering voorinspectie | 16 | Pass/fail |
-| Wkb-basiscontrole | 16 | Pass/fail |
-| Vloerverwarming - Voorinspectie | 14 | Pass/fail |
-| Vloerverwarming - Druktest & Oplevering | 16 | Pass/fail |
-| Ventilatie - Kanaalwerk & Installatie | 14 | Pass/fail |
-| Ventilatie - Inregelen & Oplevering | 16 | Pass/fail |
-| Installatie - NEN 2767 Conditiemeting | 18 | NEN 2767 |
-| Energielabel - Volledige opname | 43 | NEN 2767 |
-| Monument - Constructie & Schil | 18 | NEN 2767 |
-| Monument - Historisch Interieur | 15 | NEN 2767 |
-| Monument - Vocht & Schade | 18 | NEN 2767 |
-| Monument - Instandhoudingsplan | 18 | NEN 2767 |
+| Template | Items | Invoertypen |
+|----------|-------|-------------|
+| Bouwkundige opname | 16 | Check |
+| Installatie-inspectie | 16 | Check |
+| Veiligheidsinspectie | 14 | Check |
+| Oplevering voorinspectie | 16 | Check + tekst (meterstanden) |
+| Wkb-basiscontrole | 16 | Check |
+| Vloerverwarming - Voorinspectie | 15 | Check + getal (kPa, °C, m²K/W) |
+| Vloerverwarming - Druktest & Oplevering | 16 | Check + getal (kPa) + foto |
+| Ventilatie - Kanaalwerk & Installatie | 14 | Check + keuze (ATC-klasse) + getal |
+| Ventilatie - Inregelen & Oplevering | 16 | Check + getal (dm³/s, ppm, dB(A)) |
+| Installatie - NEN 2767 Conditiemeting | 18 | NEN 2767 (1–6) |
+| Energielabel - Volledige opname | 46 | Keuze + getal + tekst + foto + check |
+| Monument - Constructie & Schil | 18 | NEN 2767 (1–6) |
+| Monument - Historisch Interieur | 15 | NEN 2767 (1–6) |
+| Monument - Vocht & Schade | 19 | NEN 2767 (1–6) + getal (mm) |
+| Monument - Instandhoudingsplan | 18 | NEN 2767 (1–6) + getal (€) + check |
 
 ## Keyboard Shortcuts
 
@@ -187,6 +187,16 @@ Open-Field-Studio/
 Language preference is auto-detected from the browser/OS and persisted in localStorage.
 
 ## Changelog
+
+### v0.1.3
+
+- **Getypte checklist items** — elk template-item heeft nu het juiste invoertype: `check` (✓/✗/-), `select` (keuzechips), `number` (getal met eenheid), `text` (tekstveld), `photo` (camera + upload), `nen2767` (1–6 schaal)
+- **Energielabel template verbeterd** — woningtype als keuzechips, bouwjaar/oppervlak als getalvelden, ketel/installaties als tekstvelden, fotodocumentatie als fotovelden
+- **Ventilatie inregelen** — debieten per ruimte (dm³/s), CO₂-meting (ppm), geluidswaarden (dB(A)) als meetvelden met eenheid
+- **Vloerverwarming** — druktestwaarden (kPa) en aanvoertemperatuur (°C) als meetvelden
+- **Ventilatie installatie** — luchtdichtheidsklasse als keuze (ATC2/3/4/5), geluidsniveau als meetveld
+- **Monument & NEN 2767** — scheurwijdte als mm-meetveld, onderhoudsinplan kosten als €-velden
+- **Voortgangsteller** — telt nu correct per itemtype: check op resultaat, number/select/text op ingevulde waarde, photo op aanwezige foto's
 
 ### v0.1.2
 

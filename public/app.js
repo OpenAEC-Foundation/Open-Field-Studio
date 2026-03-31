@@ -275,216 +275,282 @@ class OpenFieldStudio {
     // DEFAULT CHECKLIST TEMPLATES
     // =====================================================
     getDefaultTemplates() {
+        // Steno-helpers voor item-objecten
+        const c  = (q)           => ({ q, type: 'check' });
+        const n  = (q, unit)     => ({ q, type: 'number', unit });
+        const t  = (q)           => ({ q, type: 'text' });
+        const s  = (q, options)  => ({ q, type: 'select', options });
+        const p  = (q)           => ({ q, type: 'photo' });
+        const nn = (q)           => ({ q, type: 'nen2767' });
         return [
             {
                 id: 'tpl_bouwkundig', name: 'Bouwkundige opname', category: 'Bouwkundig',
                 items: [
-                    'Staat van het metselwerk / gevelstenen','Voegen in goede conditie','Betonwerk vrij van scheuren','Houten constructiedelen vrij van rot',
-                    'Staalconstructie vrij van roest','Dakbedekking waterdicht','Dakgoten en hemelwaterafvoer functioneel','Kozijnen in goede staat',
-                    'Beglazing heel en goed gekit','Buitendeuren sluiten goed','Vloeren vlak en zonder scheuren','Wanden recht en zonder scheuren',
-                    'Plafonds vrij van vlekken/scheuren','Trappen veilig en stevig','Balkon/galerij in goede staat','Fundering geen zichtbare gebreken'
+                    c('Staat van het metselwerk / gevelstenen'),
+                    c('Voegen in goede conditie'),
+                    c('Betonwerk vrij van scheuren'),
+                    c('Houten constructiedelen vrij van rot'),
+                    c('Staalconstructie vrij van roest'),
+                    c('Dakbedekking waterdicht'),
+                    c('Dakgoten en hemelwaterafvoer functioneel'),
+                    c('Kozijnen in goede staat'),
+                    c('Beglazing heel en goed gekit'),
+                    c('Buitendeuren sluiten goed'),
+                    c('Vloeren vlak en zonder scheuren'),
+                    c('Wanden recht en zonder scheuren'),
+                    c('Plafonds vrij van vlekken/scheuren'),
+                    c('Trappen veilig en stevig'),
+                    c('Balkon/galerij in goede staat'),
+                    c('Fundering geen zichtbare gebreken')
                 ]
             },
             {
                 id: 'tpl_installatie', name: 'Installatie-inspectie', category: 'Installaties',
                 items: [
-                    'Elektra: groepenkast correct gelabeld','Elektra: aardlekschakelaars werken','Elektra: stopcontacten functioneel','Elektra: verlichtingspunten werken',
-                    'Water: geen lekkages zichtbaar','Water: warm watervoorziening werkt','Water: waterdruk voldoende','Sanitair: toiletten spoelen goed',
-                    'Sanitair: kranen lekvrij','Verwarming: radiatoren worden warm','Verwarming: thermostaat functioneel','Ventilatie: mechanische ventilatie werkt',
-                    'Ventilatie: roosters open en schoon','Ventilatie: afzuiging keuken/badkamer werkt','Gas: leidingen lekvrij','Intercom/belsysteem werkt'
+                    c('Elektra: groepenkast correct gelabeld'),
+                    c('Elektra: aardlekschakelaars werken'),
+                    c('Elektra: stopcontacten functioneel'),
+                    c('Elektra: verlichtingspunten werken'),
+                    c('Water: geen lekkages zichtbaar'),
+                    c('Water: warm watervoorziening werkt'),
+                    c('Water: waterdruk voldoende'),
+                    c('Sanitair: toiletten spoelen goed'),
+                    c('Sanitair: kranen lekvrij'),
+                    c('Verwarming: radiatoren worden warm'),
+                    c('Verwarming: thermostaat functioneel'),
+                    c('Ventilatie: mechanische ventilatie werkt'),
+                    c('Ventilatie: roosters open en schoon'),
+                    c('Ventilatie: afzuiging keuken/badkamer werkt'),
+                    c('Gas: leidingen lekvrij'),
+                    c('Intercom/belsysteem werkt')
                 ]
             },
             {
                 id: 'tpl_veiligheid', name: 'Veiligheidsinspectie', category: 'Veiligheid',
                 items: [
-                    'Rookmelders aanwezig en werkend','CO-melders aanwezig (bij gastoestellen)','Brandblusser aanwezig en gekeurd','Vluchtwegen vrij en gemarkeerd',
-                    'Noodverlichting functioneel','Brandwerende deuren sluiten goed','Trapleuningen stevig bevestigd','Glazen puien gemarkeerd',
-                    'Elektrische installatie NEN 1010 conform','Gasinstallatie gekeurd','Valbeveiliging op hoogte aanwezig','EHBO-voorzieningen aanwezig',
-                    'Veiligheidsglas waar vereist','Anti-slip voorzieningen natte ruimtes'
+                    c('Rookmelders aanwezig en werkend'),
+                    c('CO-melders aanwezig (bij gastoestellen)'),
+                    c('Brandblusser aanwezig en gekeurd'),
+                    c('Vluchtwegen vrij en gemarkeerd'),
+                    c('Noodverlichting functioneel'),
+                    c('Brandwerende deuren sluiten goed'),
+                    c('Trapleuningen stevig bevestigd'),
+                    c('Glazen puien gemarkeerd'),
+                    c('Elektrische installatie NEN 1010 conform'),
+                    c('Gasinstallatie gekeurd'),
+                    c('Valbeveiliging op hoogte aanwezig'),
+                    c('EHBO-voorzieningen aanwezig'),
+                    c('Veiligheidsglas waar vereist'),
+                    c('Anti-slip voorzieningen natte ruimtes')
                 ]
             },
             {
                 id: 'tpl_oplevering', name: 'Oplevering voorinspectie', category: 'Oplevering',
                 items: [
-                    'Schilderwerk: dekkend en strak afgewerkt','Schilderwerk: geen verfdruppels/vlekken','Behang: strak geplakt, geen bobbels','Tegelwerk: rechte voegen, geen beschadigingen',
-                    'Voegen: netjes afgewerkt','Kitwerk: strak aangebracht','Plinten: recht en netjes bevestigd','Deuren: sluiten goed, geen klemmen',
-                    'Ramen: openen en sluiten soepel','Vloer: schoon en onbeschadigd','Schoonmaak: bouwstof verwijderd','Schoonmaak: ramen gewassen',
-                    'Alle ruimtes toegankelijk','Sleutels/tags compleet','Handleidingen aanwezig','Meterstanden opgenomen'
+                    c('Schilderwerk: dekkend en strak afgewerkt'),
+                    c('Schilderwerk: geen verfdruppels/vlekken'),
+                    c('Behang: strak geplakt, geen bobbels'),
+                    c('Tegelwerk: rechte voegen, geen beschadigingen'),
+                    c('Voegen: netjes afgewerkt'),
+                    c('Kitwerk: strak aangebracht'),
+                    c('Plinten: recht en netjes bevestigd'),
+                    c('Deuren: sluiten goed, geen klemmen'),
+                    c('Ramen: openen en sluiten soepel'),
+                    c('Vloer: schoon en onbeschadigd'),
+                    c('Schoonmaak: bouwstof verwijderd'),
+                    c('Schoonmaak: ramen gewassen'),
+                    c('Alle ruimtes toegankelijk'),
+                    c('Sleutels/tags compleet'),
+                    c('Handleidingen aanwezig'),
+                    t('Meterstanden (elektra / gas / water)')
                 ]
             },
             {
                 id: 'tpl_wkb', name: 'Wkb-basiscontrole', category: 'Wkb',
                 items: [
-                    'Constructieve veiligheid: conform berekening','Brandveiligheid: compartimentering correct','Brandveiligheid: vluchtroutes conform ontwerp',
-                    'Gebruiksveiligheid: trappen conform Bouwbesluit','Gebruiksveiligheid: balustrades juiste hoogte','Energieprestatie: isolatie conform EPC-berekening',
-                    'Energieprestatie: luchtdichtheid gemeten','Geluid: contactgeluidisolatie voldoende','Geluid: luchtgeluidisolatie voldoende',
-                    'Ventilatie: capaciteit conform Bouwbesluit','Daglicht: raamoppervlak voldoende','Toegankelijkheid: drempels conform eisen',
-                    'Waterhuishouding: afvoer hemelwater correct','Funderingsrapport beschikbaar','Constructieberekening beschikbaar','Borgingsplan gevolgd'
+                    c('Constructieve veiligheid: conform berekening'),
+                    c('Brandveiligheid: compartimentering correct'),
+                    c('Brandveiligheid: vluchtroutes conform ontwerp'),
+                    c('Gebruiksveiligheid: trappen conform Bouwbesluit'),
+                    c('Gebruiksveiligheid: balustrades juiste hoogte'),
+                    c('Energieprestatie: isolatie conform EPC-berekening'),
+                    c('Energieprestatie: luchtdichtheid gemeten'),
+                    c('Geluid: contactgeluidisolatie voldoende'),
+                    c('Geluid: luchtgeluidisolatie voldoende'),
+                    c('Ventilatie: capaciteit conform Bouwbesluit'),
+                    c('Daglicht: raamoppervlak voldoende'),
+                    c('Toegankelijkheid: drempels conform eisen'),
+                    c('Waterhuishouding: afvoer hemelwater correct'),
+                    c('Funderingsrapport beschikbaar'),
+                    c('Constructieberekening beschikbaar'),
+                    c('Borgingsplan gevolgd')
                 ]
             },
             // ===== INSTALLATEUR TEMPLATES =====
             {
                 id: 'tpl_vloerverwarming_voor', name: 'Vloerverwarming - Voorinspectie', category: 'Installatie',
                 items: [
-                    'Warmteverliesberekening aanwezig (ISSO 51 / NEN-EN 12831)',
-                    'Ondergrond vlak, droog en structureel geschikt',
-                    'Isolatie aanwezig met voldoende Rc-waarde (>= 3,0 m²K/W begane grond)',
-                    'Minimale dekking boven leidingen >= 25 mm (ISSO 49)',
-                    'Hotspot-checklist legionella uitgevoerd (ISSO 110970)',
-                    'Verlegtekeningen beschikbaar en correct',
-                    'Drukverliesberekeningen per groep aanwezig',
-                    'Randzone/verblijfszone-indeling conform ontwerp',
-                    'Buigradius leidingen conform voorschrift fabrikant',
-                    'Verdeler correct geplaatst en gelabeld per groep',
-                    'Max. drukverlies per groep <= 20 kPa (ISSO 49)',
-                    'Max. aanvoertemperatuur ingesteld op <= 40°C',
-                    'CE-markering alle componenten aanwezig',
-                    'Verwerkingsvoorschriften fabrikant op locatie beschikbaar'
+                    c('Warmteverliesberekening aanwezig (ISSO 51 / NEN-EN 12831)'),
+                    c('Ondergrond vlak, droog en structureel geschikt'),
+                    c('Isolatie aanwezig met voldoende Rc-waarde (≥ 3,0 m²K/W)'),
+                    n('Gemeten Rc-waarde isolatie', 'm²K/W'),
+                    c('Minimale dekking boven leidingen ≥ 25 mm (ISSO 49)'),
+                    c('Hotspot-checklist legionella uitgevoerd (ISSO 110970)'),
+                    c('Verlegtekeningen beschikbaar en correct'),
+                    c('Drukverliesberekeningen per groep aanwezig'),
+                    c('Randzone/verblijfszone-indeling conform ontwerp'),
+                    c('Buigradius leidingen conform voorschrift fabrikant'),
+                    c('Verdeler correct geplaatst en gelabeld per groep'),
+                    n('Max. drukverlies per groep gemeten', 'kPa'),
+                    n('Ingestelde aanvoertemperatuur', '°C'),
+                    c('CE-markering alle componenten aanwezig'),
+                    c('Verwerkingsvoorschriften fabrikant op locatie beschikbaar')
                 ]
             },
             {
                 id: 'tpl_vloerverwarming_opl', name: 'Vloerverwarming - Druktest & Oplevering', category: 'Installatie',
                 items: [
-                    'Druktest uitgevoerd VOOR storten dekvloer',
-                    'Druktest per groep gedocumenteerd (druk, duur, resultaat)',
-                    'Drukniveau stabiel gedurende voorgeschreven periode',
-                    'Spoelprotocol per groep uitgevoerd (lucht en vuil verwijderd)',
-                    'Waterzijdig inregelen uitgevoerd per groep',
-                    'Inregelstaten per groep vastgelegd en gedocumenteerd',
-                    'Opstookprotocol gevolgd (geleidelijke temperatuurverhoging)',
-                    'Thermografische inspectie uitgevoerd (warmtebeeld)',
-                    'Geen koude zones of luchtinsluiting geconstateerd',
-                    'Verlegtekeningen as-built bijgewerkt',
-                    'Foto\'s leidingwerk gemaakt voor bedekking',
-                    'Conformiteitsverklaringen en certificaten compleet',
-                    'Opleverdossier samengesteld conform Wkb-dossierplicht',
-                    'Systeemdocumentatie overhandigd aan opdrachtgever',
-                    'Garantieverklaring afgegeven',
-                    'Handtekening opdrachtgever voor akkoord'
+                    c('Druktest uitgevoerd VOOR storten dekvloer'),
+                    c('Druktest per groep gedocumenteerd (druk, duur, resultaat)'),
+                    n('Druktest drukwaarde', 'kPa'),
+                    c('Drukniveau stabiel gedurende voorgeschreven periode'),
+                    c('Spoelprotocol per groep uitgevoerd (lucht en vuil verwijderd)'),
+                    c('Waterzijdig inregelen uitgevoerd per groep'),
+                    c('Inregelstaten per groep vastgelegd en gedocumenteerd'),
+                    c('Opstookprotocol gevolgd (geleidelijke temperatuurverhoging)'),
+                    c('Thermografische inspectie uitgevoerd (warmtebeeld)'),
+                    c('Geen koude zones of luchtinsluiting geconstateerd'),
+                    c('Verlegtekeningen as-built bijgewerkt'),
+                    p('Foto\'s leidingwerk voor bedekking'),
+                    c('Conformiteitsverklaringen en certificaten compleet'),
+                    c('Opleverdossier samengesteld conform Wkb-dossierplicht'),
+                    c('Systeemdocumentatie overhandigd aan opdrachtgever'),
+                    c('Garantieverklaring afgegeven')
                 ]
             },
             {
                 id: 'tpl_ventilatie_install', name: 'Ventilatie - Kanaalwerk & Installatie', category: 'Installatie',
                 items: [
-                    'Ventilatieberekening aanwezig conform NEN 1087',
-                    'Kanalen schoon, vrij van beschadigingen en obstakels',
-                    'Luchtdichtheidstest kanalen uitgevoerd (NEN-EN 15727)',
-                    'Luchtdichtheidsklasse bepaald en gedocumenteerd (ATC2-ATC5)',
-                    'Alle aansluitingen afgedicht en correct gemonteerd',
-                    'Flexibele verbindingen correct aangebracht (geen knikken)',
-                    'Isolatie kanaalwerk aanwezig en compleet',
-                    'WTW-unit correct geplaatst en bereikbaar voor onderhoud',
-                    'Buitenluchtaanzuiging: luchtsnelheid max. 3 m/s',
-                    'Filters geplaatst conform NEN-EN-ISO 16890',
-                    'Condensafvoer correct aangesloten en afschot gecontroleerd',
-                    'Geluidsniveau <= 30 dB(A) in verblijfsruimten',
-                    'CE-markering alle componenten aanwezig',
-                    'Elektra-aansluiting conform NEN 1010'
+                    c('Ventilatieberekening aanwezig conform NEN 1087'),
+                    c('Kanalen schoon, vrij van beschadigingen en obstakels'),
+                    c('Luchtdichtheidstest kanalen uitgevoerd (NEN-EN 15727)'),
+                    s('Luchtdichtheidsklasse kanaalwerk', ['ATC2', 'ATC3', 'ATC4', 'ATC5']),
+                    c('Alle aansluitingen afgedicht en correct gemonteerd'),
+                    c('Flexibele verbindingen correct aangebracht (geen knikken)'),
+                    c('Isolatie kanaalwerk aanwezig en compleet'),
+                    c('WTW-unit correct geplaatst en bereikbaar voor onderhoud'),
+                    n('Luchtsnelheid buitenluchtaanzuiging', 'm/s'),
+                    c('Filters geplaatst conform NEN-EN-ISO 16890'),
+                    c('Condensafvoer correct aangesloten en afschot gecontroleerd'),
+                    n('Geluidsniveau verblijfsruimten', 'dB(A)'),
+                    c('CE-markering alle componenten aanwezig'),
+                    c('Elektra-aansluiting conform NEN 1010')
                 ]
             },
             {
                 id: 'tpl_ventilatie_opl', name: 'Ventilatie - Inregelen & Oplevering', category: 'Installatie',
                 items: [
-                    'Alle ventielen volledig geopend voor startmeting',
-                    'Totaal luchtdebiet ingesteld op WTW-unit',
-                    'Debietmeting per toevoerpunt uitgevoerd en genoteerd',
-                    'Debietmeting per afzuigpunt uitgevoerd en genoteerd',
-                    'Woonkamer: min. 1 dm³/s per m² (min. 21 dm³/s) behaald',
-                    'Keuken: min. 21 dm³/s afzuigcapaciteit behaald',
-                    'Badkamer: min. 14 dm³/s afzuigcapaciteit behaald',
-                    'Toilet: min. 7 dm³/s afzuigcapaciteit behaald',
-                    'Slaapkamers: min. 1 dm³/s per m² (min. 7 dm³/s) behaald',
-                    'Balans toevoer en afvoer correct (geen over-/onderdruk)',
-                    'CO2-meting uitgevoerd en genoteerd',
-                    'Temperatuurmeting toevoer/afvoer uitgevoerd',
-                    'Geluidsmeting per ruimte gedocumenteerd (max. 30 dB(A))',
-                    'Meetrapport opgesteld met alle waarden per ventilatiepunt',
-                    'Opleverdossier compleet conform Wkb-dossierplicht',
-                    'Instructie bewoner/gebruiker uitgevoerd (filteronderhoud, bediening)'
+                    c('Alle ventielen volledig geopend voor startmeting'),
+                    c('Totaal luchtdebiet ingesteld op WTW-unit'),
+                    c('Debietmeting per toevoerpunt uitgevoerd en genoteerd'),
+                    c('Debietmeting per afzuigpunt uitgevoerd en genoteerd'),
+                    n('Woonkamer: gemeten toevoerdebiet', 'dm³/s'),
+                    n('Keuken: gemeten afzuigdebiet', 'dm³/s'),
+                    n('Badkamer: gemeten afzuigdebiet', 'dm³/s'),
+                    n('Toilet: gemeten afzuigdebiet', 'dm³/s'),
+                    n('Slaapkamers: gemeten toevoerdebiet (totaal)', 'dm³/s'),
+                    c('Balans toevoer en afvoer correct (geen over-/onderdruk)'),
+                    n('CO2-meting verblijfsruimte', 'ppm'),
+                    c('Temperatuurmeting toevoer/afvoer uitgevoerd'),
+                    n('Geluidsniveau per ruimte', 'dB(A)'),
+                    c('Meetrapport opgesteld met alle waarden per ventilatiepunt'),
+                    c('Opleverdossier compleet conform Wkb-dossierplicht'),
+                    c('Instructie bewoner/gebruiker uitgevoerd (filteronderhoud, bediening)')
                 ]
             },
             {
                 id: 'tpl_installatie_nen2767', name: 'Installatie - NEN 2767 Conditiemeting', category: 'Installatie',
                 scoring: 'nen2767',
                 items: [
-                    'Verwarmingsinstallatie (ketel / warmtepomp)',
-                    'Vloerverwarmingssysteem',
-                    'Radiatoren / convectoren',
-                    'Verdeler / collectoren vloerverwarming',
-                    'Leidingwerk verwarming',
-                    'Mechanische ventilatie-unit (WTW / MVS)',
-                    'Kanaalwerk ventilatie',
-                    'Ventielen en roosters',
-                    'Filters luchtbehandeling',
-                    'Koudwaterinstallatie',
-                    'Warmwaterinstallatie (boiler / doorstromer)',
-                    'Riolering en afvoerleidingen',
-                    'Elektrische installatie / groepenkast',
-                    'Schakelmateriaal en wandcontactdozen',
-                    'Brandbeveiligingsinstallatie',
-                    'Zonwering en regeling',
-                    'Domotica / gebouwautomatisering',
-                    'Koelinstallatie (indien aanwezig)'
+                    nn('Verwarmingsinstallatie (ketel / warmtepomp)'),
+                    nn('Vloerverwarmingssysteem'),
+                    nn('Radiatoren / convectoren'),
+                    nn('Verdeler / collectoren vloerverwarming'),
+                    nn('Leidingwerk verwarming'),
+                    nn('Mechanische ventilatie-unit (WTW / MVS)'),
+                    nn('Kanaalwerk ventilatie'),
+                    nn('Ventielen en roosters'),
+                    nn('Filters luchtbehandeling'),
+                    nn('Koudwaterinstallatie'),
+                    nn('Warmwaterinstallatie (boiler / doorstromer)'),
+                    nn('Riolering en afvoerleidingen'),
+                    nn('Elektrische installatie / groepenkast'),
+                    nn('Schakelmateriaal en wandcontactdozen'),
+                    nn('Brandbeveiligingsinstallatie'),
+                    nn('Zonwering en regeling'),
+                    nn('Domotica / gebouwautomatisering'),
+                    nn('Koelinstallatie (indien aanwezig)')
                 ]
             },
             // ===== ENERGIELABEL TEMPLATE =====
             {
                 id: 'tpl_energielabel', name: 'Energielabel - Volledige opname', category: 'Energielabel',
-                scoring: 'nen2767',
                 items: [
                     // --- Woninggegevens ---
-                    '[WONINGGEGEVENS] Woningtype: vrijstaand/2-onder-1-kap/rij/hoek/appartement',
-                    '[WONINGGEGEVENS] Bouwjaar vastgesteld en genoteerd',
-                    '[WONINGGEGEVENS] Gebruiksoppervlak opgemeten in m²',
-                    '[WONINGGEGEVENS] Aantal bouwlagen vastgesteld',
-                    '[WONINGGEGEVENS] Kruipruimte: aanwezig ja/nee en hoogte',
+                    s('Woningtype', ['Vrijstaand', '2-onder-1-kap', 'Rijwoning', 'Hoekwoning', 'Appartement']),
+                    n('Bouwjaar', 'jaar'),
+                    n('Gebruiksoppervlak (GO)', 'm²'),
+                    n('Aantal bouwlagen', ''),
+                    s('Kruipruimte', ['Aanwezig', 'Niet aanwezig']),
                     // --- Gebouwschil ---
-                    '[SCHIL] Gevelisolatie: type en dikte vastgesteld',
-                    '[SCHIL] Gevelisolatie: spouwmuurisolatie aanwezig',
-                    '[SCHIL] Dakisolatie: type en dikte vastgesteld',
-                    '[SCHIL] Dakisolatie: Rc-waarde voldoende',
-                    '[SCHIL] Vloerisolatie: type en dikte vastgesteld',
-                    '[SCHIL] Vloerisolatie: kruipruimte geisoleerd',
-                    '[SCHIL] Kozijnen: materiaal en staat geregistreerd',
-                    '[SCHIL] Beglazing: type per raam (enkel/dubbel/triple/HR++)',
-                    '[SCHIL] Beglazing: U-waarde genoteerd',
-                    '[SCHIL] Kierdichting: staat van tochtstrippen en kitten',
-                    '[SCHIL] Luchtdichtheid: zichtbare kieren en naden',
-                    '[SCHIL] Thermische bruggen: koudebruggen geidentificeerd',
-                    '[SCHIL] Oriëntatie en beschaduwing vastgelegd',
+                    t('Gevelisolatie: type en dikte'),
+                    c('Spouwmuurisolatie aanwezig'),
+                    t('Dakisolatie: type en dikte'),
+                    n('Dakisolatie Rc-waarde', 'm²K/W'),
+                    t('Vloerisolatie: type en dikte'),
+                    c('Vloerisolatie: kruipruimte geïsoleerd'),
+                    t('Kozijnen: materiaal en staat'),
+                    s('Beglazing type', ['Enkel glas', 'Dubbel glas', 'HR glas', 'HR+ glas', 'HR++ glas', 'Triple glas']),
+                    n('Beglazing U-waarde', 'W/m²K'),
+                    c('Kierdichting: tochtstrippen en kitten in orde'),
+                    c('Luchtdichtheid: geen zichtbare kieren/naden'),
+                    c('Thermische bruggen geïdentificeerd'),
+                    t('Oriëntatie en beschaduwing'),
                     // --- Verwarming ---
-                    '[VERWARMING] Type systeem (CV/warmtepomp/stadsverwarming)',
-                    '[VERWARMING] Merk, type en bouwjaar ketel',
-                    '[VERWARMING] HR-label en rendement genoteerd',
-                    '[VERWARMING] Afgiftesysteem (radiatoren/vloerverwarming)',
-                    '[VERWARMING] Regeling (thermostaat/zonesturing)',
+                    s('Verwarmingssysteem', ['CV-ketel', 'Warmtepomp', 'Stadsverwarming', 'Elektrisch', 'Hybride warmtepomp']),
+                    t('Merk, type en bouwjaar ketel/warmtepomp'),
+                    t('HR-label en rendement'),
+                    s('Afgiftesysteem verwarming', ['Radiatoren', 'Vloerverwarming', 'Luchtverwarming', 'Combinatie']),
+                    s('Regelingstype', ['Thermostaat', 'Zonesturing', 'Slimme thermostaat', 'Geen regeling']),
                     // --- Warm water ---
-                    '[WARM WATER] Type opwekking',
-                    '[WARM WATER] Apart of combi met verwarming',
+                    s('Warm water: type opwekking', ['Combi-ketel', 'Aparte boiler', 'Warmtepomp boiler', 'Zonneboiler', 'Doorstroomboiler']),
+                    s('Warm water: apart of combi', ['Combinatie met verwarming', 'Apart systeem']),
                     // --- Ventilatie ---
-                    '[VENTILATIE] Type systeem (natuurlijk/mechanisch/WTW)',
-                    '[VENTILATIE] WTW rendement indien aanwezig',
-                    '[VENTILATIE] CO2-gestuurd of vraaggestuurd',
+                    s('Ventilatiesysteem', ['Systeem A (natuurlijk)', 'Systeem B', 'Systeem C (mechanisch)', 'Systeem D (WTW)']),
+                    n('WTW rendement', '%'),
+                    c('CO2-gestuurd of vraaggestuurd'),
                     // --- Koeling ---
-                    '[KOELING] Type systeem indien aanwezig',
-                    '[KOELING] SEER-waarde genoteerd',
+                    s('Koelsysteem', ['Geen', 'Airco', 'Warmtepomp koeling', 'WKO']),
+                    n('Koeling SEER-waarde', ''),
                     // --- Duurzame energie ---
-                    '[DUURZAAM] Zonnepanelen: aantal, vermogen (Wp), merk/type',
-                    '[DUURZAAM] Zonnepanelen: factuur/documentatie aanwezig',
-                    '[DUURZAAM] Zonneboiler: aanwezig en type',
-                    '[DUURZAAM] Energieopslag: batterijsysteem aanwezig',
-                    '[DUURZAAM] Gasaansluiting: aanwezig of verwijderd',
-                    '[DUURZAAM] Gebouwautomatisering: slim regelsysteem',
+                    n('Zonnepanelen: aantal', 'stuks'),
+                    n('Zonnepanelen: vermogen', 'Wp'),
+                    t('Zonnepanelen: merk en type'),
+                    c('Zonnepanelen: factuur/documentatie aanwezig'),
+                    c('Zonneboiler aanwezig'),
+                    c('Energieopslag: batterijsysteem aanwezig'),
+                    s('Gasaansluiting', ['Aanwezig', 'Verwijderd', 'Nooit aanwezig geweest']),
+                    c('Gebouwautomatisering: slim regelsysteem aanwezig'),
                     // --- Fotodocumentatie ---
-                    '[FOTO] Buitenzijde: voor- en achtergevel',
-                    '[FOTO] CV-ketel: typeplaatje zichtbaar',
-                    '[FOTO] Groepenkast: duidelijk leesbaar',
-                    '[FOTO] Zonnepanelen: aantal telbaar',
-                    '[FOTO] Ventilatie: unit en roosters',
-                    '[FOTO] Beglazing: type herkenbaar',
+                    p('Foto: voor- en achtergevel'),
+                    p('Foto: CV-ketel / warmtepomp typeplaatje'),
+                    p('Foto: groepenkast'),
+                    p('Foto: zonnepanelen (aantal telbaar)'),
+                    p('Foto: ventilatie unit en roosters'),
+                    p('Foto: beglazing (type herkenbaar)'),
                     // --- Afsluiting ---
-                    '[AFRONDING] Bewijsstukken: facturen isolatie/installaties verzameld',
-                    '[AFRONDING] EP-Online registratie: gegevens compleet voor invoer'
+                    c('Bewijsstukken facturen isolatie/installaties verzameld'),
+                    c('EP-Online registratie: gegevens compleet voor invoer')
                 ]
             },
             // ===== MONUMENT TEMPLATES =====
@@ -492,47 +558,94 @@ class OpenFieldStudio {
                 id: 'tpl_monument_constructie', name: 'Monument - Constructie & Schil', category: 'Monument',
                 scoring: 'nen2767',
                 items: [
-                    'Fundering: type en zichtbare staat','Fundering: zettingsverschillen of verzakking','Dragende muren: scheuren of vervorming',
-                    'Metselwerk: voegwerk staat','Metselwerk: baksteenconditie (verwering/afbladdering)','Metselwerk: zoutuitbloei (efflorescentie)',
-                    'Natuursteen: verwering en afschilfering','Houtconstructie: balken en spanten op rot/insect','Houtconstructie: verbindingen en opleggingen',
-                    'Dakconstructie: gordingen en sporen','Dakbedekking: leien/pannen/lood/zink staat','Dakgoten en hemelwaterafvoer',
-                    'Schoorstenen: metselwerk en voegwerk','Gevelankers: aanwezig en functioneel','Kozijnen: origineel houtwerk staat',
-                    'Ramen: originele beglazing en loodwerk','Luiken en blinden: staat en bevestiging','Geveldecoratie: lijstwerk, ornamenten, reliëfs'
+                    nn('Fundering: type en zichtbare staat'),
+                    nn('Fundering: zettingsverschillen of verzakking'),
+                    nn('Dragende muren: scheuren of vervorming'),
+                    nn('Metselwerk: voegwerk staat'),
+                    nn('Metselwerk: baksteenconditie (verwering/afbladdering)'),
+                    nn('Metselwerk: zoutuitbloei (efflorescentie)'),
+                    nn('Natuursteen: verwering en afschilfering'),
+                    nn('Houtconstructie: balken en spanten op rot/insect'),
+                    nn('Houtconstructie: verbindingen en opleggingen'),
+                    nn('Dakconstructie: gordingen en sporen'),
+                    nn('Dakbedekking: leien/pannen/lood/zink staat'),
+                    nn('Dakgoten en hemelwaterafvoer'),
+                    nn('Schoorstenen: metselwerk en voegwerk'),
+                    nn('Gevelankers: aanwezig en functioneel'),
+                    nn('Kozijnen: origineel houtwerk staat'),
+                    nn('Ramen: originele beglazing en loodwerk'),
+                    nn('Luiken en blinden: staat en bevestiging'),
+                    nn('Geveldecoratie: lijstwerk, ornamenten, reliëfs')
                 ]
             },
             {
                 id: 'tpl_monument_interieur', name: 'Monument - Historisch Interieur', category: 'Monument',
                 scoring: 'nen2767',
                 items: [
-                    'Originele vloeren: type, materiaal en conditie','Originele plafonds: stucwerk, balken, ornamenten','Originele wanden: betimmering, lambrisering',
-                    'Schouwen en haarden: staat en volledigheid','Trappen: origineel houtwerk en leuningen','Deuren: originele paneeldeuren en beslag',
-                    'Raamluiken: binnenzijde origineel','Tegeltableaus: compleet en onbeschadigd','Schilderingen/muurschilderingen: zichtbaar of verborgen',
-                    'Glas-in-lood: staat en volledigheid','Smeedwerk: trapleuningen, hekwerken, beslag','Plafondrozetten en lijstwerk',
-                    'Originele verflagen: kleuronderzoek nodig','Keldergewelven: metselwerk staat','Zolderruimte: originele elementen zichtbaar'
+                    nn('Originele vloeren: type, materiaal en conditie'),
+                    nn('Originele plafonds: stucwerk, balken, ornamenten'),
+                    nn('Originele wanden: betimmering, lambrisering'),
+                    nn('Schouwen en haarden: staat en volledigheid'),
+                    nn('Trappen: origineel houtwerk en leuningen'),
+                    nn('Deuren: originele paneeldeuren en beslag'),
+                    nn('Raamluiken: binnenzijde origineel'),
+                    nn('Tegeltableaus: compleet en onbeschadigd'),
+                    nn('Schilderingen/muurschilderingen: zichtbaar of verborgen'),
+                    nn('Glas-in-lood: staat en volledigheid'),
+                    nn('Smeedwerk: trapleuningen, hekwerken, beslag'),
+                    nn('Plafondrozetten en lijstwerk'),
+                    nn('Originele verflagen: kleuronderzoek nodig'),
+                    nn('Keldergewelven: metselwerk staat'),
+                    nn('Zolderruimte: originele elementen zichtbaar')
                 ]
             },
             {
                 id: 'tpl_monument_schade', name: 'Monument - Vocht & Schade', category: 'Monument',
                 scoring: 'nen2767',
                 items: [
-                    'Vochtmeting: muren begane grond','Vochtmeting: kelderwanden','Optrekkend vocht: zichtbare vochtgrens',
-                    'Inregenend vocht: gevel en kozijnaansluitingen','Condensvocht: ramen en koudebruggen','Schimmels: zichtbare schimmelvorming locaties',
-                    'Algen/mossen: gevel en dak','Zoutschade: locaties en ernst','Houtaantasting: zwam of boktor',
-                    'Scheuren: locatie, richting, breedte (mm)','Scheuren: actief of historisch','Verzakking: zichtbare scheefstand',
-                    'Afbladdering: verf en coating','Verwering: natuursteen oppervlak','Vorstschade: baksteen en voegen',
-                    'Loodwerk: daksluitingen en goten','Zinkwerk: staat en aansluiting','Biologische aantasting: klimop/begroeiing'
+                    nn('Vochtmeting: muren begane grond'),
+                    nn('Vochtmeting: kelderwanden'),
+                    nn('Optrekkend vocht: zichtbare vochtgrens'),
+                    nn('Inregenend vocht: gevel en kozijnaansluitingen'),
+                    nn('Condensvocht: ramen en koudebruggen'),
+                    nn('Schimmels: zichtbare schimmelvorming locaties'),
+                    nn('Algen/mossen: gevel en dak'),
+                    nn('Zoutschade: locaties en ernst'),
+                    nn('Houtaantasting: zwam of boktor'),
+                    nn('Scheuren: locatie, richting en breedte'),
+                    n('Scheurwijdte (max. gemeten)', 'mm'),
+                    nn('Scheuren: actief of historisch'),
+                    nn('Verzakking: zichtbare scheefstand'),
+                    nn('Afbladdering: verf en coating'),
+                    nn('Verwering: natuursteen oppervlak'),
+                    nn('Vorstschade: baksteen en voegen'),
+                    nn('Loodwerk: daksluitingen en goten'),
+                    nn('Zinkwerk: staat en aansluiting'),
+                    nn('Biologische aantasting: klimop/begroeiing')
                 ]
             },
             {
                 id: 'tpl_monument_onderhoud', name: 'Monument - Instandhoudingsplan', category: 'Monument',
                 scoring: 'nen2767',
                 items: [
-                    'Dak: onderhoud komende 6 jaar gepland','Gevel: voegwerk herstel nodig binnen 6 jaar','Kozijnen: schilderwerk planning',
-                    'Hemelwaterafvoer: reiniging en reparatie','Schilderwerk buiten: staat en planning','Schilderwerk binnen: staat en planning',
-                    'Lood- en zinkwerk: vervanging/reparatie nodig','Riolering: staat en leeftijd','Elektra: keuring en vervanging nodig',
-                    'Verwarming: onderhoud en vervanging','Vochtbehandeling: maatregelen nodig','Houtrotreparatie: locaties en urgentie',
-                    'Restauratie-elementen: specificatie vereist','Kosten korte termijn (0-2 jaar) geschat','Kosten middellange termijn (2-6 jaar) geschat',
-                    'Kosten lange termijn (6-12 jaar) geschat','SIM-subsidie: aanvraag voorbereid','Monumentenvergunning: nodig voor werkzaamheden'
+                    nn('Dak: urgentie onderhoud'),
+                    nn('Gevel: urgentie voegwerk herstel'),
+                    nn('Kozijnen: urgentie schilderwerk'),
+                    nn('Hemelwaterafvoer: reiniging en reparatie'),
+                    nn('Schilderwerk buiten: urgentie'),
+                    nn('Schilderwerk binnen: urgentie'),
+                    nn('Lood- en zinkwerk: vervanging/reparatie nodig'),
+                    nn('Riolering: staat en leeftijd'),
+                    nn('Elektra: keuring en vervanging nodig'),
+                    nn('Verwarming: onderhoud en vervanging'),
+                    nn('Vochtbehandeling: maatregelen nodig'),
+                    nn('Houtrotreparatie: locaties en urgentie'),
+                    nn('Restauratie-elementen: specificatie vereist'),
+                    n('Kosten korte termijn (0–2 jaar)', '€'),
+                    n('Kosten middellange termijn (2–6 jaar)', '€'),
+                    n('Kosten lange termijn (6–12 jaar)', '€'),
+                    c('SIM-subsidie: aanvraag voorbereid'),
+                    c('Monumentenvergunning: nodig voor werkzaamheden')
                 ]
             }
         ];
@@ -623,6 +736,9 @@ class OpenFieldStudio {
         document.getElementById('cancel-inspection-setup').addEventListener('click', () => this.showInspectionOverview());
         document.getElementById('start-inspection-btn').addEventListener('click', () => this.startInspection());
         document.getElementById('back-to-inspections').addEventListener('click', () => this.showInspectionOverview());
+        document.getElementById('back-to-inspections-bottom').addEventListener('click', () => this.showInspectionOverview());
+        document.getElementById('edit-insp-info-btn').addEventListener('click', () => this.toggleEditInspInfo());
+        document.getElementById('save-insp-info-btn').addEventListener('click', () => this.saveInspInfo());
         document.getElementById('finish-inspection-btn').addEventListener('click', () => this.showSignature());
         document.getElementById('clear-signature').addEventListener('click', () => this.clearSignatureCanvas());
         document.getElementById('cancel-sign').addEventListener('click', () => this.showInspectionExecution());
@@ -1186,6 +1302,39 @@ class OpenFieldStudio {
         document.getElementById('inspectie-setup').style.display = 'none';
         document.getElementById('inspectie-execute').style.display = 'block';
         document.getElementById('inspectie-sign').style.display = 'none';
+        document.getElementById('insp-edit-info').style.display = 'none';
+    }
+
+    toggleEditInspInfo() {
+        const panel = document.getElementById('insp-edit-info');
+        const insp = this.inspections.find(i => i.id === this.currentInspectionId);
+        if (!insp) return;
+        if (panel.style.display === 'none') {
+            document.getElementById('insp-edit-name').value = insp.name || '';
+            document.getElementById('insp-edit-inspector').value = insp.inspector || '';
+            document.getElementById('insp-edit-date').value = insp.date || '';
+            const floorSelect = document.getElementById('insp-edit-floor');
+            floorSelect.innerHTML = '<option value="">-- Optioneel --</option>' +
+                this.floorPlans.map(fp => `<option value="${fp.id}" ${fp.id === insp.floorPlanId ? 'selected' : ''}>${this.esc(fp.name)}</option>`).join('');
+            panel.style.display = 'grid';
+        } else {
+            panel.style.display = 'none';
+        }
+    }
+
+    saveInspInfo() {
+        const insp = this.inspections.find(i => i.id === this.currentInspectionId);
+        if (!insp) return;
+        const name = document.getElementById('insp-edit-name').value.trim();
+        if (!name) { this.showNotification(this.t('msg_fill_name'), 'error'); return; }
+        insp.name = name;
+        insp.inspector = document.getElementById('insp-edit-inspector').value;
+        insp.date = document.getElementById('insp-edit-date').value;
+        insp.floorPlanId = document.getElementById('insp-edit-floor').value || null;
+        document.getElementById('insp-exec-title').textContent = insp.name;
+        document.getElementById('insp-edit-info').style.display = 'none';
+        this.saveToLocalStorage();
+        this.showNotification(this.t('msg_saved'), 'success');
     }
 
     startInspection() {
@@ -1195,8 +1344,18 @@ class OpenFieldStudio {
         const templateId = document.getElementById('insp-template').value;
         const template = this.checklistTemplates.find(t => t.id === templateId);
         const isNEN = template && template.scoring === 'nen2767';
-        const items = type === 'checklist' && template ? template.items.map((q, i) => ({ id: `item_${i}`, question: q, result: '', score: null, notes: '', photos: [] })) :
-            [{ id: 'item_0', question: 'Vrije observatie', result: '', score: null, notes: '', photos: [] }];
+        const items = type === 'checklist' && template ? template.items.map((item, i) => {
+            const isObj = typeof item === 'object';
+            const itemType = isObj ? item.type : (isNEN ? 'nen2767' : 'check');
+            return {
+                id: `item_${i}`,
+                question: isObj ? item.q : item,
+                type: itemType,
+                options: isObj ? (item.options || null) : null,
+                unit: isObj ? (item.unit || null) : null,
+                result: '', score: null, value: '', notes: '', photos: []
+            };
+        }) : [{ id: 'item_0', question: 'Vrije observatie', type: 'check', options: null, unit: null, result: '', score: null, value: '', notes: '', photos: [] }];
 
         const insp = {
             id: this.genId(), name, type, templateId: templateId || null,
@@ -1218,64 +1377,97 @@ class OpenFieldStudio {
         if (!insp) return;
         document.getElementById('insp-exec-title').textContent = insp.name;
         document.getElementById('insp-notes').value = insp.notes || '';
-        const isNEN = insp.scoring === 'nen2767';
         const container = document.getElementById('checklist-items');
         container.innerHTML = insp.items.map((item, idx) => {
-            const q = item.question;
-            const isPhoto = q.startsWith('[FOTO]');
-            const displayQ = q.replace(/^\[[A-Z\s\/]+\]\s*/, '');
-            const choiceMatch = this.parseChoiceItem(q);
+            const type = item.type || 'check';
+            const hasRightActions = type === 'check' || type === 'nen2767';
             return `
-            <div class="checklist-item ${isPhoto ? 'checklist-item-photo' : ''}" data-idx="${idx}">
+            <div class="checklist-item" data-idx="${idx}" data-type="${type}">
                 <div style="flex:1">
-                    <div class="checklist-item-question">${this.esc(displayQ)}</div>
-                    ${choiceMatch ? this.renderChoiceInput(choiceMatch, item, idx) : ''}
-                    ${isPhoto ? this.renderPhotoInput(item, idx) : ''}
+                    <div class="checklist-item-question">${this.esc(item.question)}</div>
+                    ${this.renderItemInput(item, idx)}
                     <div class="checklist-item-detail">
-                        <textarea rows="1" placeholder="Notitie..." onchange="app.updateChecklistItem(${idx},'notes',this.value)">${this.esc(item.notes)}</textarea>
+                        <textarea rows="1" placeholder="Notitie..." onchange="app.updateChecklistItem(${idx},'notes',this.value)">${this.esc(item.notes || '')}</textarea>
                     </div>
                 </div>
-                ${isNEN ? `
-                <div class="checklist-item-actions nen-scores">
-                    ${[1,2,3,4,5,6].map(s => `<button class="checklist-btn nen-score nen-score-${s} ${item.score==s?'selected':''}" onclick="app.updateChecklistItem(${idx},'score',${s})" title="${this.getNENLabel(s)}">${s}</button>`).join('')}
-                </div>` : `
-                <div class="checklist-item-actions">
-                    <button class="checklist-btn pass ${item.result==='pass'?'selected':''}" onclick="app.updateChecklistItem(${idx},'result','pass')" title="Goed">&#10003;</button>
-                    <button class="checklist-btn fail ${item.result==='fail'?'selected':''}" onclick="app.updateChecklistItem(${idx},'result','fail')" title="Fout">&#10007;</button>
-                    <button class="checklist-btn na ${item.result==='na'?'selected':''}" onclick="app.updateChecklistItem(${idx},'result','na')" title="N.v.t.">-</button>
-                </div>`}
+                ${hasRightActions ? `
+                <div class="checklist-item-actions ${type === 'nen2767' ? 'nen-scores' : ''}">
+                    ${type === 'nen2767'
+                        ? [1,2,3,4,5,6].map(sc => `<button class="checklist-btn nen-score nen-score-${sc} ${item.score==sc?'selected':''}" onclick="app.updateChecklistItem(${idx},'score',${sc})" title="${this.getNENLabel(sc)}">${sc}</button>`).join('')
+                        : `<button class="checklist-btn pass ${item.result==='pass'?'selected':''}" onclick="app.updateChecklistItem(${idx},'result','pass')" title="Goed">&#10003;</button>
+                           <button class="checklist-btn fail ${item.result==='fail'?'selected':''}" onclick="app.updateChecklistItem(${idx},'result','fail')" title="Fout">&#10007;</button>
+                           <button class="checklist-btn na ${item.result==='na'?'selected':''}" onclick="app.updateChecklistItem(${idx},'result','na')" title="N.v.t.">-</button>`
+                    }
+                </div>` : ''}
             </div>`;
         }).join('');
         this.updateInspectionProgress();
     }
 
-    parseChoiceItem(question) {
-        const colonIdx = question.indexOf(':');
-        if (colonIdx < 0) return null;
-        const afterColon = question.substring(colonIdx + 1).trim();
-        const parts = afterColon.split('/').map(s => s.trim()).filter(s => s.length > 0);
-        if (parts.length >= 2 && parts.every(p => p.length < 40)) return { label: question.substring(0, colonIdx).replace(/^\[[A-Z\s\/]+\]\s*/, ''), options: parts };
-        return null;
+    renderItemInput(item, idx) {
+        const type = item.type || 'check';
+        switch (type) {
+            case 'select': {
+                const opts = item.options || [];
+                const val = item.value || '';
+                return `<div class="checklist-choices">${opts.map(opt =>
+                    `<button type="button" class="checklist-choice ${val === opt ? 'selected' : ''}" onclick="app.selectChoice(${idx},'${opt.replace(/'/g,"\\'")}')">${this.esc(opt)}</button>`
+                ).join('')}</div>`;
+            }
+            case 'multi': {
+                const opts = item.options || [];
+                const sel = (item.value || '').split(',').map(s => s.trim()).filter(Boolean);
+                return `<div class="checklist-choices">${opts.map(opt =>
+                    `<button type="button" class="checklist-choice ${sel.includes(opt) ? 'selected' : ''}" onclick="app.toggleMultiChoice(${idx},'${opt.replace(/'/g,"\\'")}')">${this.esc(opt)}</button>`
+                ).join('')}</div>`;
+            }
+            case 'number': {
+                const unit = item.unit || '';
+                return `<div class="checklist-number-input">
+                    <input type="number" step="any" value="${this.esc(item.value||'')}" placeholder="0" oninput="app.updateChecklistValue(${idx},this.value)">
+                    ${unit ? `<span class="checklist-unit">${this.esc(unit)}</span>` : ''}
+                </div>`;
+            }
+            case 'text': {
+                return `<div class="checklist-text-input">
+                    <input type="text" value="${this.esc(item.value||'')}" placeholder="..." oninput="app.updateChecklistValue(${idx},this.value)">
+                </div>`;
+            }
+            case 'photo':
+                return this.renderPhotoInput(item, idx);
+            case 'check':
+            case 'nen2767':
+            default:
+                return '';
+        }
     }
 
-    renderChoiceInput(choice, item, idx) {
-        const selected = (item.choice || '').split(',').map(s => s.trim()).filter(Boolean);
-        return `<div class="checklist-choices">${choice.options.map(opt => {
-            const isActive = selected.includes(opt);
-            return `<button type="button" class="checklist-choice ${isActive ? 'selected' : ''}" onclick="app.toggleChoice(${idx},'${this.esc(opt)}')">${this.esc(opt)}</button>`;
-        }).join('')}</div>`;
-    }
-
-    toggleChoice(idx, option) {
+    selectChoice(idx, option) {
         const insp = this.inspections.find(i => i.id === this.currentInspectionId);
         if (!insp) return;
         const item = insp.items[idx];
-        let selected = (item.choice || '').split(',').map(s => s.trim()).filter(Boolean);
-        if (selected.includes(option)) selected = selected.filter(s => s !== option);
-        else selected.push(option);
-        item.choice = selected.join(', ');
+        item.value = item.value === option ? '' : option;
         this.saveToLocalStorage();
         this.renderChecklistExecution();
+    }
+
+    toggleMultiChoice(idx, option) {
+        const insp = this.inspections.find(i => i.id === this.currentInspectionId);
+        if (!insp) return;
+        const item = insp.items[idx];
+        let sel = (item.value || '').split(',').map(s => s.trim()).filter(Boolean);
+        if (sel.includes(option)) sel = sel.filter(s => s !== option);
+        else sel.push(option);
+        item.value = sel.join(', ');
+        this.saveToLocalStorage();
+        this.renderChecklistExecution();
+    }
+
+    updateChecklistValue(idx, value) {
+        const insp = this.inspections.find(i => i.id === this.currentInspectionId);
+        if (!insp) return;
+        insp.items[idx].value = value;
+        this.saveToLocalStorage();
     }
 
     renderPhotoInput(item, idx) {
@@ -1363,13 +1555,12 @@ class OpenFieldStudio {
     updateInspectionProgress() {
         const insp = this.inspections.find(i => i.id === this.currentInspectionId);
         if (!insp) return;
-        const isNEN = insp.scoring === 'nen2767';
-        const done = isNEN ? insp.items.filter(i => i.score).length : insp.items.filter(i => i.result).length;
+        const done = this.countDoneItems(insp.items);
         const total = insp.items.length;
         let extra = '';
-        if (isNEN && done > 0) {
-            const scores = insp.items.filter(i => i.score).map(i => i.score);
-            const avg = (scores.reduce((a,b) => a+b, 0) / scores.length).toFixed(1);
+        const nenScored = insp.items.filter(i => i.type === 'nen2767' && i.score);
+        if (nenScored.length > 0) {
+            const avg = (nenScored.reduce((a, b) => a + b.score, 0) / nenScored.length).toFixed(1);
             extra = ` · ${this.t('nen_avg')} ${avg} (${this.getNENLabel(Math.round(avg))})`;
         }
         document.getElementById('insp-progress-text').textContent = `${done} / ${total}${extra}`;
@@ -1433,12 +1624,25 @@ class OpenFieldStudio {
         this.showInspectionOverview();
     }
 
+    countDoneItems(items) {
+        let done = 0;
+        items.forEach(item => {
+            const type = item.type || 'check';
+            switch (type) {
+                case 'check':    if (item.result) done++; break;
+                case 'nen2767': if (item.score)  done++; break;
+                case 'photo':   if (item.photos && item.photos.length > 0) done++; break;
+                default:        if (item.value)  done++; break;
+            }
+        });
+        return done;
+    }
+
     renderInspectionsList() {
         const c = document.getElementById('inspections-list');
         if (!this.inspections.length) { c.innerHTML = `<p class="empty-state">${this.t('empty_inspections')}</p>`; return; }
         c.innerHTML = this.inspections.map(insp => {
-            const isNEN = insp.scoring === 'nen2767';
-            const done = isNEN ? insp.items.filter(i => i.score).length : insp.items.filter(i => i.result).length;
+            const done = this.countDoneItems(insp.items);
             const fail = insp.items.filter(i => i.result === 'fail').length;
             let extra = '';
             if (isNEN && done > 0) {

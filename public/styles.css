@@ -1989,6 +1989,59 @@ body {
     font-size: 0.8rem;
 }
 
+/* ===== GETYPTE CHECKLIST INVOERVELDEN ===== */
+
+.checklist-number-input {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    margin-top: var(--sp-2);
+}
+
+.checklist-number-input input[type="number"] {
+    width: 120px;
+    padding: 6px 10px;
+    border: 1.5px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 1rem;
+    font-family: var(--font-mono, monospace);
+    background: var(--surface);
+    color: var(--text-primary);
+    transition: border-color 0.15s;
+}
+
+.checklist-number-input input[type="number"]:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.checklist-unit {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.checklist-text-input {
+    margin-top: var(--sp-2);
+}
+
+.checklist-text-input input[type="text"] {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1.5px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    background: var(--surface);
+    color: var(--text-primary);
+    transition: border-color 0.15s;
+    box-sizing: border-box;
+}
+
+.checklist-text-input input[type="text"]:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
 /* ===== MOBILE 6-INCH (max 480px) ===== */
 
 @media (max-width: 480px) {

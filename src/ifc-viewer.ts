@@ -100,59 +100,66 @@ async function loadIfcArrayBuffer(container: HTMLElement, buffer: ArrayBuffer) {
     if (!viewer) viewer = initViewer(container);
     // Clear previous model
     while (viewer.root.children.length) {
-        const c = viewer.root.children[0];
+        const c = viewer.root.children[0] as THREE.Mesh;
         viewer.root.remove(c);
-        // @ts-expect-error dispose exists on geometry/material
         if (c.geometry) c.geometry.dispose();
+        const mat = c.material as THREE.Material | THREE.Material[] | undefined;
+        if (Array.isArray(mat)) mat.forEach(m => m.dispose()); else if (mat) mat.dispose();
     }
 
     const api = await ensureIfcApi();
     const modelId = api.OpenModel(new Uint8Array(buffer));
 
-    // Iterate geometries and convert to Three.js meshes.
-    const geometries = api.LoadAllGeometry(modelId);
-    const sz = geometries.size();
+    // web-ifc returns Vector<FlatMesh>; each FlatMesh has a Vector<PlacedGeometry>.
+    // The PlacedGeometry carries the color, transform and geometryExpressID we need.
+    const flatMeshes = api.LoadAllGeometry(modelId);
     const groupBox = new THREE.Box3();
+    let placedCount = 0;
 
-    for (let i = 0; i < sz; i++) {
-        const placedGeom = geometries.get(i);
-        const geom = api.GetGeometry(modelId, placedGeom.geometryExpressID);
-        const verts = api.GetVertexArray(geom.GetVertexData(), geom.GetVertexDataSize());
-        const indices = api.GetIndexArray(geom.GetIndexData(), geom.GetIndexDataSize());
+    for (let i = 0; i < flatMeshes.size(); i++) {
+        const flatMesh = flatMeshes.get(i);
+        const placed = flatMesh.geometries;
+        for (let j = 0; j < placed.size(); j++) {
+            const placedGeom = placed.get(j);
+            const geom = api.GetGeometry(modelId, placedGeom.geometryExpressID);
+            const verts = api.GetVertexArray(geom.GetVertexData(), geom.GetVertexDataSize()) as Float32Array;
+            const indices = api.GetIndexArray(geom.GetIndexData(), geom.GetIndexDataSize()) as Uint32Array;
 
-        // Vertex layout: [x, y, z, nx, ny, nz] repeated
-        const posArr = new Float32Array(verts.length / 2);
-        const normArr = new Float32Array(verts.length / 2);
-        for (let v = 0; v < verts.length / 6; v++) {
-            posArr[v * 3]     = verts[v * 6];
-            posArr[v * 3 + 1] = verts[v * 6 + 1];
-            posArr[v * 3 + 2] = verts[v * 6 + 2];
-            normArr[v * 3]     = verts[v * 6 + 3];
-            normArr[v * 3 + 1] = verts[v * 6 + 4];
-            normArr[v * 3 + 2] = verts[v * 6 + 5];
+            // Vertex layout: [x, y, z, nx, ny, nz] repeated
+            const posArr = new Float32Array(verts.length / 2);
+            const normArr = new Float32Array(verts.length / 2);
+            for (let v = 0; v < verts.length / 6; v++) {
+                posArr[v * 3]     = verts[v * 6];
+                posArr[v * 3 + 1] = verts[v * 6 + 1];
+                posArr[v * 3 + 2] = verts[v * 6 + 2];
+                normArr[v * 3]     = verts[v * 6 + 3];
+                normArr[v * 3 + 1] = verts[v * 6 + 4];
+                normArr[v * 3 + 2] = verts[v * 6 + 5];
+            }
+
+            const bg = new THREE.BufferGeometry();
+            bg.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+            bg.setAttribute('normal', new THREE.BufferAttribute(normArr, 3));
+            bg.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
+
+            const color = placedGeom.color;
+            const mat = new THREE.MeshLambertMaterial({
+                color: new THREE.Color(color.x, color.y, color.z),
+                transparent: color.w < 1,
+                opacity: color.w
+            });
+            const mesh = new THREE.Mesh(bg, mat);
+
+            // Apply flat transformation from web-ifc (4x4 column-major float array).
+            const m = new THREE.Matrix4();
+            m.fromArray(placedGeom.flatTransformation as unknown as number[]);
+            mesh.applyMatrix4(m);
+
+            viewer.root.add(mesh);
+            bg.computeBoundingBox();
+            if (bg.boundingBox) groupBox.expandByObject(mesh);
+            placedCount++;
         }
-
-        const bg = new THREE.BufferGeometry();
-        bg.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
-        bg.setAttribute('normal', new THREE.BufferAttribute(normArr, 3));
-        bg.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
-
-        const color = placedGeom.color;
-        const mat = new THREE.MeshLambertMaterial({
-            color: new THREE.Color(color.x, color.y, color.z),
-            transparent: color.w < 1,
-            opacity: color.w
-        });
-        const mesh = new THREE.Mesh(bg, mat);
-
-        // Apply flat transformation from web-ifc (4x4 row-major).
-        const m = new THREE.Matrix4();
-        m.fromArray(placedGeom.flatTransformation);
-        mesh.applyMatrix4(m);
-
-        viewer.root.add(mesh);
-        bg.computeBoundingBox();
-        if (bg.boundingBox) groupBox.expandByObject(mesh);
     }
 
     api.CloseModel(modelId);
@@ -167,7 +174,7 @@ async function loadIfcArrayBuffer(container: HTMLElement, buffer: ArrayBuffer) {
         viewer.controls.update();
     }
 
-    return { meshCount: sz };
+    return { meshCount: placedCount };
 }
 
 function disposeViewer() {

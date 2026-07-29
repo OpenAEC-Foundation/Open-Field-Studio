@@ -6,6 +6,9 @@ import i18next from './i18n';
 // Expose i18next globally
 (window as any).i18next = i18next;
 
+// Lazy-load the IFC viewer only when the user opens the BIM tab (heavy — three.js + web-ifc WASM).
+(window as any).__ofsLoadIfcViewer = () => import('./ifc-viewer.ts');
+
 // Expose Tauri plugin APIs globally for app.js (non-blocking)
 function exposeTauriPlugins() {
   import('@tauri-apps/plugin-dialog').then(dialog => {

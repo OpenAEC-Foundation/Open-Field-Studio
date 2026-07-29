@@ -12,7 +12,7 @@ const HO_TYPE_KEYS = { pre:'ho_pre', first:'ho_first', second:'ho_second' };
 
 class OpenFieldStudio {
     constructor() {
-        this.project = { name:'',number:'',client:'',contactPerson:'',address:'',postalCode:'',city:'',surveyDate:'',surveyor:'',description:'',notes:'' };
+        this.project = { name:'',number:'',client:'',contactPerson:'',address:'',postalCode:'',city:'',surveyDate:'',surveyor:'',description:'',notes:'',bagData:null };
         this.contacts = [];
         this.floorPlans = [];
         this.tickets = [];
@@ -31,10 +31,10 @@ class OpenFieldStudio {
         this.init();
     }
 
-    init() {
+    async init() {
         this.bindEvents();
         this.setDefaultDate();
-        this.loadFromLocalStorage();
+        await this.loadFromLocalStorage();
         this.validateAndCleanData();
         this.populateCategoryFilter();
         this.applyLanguage();
@@ -89,8 +89,22 @@ class OpenFieldStudio {
         lp('surveyor','lbl_surveyor','ph_surveyor'); lp('project-description','lbl_description','ph_description');
         lp('project-notes','lbl_notes','ph_notes');
 
-        // Static headings and buttons via query
-        const setText = (sel, key) => { const el = document.querySelector(sel); if (el) el.textContent = this.t(key); };
+        // Static headings and buttons via query.
+        // Preserve child elements (SVG icons) by only replacing the trailing text node — or appending one if missing.
+        const setText = (sel, key) => {
+            const el = document.querySelector(sel);
+            if (!el) return;
+            const label = this.t(key);
+            if (el.children.length === 0) { el.textContent = label; return; }
+            // Find the last text node; if none, append one.
+            let node = null;
+            for (let i = el.childNodes.length - 1; i >= 0; i--) {
+                if (el.childNodes[i].nodeType === Node.TEXT_NODE) { node = el.childNodes[i]; break; }
+            }
+            const spaced = ' ' + label;
+            if (node) node.nodeValue = spaced;
+            else el.appendChild(document.createTextNode(spaced));
+        };
         const setTitle = (sel, key) => { const el = document.querySelector(sel); if (el) el.title = this.t(key); };
 
         // Project tab
@@ -99,8 +113,38 @@ class OpenFieldStudio {
         setText('#add-contact-btn', 'btn_add_contact');
         setText('#project-tab > .panel > h2:nth-of-type(2)', 'h_contacts');
 
+        // BAG lookup button, modal and verified badge
+        const bagBtn = document.getElementById('bag-lookup-btn');
+        if (bagBtn) {
+            const label = bagBtn.querySelector('svg')?.nextSibling;
+            if (label && label.nodeType === Node.TEXT_NODE) label.textContent = ' ' + this.t('bag_lookup_btn');
+            else bagBtn.append(document.createTextNode(' ' + this.t('bag_lookup_btn')));
+        }
+        setText('#bag-modal-title', 'bag_modal_title');
+        const lbl = (inputId, key) => {
+            const el = document.getElementById(inputId);
+            const l = el?.closest('.form-group')?.querySelector('label');
+            if (l) l.textContent = this.t(key);
+        };
+        lbl('bag-postcode-input', 'bag_lbl_postcode');
+        lbl('bag-huisnr-input', 'bag_lbl_huisnr');
+        lbl('bag-toev-input', 'bag_lbl_toev');
+        setText('#bag-search', 'bag_search');
+        setText('#bag-cancel', 'bag_cancel');
+        setText('#bag-key-summary', 'bag_key_summary');
+        setText('#bag-apikey-save', 'bag_apikey_save');
+        const help = document.getElementById('bag-key-help');
+        if (help) help.textContent = this.t('bag_key_help');
+        const apk = document.getElementById('bag-apikey-input'); if (apk) apk.placeholder = this.t('bag_apikey_placeholder');
+        this.refreshBagBadge();
+
         // Plattegrond tab
         setText('#plattegrond-tab h2', 'h_plans');
+
+        // IFC / 3D BIM tab
+        setText('#ifc-h2', 'ifc_h2');
+        setText('#ifc-upload-text', 'ifc_upload_text');
+        setText('#ifc-info-txt', 'ifc_info');
         setText('#floor-plan-upload > p', 'upload_text');
         setText('#floor-plan-upload > .upload-hint', 'upload_hint');
 
@@ -150,7 +194,10 @@ class OpenFieldStudio {
 
         // Export tab
         setText('#export-tab h2', 'h_export');
+        setText('#export-pdf', 'btn_export_pdf');
         setText('#export-html', 'btn_export_html');
+        setText('#export-bcf', 'btn_export_bcf');
+        setText('#sync-kyp', 'btn_sync_kyp');
         setText('#save-json', 'btn_save_json');
         setText('#load-json', 'btn_load_json');
         setText('#clear-data', 'btn_clear_all');
@@ -669,6 +716,26 @@ class OpenFieldStudio {
         document.getElementById('save-project').addEventListener('click', () => this.saveProject());
         document.getElementById('project-form').addEventListener('input', () => this.autoSaveProject());
 
+        // Publish modal (Woningborg / AFAS / Exact / webhook)
+        document.getElementById('wb-modal-close').addEventListener('click', () => this.closePublishModal());
+        document.querySelector('#wb-modal .modal-overlay').addEventListener('click', () => this.closePublishModal());
+        document.getElementById('wb-cancel').addEventListener('click', () => this.closePublishModal());
+        document.getElementById('wb-send').addEventListener('click', () => this.publishToWoningborg());
+        document.getElementById('wb-connector').addEventListener('change', (e) => this._applyConnectorToModal(e.target.value));
+
+        // BAG address lookup
+        document.getElementById('bag-lookup-btn').addEventListener('click', () => this.openBagModal());
+        // EP-Online energielabel lookup (via RVO API)
+        document.getElementById('epol-lookup-btn').addEventListener('click', () => this.lookupEnergyLabel());
+        document.getElementById('bag-modal-close').addEventListener('click', () => this.closeBagModal());
+        document.querySelector('#bag-modal .modal-overlay').addEventListener('click', () => this.closeBagModal());
+        document.getElementById('bag-cancel').addEventListener('click', () => this.closeBagModal());
+        document.getElementById('bag-search').addEventListener('click', () => this.searchBag());
+        document.getElementById('bag-apikey-save').addEventListener('click', () => this.saveBagApiKey());
+        ['bag-postcode-input','bag-huisnr-input','bag-toev-input'].forEach(id => {
+            document.getElementById(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); this.searchBag(); } });
+        });
+
         // Contacts
         document.getElementById('add-contact-btn').addEventListener('click', () => this.openContactModal());
         document.getElementById('save-contact').addEventListener('click', () => this.saveContact());
@@ -676,6 +743,17 @@ class OpenFieldStudio {
         document.getElementById('delete-contact').addEventListener('click', () => this.deleteContact());
         document.getElementById('contact-modal-close').addEventListener('click', () => this.closeContactModal());
         document.querySelector('#contact-modal .modal-overlay').addEventListener('click', () => this.closeContactModal());
+
+        // IFC / 3D BIM tab
+        const ifcZone = document.getElementById('ifc-upload');
+        const ifcInput = document.getElementById('ifc-input');
+        if (ifcZone && ifcInput) {
+            ifcZone.addEventListener('click', () => ifcInput.click());
+            ifcZone.addEventListener('dragover', (e) => { e.preventDefault(); ifcZone.classList.add('dragover'); });
+            ifcZone.addEventListener('dragleave', () => ifcZone.classList.remove('dragover'));
+            ifcZone.addEventListener('drop', (e) => { e.preventDefault(); ifcZone.classList.remove('dragover'); if (e.dataTransfer.files[0]) this.loadIfcFile(e.dataTransfer.files[0]); });
+            ifcInput.addEventListener('change', (e) => { if (e.target.files[0]) this.loadIfcFile(e.target.files[0]); e.target.value = ''; });
+        }
 
         // Floor Plan Upload
         const uploadZone = document.getElementById('floor-plan-upload');
@@ -763,6 +841,9 @@ class OpenFieldStudio {
 
         // Export
         document.getElementById('export-html').addEventListener('click', () => this.exportHTML());
+        document.getElementById('export-pdf').addEventListener('click', () => this.exportPDF());
+        document.getElementById('export-bcf').addEventListener('click', () => this.exportBCF());
+        document.getElementById('sync-kyp').addEventListener('click', () => this.openPublishModal(null, 'kyp'));
         document.getElementById('save-json').addEventListener('click', () => this.saveJSON());
         document.getElementById('load-json').addEventListener('click', () => {
             if (window.__tauriDialog && window.__tauriFs) { this.loadJSONTauri(); }
@@ -811,13 +892,17 @@ class OpenFieldStudio {
     }
 
     saveProject(showConfirmation = true) {
+        const prevBag = this.project?.bagData || null;
+        const prevEnergy = this.project?.energyLabel || null;
         this.project = {
             name: document.getElementById('project-name').value, number: document.getElementById('project-number').value,
             client: document.getElementById('client-name').value, contactPerson: document.getElementById('contact-person').value,
             address: document.getElementById('street-address').value, postalCode: document.getElementById('postal-code').value,
             city: document.getElementById('city').value, surveyDate: document.getElementById('survey-date').value,
             surveyor: document.getElementById('surveyor').value, description: document.getElementById('project-description').value,
-            notes: document.getElementById('project-notes').value
+            notes: document.getElementById('project-notes').value,
+            bagData: prevBag,
+            energyLabel: prevEnergy
         };
         this.saveToLocalStorage();
         if (showConfirmation) this.saveJSON();
@@ -838,6 +923,218 @@ class OpenFieldStudio {
         document.getElementById('surveyor').value = p.surveyor || '';
         document.getElementById('project-description').value = p.description || '';
         document.getElementById('project-notes').value = p.notes || '';
+        this.refreshBagBadge();
+    }
+
+    // =====================================================
+    // BAG (Basisregistratie Adressen en Gebouwen) LOOKUP
+    // =====================================================
+    getBagApiKey() { return localStorage.getItem('ofs_bag_api_key') || ''; }
+    saveBagApiKey() {
+        const val = document.getElementById('bag-apikey-input').value.trim();
+        if (!val) return;
+        localStorage.setItem('ofs_bag_api_key', val);
+        this.setBagStatus(this.t('bag_key_saved'), 'success');
+    }
+
+    refreshBagBadge() {
+        const badge = document.getElementById('bag-verified-badge');
+        const text = document.getElementById('bag-verified-text');
+        if (!badge) return;
+        const b = this.project?.bagData;
+        if (b && b.nummeraanduidingId) {
+            badge.style.display = 'inline-flex';
+            text.textContent = this.tFormat('bag_verified_id', b.nummeraanduidingId);
+            badge.title = `Pand: ${b.pandId || '?'} · Verblijfsobject: ${b.adresseerbaarObjectId || '?'}`;
+        } else {
+            badge.style.display = 'none';
+        }
+        // Show energy-label lookup button only when we have an addressable object ID to query with.
+        const epolBtn = document.getElementById('epol-lookup-btn');
+        if (epolBtn) epolBtn.style.display = (b && b.adresseerbaarObjectId) ? 'inline-flex' : 'none';
+        this.refreshEnergyBadge();
+    }
+
+    refreshEnergyBadge() {
+        const el = document.getElementById('epol-badge');
+        if (!el) return;
+        const e = this.project?.energyLabel;
+        if (!e || !e.label) { el.style.display = 'none'; return; }
+        const colors = { 'A+++++':'#00A651','A++++':'#00A651','A+++':'#00A651','A++':'#00A651','A+':'#00A651',
+                         'A':'#4CB847','B':'#84C441','C':'#E8DA00','D':'#FFCB00','E':'#FF9A00','F':'#F26522','G':'#EB1E1E' };
+        el.style.display = 'inline-block';
+        el.style.background = colors[e.label] || '#666';
+        el.textContent = this.tFormat('epol_badge', e.label);
+        el.title = `EP-online: ${e.label}${e.opnamedatum ? ' · ' + e.opnamedatum : ''}${e.geldigTot ? ' · geldig tot ' + e.geldigTot : ''}`;
+    }
+
+    async lookupEnergyLabel() {
+        const b = this.project?.bagData;
+        if (!b?.adresseerbaarObjectId) { this.showNotification(this.t('epol_no_bag'), 'error'); return; }
+        let key = localStorage.getItem('ofs_epol_api_key') || '';
+        if (!key) {
+            key = prompt(this.t('epol_ask_key') + '\n\nhttps://public.ep-online.nl/');
+            if (!key) return;
+            localStorage.setItem('ofs_epol_api_key', key.trim());
+            key = key.trim();
+        }
+        const url = `https://public.ep-online.nl/api/v5/PandEnergielabel/AdresseerbaarObject/${encodeURIComponent(b.adresseerbaarObjectId)}`;
+        try {
+            const res = await fetch(url, {
+                headers: {
+                    'Authorization': key,
+                    'Accept': 'application/json'
+                }
+            });
+            if (res.status === 401 || res.status === 403) { this.showNotification(this.t('epol_bad_key'), 'error'); return; }
+            if (res.status === 404) { this.showNotification(this.t('epol_none_found'), 'error'); return; }
+            if (!res.ok) { this.showNotification(`EP-Online HTTP ${res.status}`, 'error'); return; }
+            const items = await res.json();
+            const rec = Array.isArray(items) ? items[0] : items;
+            if (!rec) { this.showNotification(this.t('epol_none_found'), 'error'); return; }
+            this.project.energyLabel = {
+                label: rec.labelLetter || rec.energielabel || rec.definitiefEnergielabel || null,
+                indexScore: rec.energieindex || rec.energiePrestatie || null,
+                opnamedatum: rec.opnameDatum || rec.registratiedatum || null,
+                geldigTot: rec.geldigTot || null,
+                source: 'ep-online-v5',
+                verifiedAt: new Date().toISOString()
+            };
+            this.saveToLocalStorage();
+            this.refreshEnergyBadge();
+            this.logActivity(this.tFormat('act_epol_ok', this.project.energyLabel.label || '?'));
+            this.showNotification(this.tFormat('epol_ok', this.project.energyLabel.label || '?'), 'success');
+        } catch (err) {
+            this.showNotification(this.tFormat('epol_network', err.message || err), 'error');
+        }
+    }
+
+    openBagModal() {
+        // Prefill from existing project fields
+        document.getElementById('bag-postcode-input').value = (this.project.postalCode || '').replace(/\s+/g, '').toUpperCase();
+        const parsed = this.parseHuisnummer(this.project.address || '');
+        document.getElementById('bag-huisnr-input').value = parsed.nummer || '';
+        document.getElementById('bag-toev-input').value = parsed.toevoeging || '';
+        document.getElementById('bag-apikey-input').value = this.getBagApiKey();
+        document.getElementById('bag-results').innerHTML = '';
+        this.setBagStatus('', '');
+        document.getElementById('bag-modal').classList.add('active');
+        setTimeout(() => document.getElementById('bag-postcode-input').focus(), 50);
+    }
+    closeBagModal() { document.getElementById('bag-modal').classList.remove('active'); }
+
+    parseHuisnummer(address) {
+        // Extract huisnummer and toevoeging from a free-text address string.
+        // Handles: "Hoofdstraat 123", "Hoofdstraat 12A", "Hoofdstraat 12-3", "Hoofdstraat 12 bis".
+        const m = (address || '').match(/(\d+)\s*([a-zA-Z]{0,4}|-\d+)?\b/);
+        if (!m) return { nummer: '', toevoeging: '' };
+        return { nummer: m[1], toevoeging: (m[2] || '').replace(/^-/, '') };
+    }
+
+    setBagStatus(msg, kind) {
+        const el = document.getElementById('bag-status');
+        if (!el) return;
+        el.textContent = msg || '';
+        el.style.color = kind === 'error' ? 'var(--danger, #dc2626)'
+                       : kind === 'success' ? 'var(--success, #059669)'
+                       : 'var(--text-muted, #6b7280)';
+    }
+
+    async searchBag() {
+        const apiKey = this.getBagApiKey();
+        if (!apiKey) {
+            this.setBagStatus(this.t('bag_need_key'), 'error');
+            // Open the details section so the user can paste a key.
+            document.querySelector('#bag-modal details').open = true;
+            document.getElementById('bag-apikey-input').focus();
+            return;
+        }
+        const postcode = document.getElementById('bag-postcode-input').value.trim().replace(/\s+/g, '').toUpperCase();
+        const huisnummer = document.getElementById('bag-huisnr-input').value.trim();
+        const toev = document.getElementById('bag-toev-input').value.trim();
+        if (!/^\d{4}[A-Z]{2}$/.test(postcode)) { this.setBagStatus(this.t('bag_bad_postcode'), 'error'); return; }
+        if (!/^\d+$/.test(huisnummer)) { this.setBagStatus(this.t('bag_bad_huisnr'), 'error'); return; }
+
+        const params = new URLSearchParams({ postcode, huisnummer });
+        // Huisletter is a single letter; if user typed multiple chars they probably mean huisnummertoevoeging.
+        if (/^[a-zA-Z]$/.test(toev)) params.set('huisletter', toev.toUpperCase());
+        else if (toev) params.set('huisnummertoevoeging', toev);
+        params.set('exacteMatch', 'true');
+
+        const url = `https://api.bag.kadaster.nl/lvbag/individuelebevragingen/v2/adressen?${params.toString()}`;
+        this.setBagStatus(this.t('bag_searching'), '');
+        document.getElementById('bag-results').innerHTML = '';
+        try {
+            const res = await fetch(url, {
+                headers: {
+                    'X-Api-Key': apiKey,
+                    'Accept': 'application/hal+json',
+                    'Accept-Crs': 'epsg:28992'
+                }
+            });
+            if (res.status === 401 || res.status === 403) { this.setBagStatus(this.t('bag_bad_key'), 'error'); return; }
+            if (res.status === 404) { this.setBagStatus(this.t('bag_no_results'), 'error'); return; }
+            if (res.status === 429) { this.setBagStatus(this.t('bag_rate_limited'), 'error'); return; }
+            if (!res.ok) { this.setBagStatus(`HTTP ${res.status}`, 'error'); return; }
+            const data = await res.json();
+            const items = (data && data._embedded && data._embedded.adressen) || [];
+            if (!items.length) { this.setBagStatus(this.t('bag_no_results'), 'error'); return; }
+            this.renderBagResults(items);
+            this.setBagStatus(this.tFormat('bag_found_n', items.length), 'success');
+        } catch (err) {
+            console.error('BAG error', err);
+            this.setBagStatus(this.tFormat('bag_network_error', err.message || err), 'error');
+        }
+    }
+
+    renderBagResults(items) {
+        const list = document.getElementById('bag-results');
+        list.innerHTML = items.map((a, i) => {
+            const straat = a.openbareRuimteNaam || '';
+            const nr = a.huisnummer || '';
+            const letter = a.huisletter || '';
+            const toev = a.huisnummertoevoeging || '';
+            const nrFull = `${nr}${letter}${toev ? '-' + toev : ''}`;
+            const plaats = a.woonplaatsNaam || '';
+            const pc = a.postcode || '';
+            return `
+                <div class="contact-card" style="cursor:pointer;padding:0.6rem 0.8rem;" data-bag-idx="${i}">
+                    <div class="contact-card-info">
+                        <h4 style="margin:0;">${this.esc(straat)} ${this.esc(nrFull)}</h4>
+                        <p style="margin:0;font-size:0.85rem;">${this.esc(pc)} ${this.esc(plaats)}</p>
+                    </div>
+                </div>`;
+        }).join('');
+        list.querySelectorAll('[data-bag-idx]').forEach(el => {
+            el.addEventListener('click', () => this.applyBagResult(items[parseInt(el.dataset.bagIdx, 10)]));
+        });
+    }
+
+    applyBagResult(a) {
+        const straat = a.openbareRuimteNaam || '';
+        const nr = a.huisnummer || '';
+        const letter = a.huisletter || '';
+        const toev = a.huisnummertoevoeging || '';
+        const nrFull = `${nr}${letter}${toev ? '-' + toev : ''}`;
+        document.getElementById('street-address').value = `${straat} ${nrFull}`.trim();
+        document.getElementById('postal-code').value = a.postcode || '';
+        document.getElementById('city').value = a.woonplaatsNaam || '';
+        this.project.bagData = {
+            nummeraanduidingId: a.nummeraanduidingIdentificatie || null,
+            adresseerbaarObjectId: a.adresseerbaarObjectIdentificatie || null,
+            pandId: (a.pandIdentificaties && a.pandIdentificaties[0]) || null,
+            openbareRuimteNaam: straat,
+            huisnummer: nr,
+            huisletter: letter || null,
+            huisnummertoevoeging: toev || null,
+            postcode: a.postcode || '',
+            woonplaatsNaam: a.woonplaatsNaam || '',
+            verifiedAt: new Date().toISOString()
+        };
+        this.saveProject(false);
+        this.refreshBagBadge();
+        this.closeBagModal();
+        this.logActivity(this.tFormat('act_bag_applied', straat, nrFull));
     }
 
     // Contacts
@@ -1168,11 +1465,53 @@ class OpenFieldStudio {
     // =====================================================
     // PHOTO MANAGEMENT
     // =====================================================
+
+    // Geolocation with a 5-minute cache to avoid pinging on every photo.
+    async getCurrentGPS() {
+        const cached = this._gpsCache;
+        const now = Date.now();
+        if (cached && (now - cached.at) < 5 * 60 * 1000) return cached.gps;
+        if (!navigator.geolocation) return null;
+        return new Promise(resolve => {
+            const t = setTimeout(() => resolve(null), 6000);
+            navigator.geolocation.getCurrentPosition(
+                pos => {
+                    clearTimeout(t);
+                    const gps = {
+                        lat: +pos.coords.latitude.toFixed(6),
+                        lon: +pos.coords.longitude.toFixed(6),
+                        accuracy: Math.round(pos.coords.accuracy || 0)
+                    };
+                    this._gpsCache = { at: now, gps };
+                    resolve(gps);
+                },
+                () => { clearTimeout(t); resolve(null); },
+                { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
+            );
+        });
+    }
+
+    // Build a photo object with evidentiary metadata (timestamp always, GPS best-effort).
+    async buildPhoto(data, name, source) {
+        const gps = await this.getCurrentGPS();
+        return {
+            id: this.genId(),
+            data, name,
+            capturedAt: new Date().toISOString(),
+            source: source || 'file',
+            gps: gps || null
+        };
+    }
+
     processPhotoFiles(files) {
         Array.from(files).forEach(file => {
             if (!file.type.startsWith('image/')) return;
             const r = new FileReader();
-            r.onload = (e) => { this.currentPhotos.push({ id:this.genId(), data:e.target.result, name:file.name }); this.renderPhotoPreview(); };
+            r.onload = async (e) => {
+                const photo = await this.buildPhoto(e.target.result, file.name, 'file');
+                this.currentPhotos.push(photo);
+                this.renderPhotoPreview();
+            };
             r.readAsDataURL(file);
         });
     }
@@ -1183,7 +1522,34 @@ class OpenFieldStudio {
     }
     removePhoto(id) { this.currentPhotos = this.currentPhotos.filter(p => p.id !== id); this.renderPhotoPreview(); }
     viewPhoto(id) { const i = this.currentPhotos.findIndex(p => p.id === id); if (i !== -1) { this.currentPhotoIndex = i; this.showPhotoViewer(); } }
-    showPhotoViewer() { const p = this.currentPhotos[this.currentPhotoIndex]; if (p) { document.getElementById('photo-viewer-image').src = p.data; document.getElementById('photo-viewer-caption').textContent = `${this.currentPhotoIndex+1} / ${this.currentPhotos.length}`; document.getElementById('photo-viewer-modal').classList.add('active'); } }
+    showPhotoViewer() {
+        const p = this.currentPhotos[this.currentPhotoIndex];
+        if (!p) return;
+        document.getElementById('photo-viewer-image').src = p.data;
+        document.getElementById('photo-viewer-caption').textContent = `${this.currentPhotoIndex+1} / ${this.currentPhotos.length}`;
+        const meta = document.getElementById('photo-viewer-meta');
+        if (meta) meta.innerHTML = this.formatPhotoMeta(p);
+        document.getElementById('photo-viewer-modal').classList.add('active');
+    }
+
+    formatPhotoMeta(p) {
+        if (!p) return '';
+        const parts = [];
+        if (p.capturedAt) {
+            const d = new Date(p.capturedAt);
+            const stamp = isNaN(d.getTime()) ? '' : d.toLocaleString();
+            if (stamp) parts.push(`${this.t('photo_taken_at')}: ${this.esc(stamp)}`);
+        }
+        if (p.gps) {
+            const { lat, lon, accuracy } = p.gps;
+            const mapUrl = `https://www.google.com/maps?q=${lat},${lon}`;
+            parts.push(`GPS: <a href="${mapUrl}" target="_blank" rel="noopener" style="color:#fbbf24;text-decoration:underline;">${lat.toFixed(6)}, ${lon.toFixed(6)}</a> (±${accuracy}m)`);
+        } else if (p.capturedAt) {
+            parts.push(this.t('photo_no_gps'));
+        }
+        if (!parts.length) parts.push(this.t('photo_meta_unknown'));
+        return parts.join(' · ');
+    }
     closePhotoViewer() { document.getElementById('photo-viewer-modal').classList.remove('active'); }
     navigatePhoto(d) { this.currentPhotoIndex = (this.currentPhotoIndex + d + this.currentPhotos.length) % this.currentPhotos.length; this.showPhotoViewer(); }
 
@@ -1236,7 +1602,7 @@ class OpenFieldStudio {
         }
     }
 
-    capturePhoto() {
+    async capturePhoto() {
         if (this._itemPhotoIdx !== undefined) { this.captureItemPhoto(); this.closeCamera(); return; }
         const video = document.getElementById('camera-video');
         const canvas = document.getElementById('camera-canvas');
@@ -1244,7 +1610,9 @@ class OpenFieldStudio {
         canvas.height = video.videoHeight;
         canvas.getContext('2d').drawImage(video, 0, 0);
         const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-        this.currentPhotos.push({ id: this.genId(), data: dataUrl, name: `foto_${new Date().toISOString().slice(11,19).replace(/:/g,'')}.jpg` });
+        const name = `foto_${new Date().toISOString().slice(11,19).replace(/:/g,'')}.jpg`;
+        const photo = await this.buildPhoto(dataUrl, name, 'camera');
+        this.currentPhotos.push(photo);
         this.renderPhotoPreview();
         this.showNotification(this.t('msg_photo_captured'), 'success');
     }
@@ -1490,7 +1858,7 @@ class OpenFieldStudio {
         await this.openCamera();
     }
 
-    captureItemPhoto() {
+    async captureItemPhoto() {
         const video = document.getElementById('camera-video');
         const canvas = document.getElementById('camera-canvas');
         canvas.width = video.videoWidth;
@@ -1501,7 +1869,9 @@ class OpenFieldStudio {
         if (insp && this._itemPhotoIdx !== undefined) {
             const item = insp.items[this._itemPhotoIdx];
             if (!item.photos) item.photos = [];
-            item.photos.push({ id: this.genId(), data: dataUrl, name: `foto_${new Date().toISOString().slice(11,19).replace(/:/g,'')}.jpg` });
+            const name = `foto_${new Date().toISOString().slice(11,19).replace(/:/g,'')}.jpg`;
+            const photo = await this.buildPhoto(dataUrl, name, 'camera');
+            item.photos.push(photo);
             this.saveToLocalStorage();
             this.renderChecklistExecution();
             this.showNotification(this.t('msg_photo_captured'), 'success');
@@ -1517,7 +1887,12 @@ class OpenFieldStudio {
         Array.from(files).forEach(file => {
             if (!file.type.startsWith('image/')) return;
             const r = new FileReader();
-            r.onload = (e) => { item.photos.push({ id: this.genId(), data: e.target.result, name: file.name }); this.saveToLocalStorage(); this.renderChecklistExecution(); };
+            r.onload = async (e) => {
+                const photo = await this.buildPhoto(e.target.result, file.name, 'file');
+                item.photos.push(photo);
+                this.saveToLocalStorage();
+                this.renderChecklistExecution();
+            };
             r.readAsDataURL(file);
         });
     }
@@ -1859,11 +2234,316 @@ class OpenFieldStudio {
         if (!this.handovers.length) { c.innerHTML = `<p class="empty-state">${this.t('empty_handovers')}</p>`; return; }
         c.innerHTML = this.handovers.map(ho => {
             const approved = ho.items.filter(i => i.verdict === 'approved').length;
+            const isDone = ho.status === 'completed';
+            const publishBtn = isDone
+                ? `<button class="btn btn-sm btn-secondary" style="margin-left:0.5rem;" onclick="event.stopPropagation();app.openWoningborgModal('${ho.id}')" title="${this.t('wb_tooltip')}">🏛 ${this.t('wb_btn')}</button>`
+                : '';
             return `<div class="handover-card" onclick="app.viewHandover('${ho.id}')">
                 <div class="handover-card-info"><h4>${this.hoTypeLabel(ho.type)}</h4><p>${ho.date} · ${ho.items.length} ${this.t('sum_tickets')} · ${approved} ${this.t('ho_approved')}</p></div>
-                <span class="status-badge status-${ho.status==='completed'?'verified':'assigned'}">${ho.status==='completed'?this.t('ho_completed'):this.t('ho_in_progress')}</span>
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                    <span class="status-badge status-${isDone?'verified':'assigned'}">${isDone?this.t('ho_completed'):this.t('ho_in_progress')}</span>
+                    ${publishBtn}
+                </div>
             </div>`;
         }).join('');
+    }
+
+    // =====================================================
+    // PUBLISH CONNECTORS — pluggable dossier-publish
+    // Registry of destinations for a completed handover (Woningborg WKI, AFAS Profit,
+    // Exact Online, generic webhook). Each connector defines its own payload shape and
+    // send() call. Config (endpoint + API key) is stored per-connector in localStorage.
+    // For Woningborg/AFAS/Exact the payload shapes are pragmatic best-effort until we
+    // have a real partner-account/spec — swap the body fields in _build*Payload() then.
+    // =====================================================
+    _connectorDefs() {
+        if (this._connCache) return this._connCache;
+        const wb = {
+            id: 'wb',
+            label: 'Woningborg WKI',
+            endpointDefault: 'https://api.woningborg.nl/pvo/v1/dossiers',
+            endpointLabel: 'API-endpoint',
+            apiKeyLabel: 'API-sleutel',
+            infoKey: 'pub_info_wb',
+            build: (ho) => this._buildWoningborgPayload(ho),
+            send: async (cfg, payload) => this._httpJson(cfg.endpoint, payload, `Bearer ${cfg.apiKey}`)
+        };
+        const afas = {
+            id: 'afas',
+            label: 'AFAS Profit',
+            endpointDefault: 'https://<klant>.rest.afas.online/profitrestservices/connectors/KnSubject',
+            endpointLabel: 'AFAS REST URL',
+            apiKeyLabel: 'AppConnector token',
+            infoKey: 'pub_info_afas',
+            build: (ho) => this._buildAfasPayload(ho),
+            send: async (cfg, payload) => this._httpJson(cfg.endpoint, payload, `AfasToken ${cfg.apiKey}`)
+        };
+        const exact = {
+            id: 'exact',
+            label: 'Exact Online',
+            endpointDefault: 'https://start.exactonline.nl/api/v1/<division>/documents/Documents',
+            endpointLabel: 'REST endpoint (met divisie-ID)',
+            apiKeyLabel: 'OAuth Bearer-token',
+            infoKey: 'pub_info_exact',
+            build: (ho) => this._buildExactPayload(ho),
+            send: async (cfg, payload) => this._httpJson(cfg.endpoint, payload, `Bearer ${cfg.apiKey}`)
+        };
+        const swk = {
+            id: 'swk',
+            label: 'SWK (Stichting Waarborgfonds Koopwoningen)',
+            endpointDefault: 'https://api.swk.nl/pvo/v1/dossiers',
+            endpointLabel: 'API-endpoint',
+            apiKeyLabel: 'API-sleutel',
+            infoKey: 'pub_info_swk',
+            // Same dossier shape as Woningborg — waarborgfonds-instanties gebruiken vergelijkbaar datamodel.
+            build: (ho) => this._buildWoningborgPayload(ho),
+            send: async (cfg, payload) => this._httpJson(cfg.endpoint, payload, `Bearer ${cfg.apiKey}`)
+        };
+        const webhook = {
+            id: 'webhook',
+            label: 'n8n / webhook',
+            endpointDefault: 'https://n8n.example.nl/webhook/ofs-dossier',
+            endpointLabel: 'Webhook URL',
+            apiKeyLabel: 'Header-token (optioneel)',
+            infoKey: 'pub_info_webhook',
+            build: (ho) => this._buildWoningborgPayload(ho),
+            send: async (cfg, payload) => this._httpJson(cfg.endpoint, payload, cfg.apiKey ? `Bearer ${cfg.apiKey}` : null)
+        };
+        // KYP is project-scope: tickets → planningtaken (niet per-oplevering).
+        const kyp = {
+            id: 'kyp',
+            label: 'KYP Project (planning)',
+            scope: 'project',
+            endpointDefault: 'https://kyp.nl/api/v1/projects/<project-id>/tasks',
+            endpointLabel: 'KYP-endpoint (met project-ID)',
+            apiKeyLabel: 'KYP API-token',
+            infoKey: 'pub_info_kyp',
+            build: (_ho) => this._buildKypPayload(),
+            send: async (cfg, payload) => this._httpJson(cfg.endpoint, payload, `Bearer ${cfg.apiKey}`)
+        };
+        this._connCache = { wb, swk, afas, exact, webhook, kyp };
+        return this._connCache;
+    }
+    _connectorGet(id) { return this._connectorDefs()[id] || this._connectorDefs().wb; }
+
+    async _httpJson(url, payload, authHeader) {
+        const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
+        if (authHeader) headers['Authorization'] = authHeader;
+        const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
+        let bodyRef = '';
+        try { const j = await res.json(); bodyRef = j.id || j.dossierId || j.Id || j.ID || ''; } catch (_) {}
+        return { ok: res.ok, status: res.status, ref: bodyRef };
+    }
+
+    _pubConfig(connectorId) {
+        const def = this._connectorGet(connectorId);
+        return {
+            endpoint: localStorage.getItem(`ofs_pub_${connectorId}_endpoint`) || def.endpointDefault,
+            apiKey: localStorage.getItem(`ofs_pub_${connectorId}_apikey`) || '',
+            testMode: localStorage.getItem(`ofs_pub_${connectorId}_test`) !== '0'
+        };
+    }
+    _pubSaveConfig(connectorId, cfg) {
+        localStorage.setItem(`ofs_pub_${connectorId}_endpoint`, cfg.endpoint || '');
+        localStorage.setItem(`ofs_pub_${connectorId}_apikey`, cfg.apiKey || '');
+        localStorage.setItem(`ofs_pub_${connectorId}_test`, cfg.testMode ? '1' : '0');
+    }
+
+    // Legacy Woningborg keys (pre-refactor) — migrate once so users don't re-enter creds.
+    _pubMigrateLegacy() {
+        if (localStorage.getItem('ofs_pub_wb_endpoint')) return;
+        const oldEp = localStorage.getItem('ofs_wb_endpoint');
+        const oldKey = localStorage.getItem('ofs_wb_api_key');
+        const oldTest = localStorage.getItem('ofs_wb_test_mode');
+        if (oldEp) localStorage.setItem('ofs_pub_wb_endpoint', oldEp);
+        if (oldKey) localStorage.setItem('ofs_pub_wb_apikey', oldKey);
+        if (oldTest !== null) localStorage.setItem('ofs_pub_wb_test', oldTest);
+    }
+
+    _buildAfasPayload(ho) {
+        const p = this.project;
+        // AFAS KnSubject UpdateConnector — pragmatic shape until klant deelt hun eigen definitie.
+        return {
+            KnSubject: {
+                Element: {
+                    Fields: {
+                        StId: 'OFS_DOSSIER',
+                        Ds: `Opleverdossier ${p.name || ''} (${ho.date})`,
+                        SbTx: this._afasNotesText(ho),
+                        DaTi: new Date().toISOString(),
+                        ExRi: p.number || p.name || '',
+                        ...(p.bagData?.pandId ? { BAG_Pand: p.bagData.pandId } : {})
+                    }
+                }
+            }
+        };
+    }
+    _afasNotesText(ho) {
+        const verdictMap = { approved: 'GOEDGEKEURD', conditional: 'ONDER VOORBEHOUD', rejected: 'AFGEKEURD' };
+        const lines = [
+            `Type: ${this.hoTypeLabel(ho.type)}`,
+            `Datum: ${ho.date}`,
+            `Eindoordeel: ${verdictMap[ho.verdict] || ho.verdict}`,
+            `Deelnemers: ${(ho.participants || []).map(pt => pt.name).join(', ')}`,
+            `Aantal punten: ${ho.items?.length || 0}`
+        ];
+        if (ho.notes) lines.push(`Opmerkingen: ${ho.notes}`);
+        return lines.join('\n');
+    }
+
+    _buildKypPayload() {
+        const p = this.project;
+        const priorityMap = { high: 'high', medium: 'normal', low: 'low' };
+        const openTickets = this.tickets.filter(t => t.status !== 'archived' && t.status !== 'verified');
+        return {
+            source: 'openfieldstudio',
+            project: { name: p.name, number: p.number },
+            tasks: openTickets.map(t => ({
+                externalId: t.id,
+                title: t.label,
+                description: t.description || '',
+                priority: priorityMap[t.priority] || 'normal',
+                category: t.category || null,
+                dueDate: t.deadline || null,
+                assignee: t.assignedTo || null,
+                status: t.status
+            }))
+        };
+    }
+
+    _buildExactPayload(ho) {
+        const p = this.project;
+        // Exact Online Document — Subject + Body. Attachments zouden via aparte call
+        // (DocumentAttachments) volgen; hier alleen de master-record voor eerste PoC.
+        return {
+            Subject: `Opleverdossier ${p.name || ''} (${ho.date})`,
+            Body: this._afasNotesText(ho),
+            Category: '00000000-0000-0000-0000-000000000000',
+            Type: 8
+        };
+    }
+
+    _buildWoningborgPayload(ho) {
+        const verdictMap = { approved: 'goedgekeurd', conditional: 'onder-voorbehoud', rejected: 'afgekeurd' };
+        const p = this.project;
+        return {
+            schemaVersion: 'ofs.wb.v0',
+            externalRef: p.number || p.name,
+            gegenereerdDoor: 'Open Field Studio',
+            gegenereerdOp: new Date().toISOString(),
+            project: {
+                naam: p.name,
+                projectnummer: p.number,
+                opdrachtgever: p.client,
+                contactpersoon: p.contactPerson,
+                adres: {
+                    straat: p.address,
+                    postcode: p.postalCode,
+                    plaats: p.city,
+                    bag: p.bagData ? {
+                        nummeraanduiding: p.bagData.nummeraanduidingId,
+                        verblijfsobject: p.bagData.adresseerbaarObjectId,
+                        pand: p.bagData.pandId
+                    } : null
+                }
+            },
+            oplevering: {
+                type: this.hoTypeLabel(ho.type),
+                datum: ho.date,
+                eindoordeel: verdictMap[ho.verdict] || ho.verdict,
+                opmerkingen: ho.notes || '',
+                deelnemers: (ho.participants || []).map(pt => ({ naam: pt.name, rol: pt.role, bedrijf: pt.company || '' })),
+                items: (ho.items || []).map(it => {
+                    const t = this.tickets.find(tk => tk.id === it.ticketId);
+                    return t ? { label: t.label, categorie: t.category, oordeel: verdictMap[it.verdict] || it.verdict, opmerkingen: it.notes || '' } : null;
+                }).filter(Boolean),
+                handtekeningen: (ho.signatures || []).map(s => ({ naam: s.name, rol: s.role, ondertekendOp: s.date }))
+            }
+        };
+    }
+
+    openWoningborgModal(hoId) { this.openPublishModal(hoId, 'wb'); }
+    closeWoningborgModal() { this.closePublishModal(); }
+
+    openPublishModal(hoId, connectorId) {
+        // hoId may be null for project-scope connectors (e.g. KYP planning-sync).
+        const def = this._connectorGet(connectorId || 'wb');
+        if (def.scope !== 'project' && !this.handovers.find(h => h.id === hoId)) return;
+        this._pubMigrateLegacy();
+        this._pubCurrentHoId = hoId;
+        this._pubCurrentConnId = connectorId || 'wb';
+        // Populate connector picker — filter to same-scope connectors.
+        const picker = document.getElementById('wb-connector');
+        const wantScope = def.scope === 'project' ? 'project' : 'handover';
+        const same = Object.values(this._connectorDefs()).filter(c => (c.scope || 'handover') === wantScope);
+        picker.innerHTML = same.map(c => `<option value="${c.id}">${c.label}</option>`).join('');
+        picker.value = this._pubCurrentConnId;
+        this._applyConnectorToModal(this._pubCurrentConnId);
+        document.getElementById('wb-modal').classList.add('active');
+    }
+    closePublishModal() { document.getElementById('wb-modal').classList.remove('active'); }
+
+    _applyConnectorToModal(connectorId) {
+        this._pubCurrentConnId = connectorId;
+        const def = this._connectorGet(connectorId);
+        const ho = def.scope === 'project' ? null : this.handovers.find(h => h.id === this._pubCurrentHoId);
+        if (def.scope !== 'project' && !ho) return;
+        const cfg = this._pubConfig(connectorId);
+        const payload = def.build(ho);
+        document.getElementById('wb-endpoint').value = cfg.endpoint;
+        document.getElementById('wb-apikey').value = cfg.apiKey;
+        document.getElementById('wb-testmode').checked = cfg.testMode;
+        document.getElementById('wb-payload').value = JSON.stringify(payload, null, 2);
+        document.getElementById('wb-status').textContent = '';
+        // Adaptive labels
+        const setLbl = (id, txt) => { const el = document.getElementById(id)?.closest('.form-group')?.querySelector('label'); if (el) el.textContent = txt; };
+        setLbl('wb-endpoint', def.endpointLabel);
+        setLbl('wb-apikey', def.apiKeyLabel);
+        const info = document.getElementById('wb-info-txt');
+        if (info) info.textContent = this.t(def.infoKey);
+    }
+
+    async publishToWoningborg() {
+        const hoId = this._pubCurrentHoId;
+        const connectorId = this._pubCurrentConnId || 'wb';
+        const def = this._connectorGet(connectorId);
+        const ho = def.scope === 'project' ? null : this.handovers.find(h => h.id === hoId);
+        if (def.scope !== 'project' && !ho) return;
+        const cfg = {
+            endpoint: document.getElementById('wb-endpoint').value.trim(),
+            apiKey: document.getElementById('wb-apikey').value.trim(),
+            testMode: document.getElementById('wb-testmode').checked
+        };
+        this._pubSaveConfig(connectorId, cfg);
+        const payload = def.build(ho);
+        const status = document.getElementById('wb-status');
+        if (cfg.testMode) {
+            status.textContent = this.tFormat('pub_test_ok', def.label);
+            status.style.color = 'var(--success, #059669)';
+            this.logActivity(this.tFormat('act_pub_test', def.label, ho ? this.hoTypeLabel(ho.type) : (this.project.name || 'project')));
+            return;
+        }
+        if (!cfg.endpoint || !cfg.apiKey) {
+            status.textContent = this.t('wb_missing_creds');
+            status.style.color = 'var(--danger, #dc2626)';
+            return;
+        }
+        status.textContent = this.tFormat('pub_sending', def.label);
+        status.style.color = 'var(--text-muted, #6b7280)';
+        try {
+            const res = await def.send(cfg, payload, ho);
+            if (res.ok) {
+                status.textContent = this.tFormat('pub_ok', def.label, res.ref || 'OK');
+                status.style.color = 'var(--success, #059669)';
+                this.logActivity(this.tFormat('act_pub_ok', def.label, ho ? this.hoTypeLabel(ho.type) : (this.project.name || 'project'), res.ref || ''));
+            } else {
+                status.textContent = this.tFormat('pub_http_error', def.label, res.status);
+                status.style.color = 'var(--danger, #dc2626)';
+            }
+        } catch (err) {
+            status.textContent = this.tFormat('wb_network_error', err.message || err);
+            status.style.color = 'var(--danger, #dc2626)';
+        }
     }
 
     viewHandover(id) {
@@ -1977,6 +2657,202 @@ class OpenFieldStudio {
         await this.saveWithPicker(blob, filename, [{ description: 'HTML bestanden', accept: { 'text/html': ['.html'] } }]);
     }
 
+    async exportPDF() {
+        const type = document.querySelector('input[name="export-type"]:checked').value;
+        let html;
+        if (type === 'handover') {
+            const hoId = document.getElementById('export-handover-id').value;
+            html = this.generateHandoverReport(hoId);
+        } else {
+            html = this.generateFullReport();
+        }
+        // Inject an auto-print snippet that fires once fonts and images are ready.
+        // Uses window.print() so the user picks "Save as PDF" from the native dialog.
+        const autoPrint = `<script>(function(){
+            function ready(){ try { window.focus(); window.print(); } catch(e){} }
+            function whenImages(cb){
+                var imgs = Array.from(document.images);
+                if (!imgs.length) return cb();
+                var left = imgs.length;
+                var done = function(){ if (--left <= 0) cb(); };
+                imgs.forEach(function(img){
+                    if (img.complete) done();
+                    else { img.addEventListener('load', done); img.addEventListener('error', done); }
+                });
+            }
+            if (document.fonts && document.fonts.ready) {
+                document.fonts.ready.then(function(){ whenImages(function(){ setTimeout(ready, 100); }); });
+            } else {
+                window.addEventListener('load', function(){ whenImages(function(){ setTimeout(ready, 100); }); });
+            }
+        })();<\/script></body>`;
+        const printable = html.replace('</body>', autoPrint);
+        const w = window.open('', '_blank');
+        if (!w) {
+            this.showNotification(this.t('msg_popup_blocked'), 'error');
+            return;
+        }
+        w.document.open();
+        w.document.write(printable);
+        w.document.close();
+    }
+
+    // =====================================================
+    // BCF 2.1 EXPORT — buildingSMART BIM Collaboration Format
+    // Produces a .bcfzip that BIMcollab / Revit / Solibri can import.
+    // Each ticket becomes a Topic; description becomes the Comment; photos are attached
+    // as viewpoint snapshots. No IFC coordinates (OFS is 2D-only), so viewpoints are omitted.
+    // =====================================================
+    async exportBCF() {
+        if (!this.tickets.length) { this.showNotification(this.t('bcf_no_tickets'), 'error'); return; }
+        const files = [];
+        const enc = new TextEncoder();
+
+        // bcf.version
+        files.push({
+            name: 'bcf.version',
+            data: enc.encode(`<?xml version="1.0" encoding="UTF-8"?>\n<Version VersionId="2.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n  <DetailedVersion>2.1</DetailedVersion>\n</Version>\n`)
+        });
+
+        const priorityMap = { high: 'High', medium: 'Normal', low: 'Low' };
+        const statusMap = { open: 'Open', assigned: 'InProgress', completed: 'Closed', verified: 'Closed', archived: 'Closed' };
+        const xmlEsc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const guidFor = (id) => {
+            // Deterministic GUID-like string from ticket id — BCF expects UUIDs but tools accept 22-36 char slugs.
+            const s = (id || '').replace(/[^a-z0-9]/gi, '');
+            const pad = (s + '00000000000000000000000000000000').slice(0, 32);
+            return `${pad.slice(0,8)}-${pad.slice(8,12)}-${pad.slice(12,16)}-${pad.slice(16,20)}-${pad.slice(20,32)}`;
+        };
+        const dataUrlToBytes = (dataUrl) => {
+            const b64 = (dataUrl || '').split(',')[1] || '';
+            const bin = atob(b64);
+            const arr = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+            return arr;
+        };
+        const projectName = this.project.name || 'OFS Project';
+        const author = this.project.surveyor || 'openfieldstudio@local';
+
+        for (const t of this.tickets) {
+            const topicGuid = guidFor(t.id);
+            const created = t.createdAt || new Date().toISOString();
+            const status = statusMap[t.status] || 'Open';
+            const prio = priorityMap[t.priority] || 'Normal';
+            const dl = t.deadline ? `\n    <DueDate>${xmlEsc(t.deadline)}T00:00:00</DueDate>` : '';
+            const assigned = t.assignedTo ? `\n    <AssignedTo>${xmlEsc(t.assignedTo)}</AssignedTo>` : '';
+            const desc = t.description ? `\n    <Description>${xmlEsc(t.description)}</Description>` : '';
+            const commentXml = t.description ? `\n  <Comment Guid="${guidFor(t.id + 'cmt')}">\n    <Date>${created}</Date>\n    <Author>${xmlEsc(author)}</Author>\n    <Comment>${xmlEsc(t.description)}</Comment>\n  </Comment>` : '';
+
+            const markup = `<?xml version="1.0" encoding="UTF-8"?>\n<Markup xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n  <Topic Guid="${topicGuid}" TopicStatus="${status}" TopicType="Issue">\n    <ReferenceLink>${xmlEsc(projectName)}</ReferenceLink>\n    <Title>${xmlEsc(t.label || 'Ticket')}</Title>\n    <Priority>${prio}</Priority>\n    <CreationDate>${created}</CreationDate>\n    <CreationAuthor>${xmlEsc(author)}</CreationAuthor>${dl}${assigned}${desc}\n  </Topic>${commentXml}\n</Markup>\n`;
+            files.push({ name: `${topicGuid}/markup.bcf`, data: enc.encode(markup) });
+
+            // Attach photos as viewpoint snapshots (JPEG expected; strip data URL prefix).
+            (t.photos || []).forEach((ph, idx) => {
+                if (!ph.data || !ph.data.startsWith('data:image/')) return;
+                const ext = ph.data.startsWith('data:image/png') ? 'png' : 'jpg';
+                files.push({ name: `${topicGuid}/snapshot_${idx + 1}.${ext}`, data: dataUrlToBytes(ph.data) });
+            });
+        }
+
+        // project.bcfp (project descriptor — optional but improves tool compatibility)
+        const projGuid = guidFor((this.project.number || projectName) + 'proj');
+        files.push({
+            name: 'project.bcfp',
+            data: enc.encode(`<?xml version="1.0" encoding="UTF-8"?>\n<ProjectExtension>\n  <Project ProjectId="${projGuid}">\n    <Name>${xmlEsc(projectName)}</Name>\n  </Project>\n  <ExtensionSchema>extensions.xsd</ExtensionSchema>\n</ProjectExtension>\n`)
+        });
+
+        const zipBlob = this._makeZip(files);
+        const filename = `${(projectName || 'project').replace(/[^\w-]+/g, '_')}.bcfzip`;
+        await this.saveWithPicker(zipBlob, filename, [{ description: 'BCF ZIP', accept: { 'application/zip': ['.bcfzip', '.zip'] } }]);
+        this.logActivity(this.tFormat('act_bcf_exported', this.tickets.length));
+    }
+
+    // Minimal ZIP writer (STORE / no compression). Handles small BCF payloads fine.
+    _makeZip(files) {
+        // CRC-32 table lazy-init
+        if (!this._crcTable) {
+            const t = new Uint32Array(256);
+            for (let n = 0; n < 256; n++) {
+                let c = n;
+                for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+                t[n] = c;
+            }
+            this._crcTable = t;
+        }
+        const crc32 = (bytes) => {
+            let c = 0xFFFFFFFF;
+            for (let i = 0; i < bytes.length; i++) c = this._crcTable[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+            return (c ^ 0xFFFFFFFF) >>> 0;
+        };
+        const encoder = new TextEncoder();
+        const parts = [];
+        const central = [];
+        let offset = 0;
+
+        for (const f of files) {
+            const nameBytes = encoder.encode(f.name);
+            const data = f.data instanceof Uint8Array ? f.data : encoder.encode(String(f.data));
+            const crc = crc32(data);
+            const size = data.length;
+
+            const lfh = new Uint8Array(30 + nameBytes.length);
+            const lv = new DataView(lfh.buffer);
+            lv.setUint32(0, 0x04034b50, true);
+            lv.setUint16(4, 20, true);      // version needed
+            lv.setUint16(6, 0, true);       // flags
+            lv.setUint16(8, 0, true);       // method: STORE
+            lv.setUint16(10, 0, true);      // mod time
+            lv.setUint16(12, 0x21, true);   // mod date (Jan 1, 1980+ arbitrary)
+            lv.setUint32(14, crc, true);
+            lv.setUint32(18, size, true);   // compressed
+            lv.setUint32(22, size, true);   // uncompressed
+            lv.setUint16(26, nameBytes.length, true);
+            lv.setUint16(28, 0, true);
+            lfh.set(nameBytes, 30);
+            parts.push(lfh, data);
+
+            const cdh = new Uint8Array(46 + nameBytes.length);
+            const cv = new DataView(cdh.buffer);
+            cv.setUint32(0, 0x02014b50, true);
+            cv.setUint16(4, 20, true);
+            cv.setUint16(6, 20, true);
+            cv.setUint16(8, 0, true);
+            cv.setUint16(10, 0, true);
+            cv.setUint16(12, 0, true);
+            cv.setUint16(14, 0x21, true);
+            cv.setUint32(16, crc, true);
+            cv.setUint32(20, size, true);
+            cv.setUint32(24, size, true);
+            cv.setUint16(28, nameBytes.length, true);
+            cv.setUint16(30, 0, true);
+            cv.setUint16(32, 0, true);
+            cv.setUint16(34, 0, true);
+            cv.setUint16(36, 0, true);
+            cv.setUint32(38, 0, true);
+            cv.setUint32(42, offset, true);
+            cdh.set(nameBytes, 46);
+            central.push(cdh);
+            offset += lfh.length + size;
+        }
+
+        const cdOffset = offset;
+        let cdSize = 0;
+        for (const c of central) cdSize += c.length;
+
+        const eocd = new Uint8Array(22);
+        const ev = new DataView(eocd.buffer);
+        ev.setUint32(0, 0x06054b50, true);
+        ev.setUint16(4, 0, true);
+        ev.setUint16(6, 0, true);
+        ev.setUint16(8, files.length, true);
+        ev.setUint16(10, files.length, true);
+        ev.setUint32(12, cdSize, true);
+        ev.setUint32(16, cdOffset, true);
+        ev.setUint16(20, 0, true);
+
+        return new Blob([...parts, ...central, eocd], { type: 'application/zip' });
+    }
+
     generateFullReport() {
         const incPhotos = document.getElementById('include-photos').checked;
         const incMap = document.getElementById('include-map').checked;
@@ -1985,12 +2861,13 @@ class OpenFieldStudio {
 
         return `<!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>${this.esc(this.project.name||'Rapport')} - Open Field Studio</title>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<style>:root{--amber:#D97706;--night:#2A2A32;--bg:#FAFAF9;--surface:#fff;--border:#E7E5E4;--gray:#A1A1AA;}*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--night);line-height:1.6;}.container{max-width:1100px;margin:0 auto;padding:2rem;}header{background:var(--night);padding:1.5rem 0;}header .container{display:flex;align-items:center;justify-content:space-between;}header h1{font-family:'Space Grotesk',sans-serif;color:#fff;font-size:1.5rem;}header span{color:var(--gray);}.section{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:2rem;margin-bottom:2rem;}.section h3{font-family:'Space Grotesk',sans-serif;font-size:1.5rem;margin-bottom:1rem;border-bottom:2px solid var(--border);padding-bottom:0.5rem;}.meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;}.meta-item{padding:0.75rem;background:var(--bg);border-radius:8px;}.meta-item label{display:block;font-size:0.75rem;color:var(--gray);}.meta-item span{font-weight:500;}.ticket-card{border:1px solid var(--border);border-radius:8px;padding:1rem;margin-bottom:1rem;}.ticket-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;}.ticket-badge{padding:0.15em 0.5em;border-radius:999px;font-size:0.7rem;font-weight:600;}.tb-open{background:rgba(217,119,6,0.15);color:#B45309;}.tb-assigned{background:rgba(37,99,235,0.15);color:#1D4ED8;}.tb-completed{background:rgba(22,163,74,0.15);color:#15803D;}.tb-verified{background:rgba(161,161,170,0.15);color:#71717A;}.photos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:0.5rem;margin-top:0.5rem;}.photos-grid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;border:1px solid var(--border);}footer{text-align:center;padding:2rem;color:var(--gray);font-size:0.8rem;}@media print{.section{break-inside:avoid;}}</style></head><body>
+<style>:root{--amber:#D97706;--night:#2A2A32;--bg:#FAFAF9;--surface:#fff;--border:#E7E5E4;--gray:#A1A1AA;--font-body:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI Variable','Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;--font-display:'Space Grotesk','Segoe UI Variable Display','Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,sans-serif;}*{box-sizing:border-box;margin:0;padding:0;}body{font-family:var(--font-body);background:var(--bg);color:var(--night);line-height:1.6;}.container{max-width:1100px;margin:0 auto;padding:2rem;}header{background:var(--night);padding:1.5rem 0;}header .container{display:flex;align-items:center;justify-content:space-between;}header h1{font-family:var(--font-display);color:#fff;font-size:1.5rem;}header span{color:var(--gray);}.section{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:2rem;margin-bottom:2rem;}.section h3{font-family:var(--font-display);font-size:1.5rem;margin-bottom:1rem;border-bottom:2px solid var(--border);padding-bottom:0.5rem;}.meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;}.meta-item{padding:0.75rem;background:var(--bg);border-radius:8px;}.meta-item label{display:block;font-size:0.75rem;color:var(--gray);}.meta-item span{font-weight:500;}.ticket-card{border:1px solid var(--border);border-radius:8px;padding:1rem;margin-bottom:1rem;}.ticket-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;}.ticket-badge{padding:0.15em 0.5em;border-radius:999px;font-size:0.7rem;font-weight:600;}.tb-open{background:rgba(217,119,6,0.15);color:#B45309;}.tb-assigned{background:rgba(37,99,235,0.15);color:#1D4ED8;}.tb-completed{background:rgba(22,163,74,0.15);color:#15803D;}.tb-verified{background:rgba(161,161,170,0.15);color:#71717A;}.photos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:0.5rem;margin-top:0.5rem;}.photo-fig{margin:0;display:flex;flex-direction:column;}.photos-grid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;border:1px solid var(--border);}.photo-cap{font-size:0.65rem;color:var(--gray);font-family:monospace;margin-top:0.15rem;word-break:break-all;line-height:1.2;}footer{text-align:center;padding:2rem;color:var(--gray);font-size:0.8rem;}@page{size:A4;margin:15mm;}@media print{html,body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;}header{background:#2A2A32 !important;padding:0.75rem 0;}.container{max-width:none;padding:0;}main.container{padding:0;}.section{background:#fff;border:1px solid #E7E5E4;border-radius:8px;padding:1rem;margin-bottom:0.75rem;break-inside:avoid;page-break-inside:avoid;box-shadow:none;}.section h2,.section h3{font-size:1.1rem;margin-bottom:0.4rem;padding-bottom:0.25rem;}.ticket-card{padding:0.5rem;margin-bottom:0.5rem;break-inside:avoid;page-break-inside:avoid;}.photos-grid{grid-template-columns:repeat(4,1fr);gap:0.25rem;}.photos-grid img{max-height:80px;object-fit:cover;}.meta{gap:0.5rem;}.meta-item{padding:0.4rem;}footer{padding:0.5rem;font-size:0.7rem;}}</style></head><body>
 <header><div class="container"><h1>Open Field Studio</h1><span>${new Date().toLocaleDateString('nl-NL')}</span></div></header>
 <main class="container"><div class="section"><h2 style="font-family:'Space Grotesk';font-size:2rem;margin-bottom:1rem;">${this.esc(this.project.name||'Projectrapport')}</h2><div class="meta">
 ${this.project.number?`<div class="meta-item"><label>Projectnummer</label><span>${this.esc(this.project.number)}</span></div>`:''}
 <div class="meta-item"><label>Adres</label><span>${this.esc(this.project.address)}, ${this.esc(this.project.postalCode)} ${this.esc(this.project.city)}</span></div>
+${this.project.bagData?.nummeraanduidingId?`<div class="meta-item"><label>BAG-geverifieerd</label><span style="font-family:monospace;font-size:0.8rem;">Nr.aand.: ${this.esc(this.project.bagData.nummeraanduidingId)}${this.project.bagData.pandId?'<br>Pand: '+this.esc(this.project.bagData.pandId):''}</span></div>`:''}
+${this.project.energyLabel?.label?`<div class="meta-item"><label>Energielabel</label><span style="font-weight:700;font-size:1.1rem;">${this.esc(this.project.energyLabel.label)}</span>${this.project.energyLabel.opnamedatum?`<br><span style="font-size:0.75rem;color:var(--gray);">opname ${this.esc(this.project.energyLabel.opnamedatum)}</span>`:''}</div>`:''}
 ${this.project.client?`<div class="meta-item"><label>Opdrachtgever</label><span>${this.esc(this.project.client)}</span></div>`:''}
 ${this.project.surveyDate?`<div class="meta-item"><label>Opnamedatum</label><span>${this.esc(this.project.surveyDate)}</span></div>`:''}
 ${this.project.surveyor?`<div class="meta-item"><label>Opgenomen door</label><span>${this.esc(this.project.surveyor)}</span></div>`:''}
@@ -2004,7 +2881,13 @@ ${this.floorPlans.map(fp => {
     ${pts.length?pts.map((p,i)=>`<div class="ticket-card"><div class="ticket-header"><strong>${i+1}. ${this.esc(p.label)}</strong><span class="ticket-badge tb-${p.status}">${this.statusLabel(p.status)}</span></div>
     <p style="font-size:0.8rem;color:var(--gray);">${p.category||''} · ${this.priorityLabel(p.priority)} · ${this.severityLabel(p.severity)}${p.assignedTo?' · '+this.esc(p.assignedTo):''}${p.deadline?' · Deadline: '+p.deadline:''}</p>
     ${p.description?`<p style="margin-top:0.5rem;">${this.esc(p.description)}</p>`:''}
-    ${incPhotos&&p.photos?.length?`<div class="photos-grid">${p.photos.map(ph=>`<img src="${ph.data}">`).join('')}</div>`:''}
+    ${incPhotos&&p.photos?.length?`<div class="photos-grid">${p.photos.map(ph=>{
+        const meta = [];
+        if (ph.capturedAt) { const d = new Date(ph.capturedAt); if (!isNaN(d.getTime())) meta.push(d.toLocaleString('nl-NL')); }
+        if (ph.gps) meta.push(`${ph.gps.lat.toFixed(5)}, ${ph.gps.lon.toFixed(5)}`);
+        const cap = meta.length ? `<div class="photo-cap">${this.esc(meta.join(' · '))}</div>` : '';
+        return `<figure class="photo-fig"><img src="${ph.data}">${cap}</figure>`;
+    }).join('')}</div>`:''}
     </div>`).join(''):'<p style="color:var(--gray);">Geen tickets</p>'}
     </div>`;
 }).join('')}
@@ -2016,8 +2899,7 @@ ${this.floorPlans.map(fp => {
         if (!ho) return this.generateFullReport();
         return `<!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Proces-Verbaal van Oplevering - ${this.esc(this.project.name)}</title>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Inter',sans-serif;color:#36363E;line-height:1.6;padding:2rem;max-width:900px;margin:0 auto;}h1{font-family:'Space Grotesk',sans-serif;font-size:1.8rem;margin-bottom:0.5rem;}h2{font-family:'Space Grotesk',sans-serif;font-size:1.3rem;margin:1.5rem 0 0.75rem;border-bottom:2px solid #E7E5E4;padding-bottom:0.5rem;}.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:1.5rem;}.meta-row{display:flex;gap:0.5rem;}.meta-label{font-weight:600;min-width:140px;font-size:0.85rem;color:#A1A1AA;}.meta-val{font-size:0.85rem;}table{width:100%;border-collapse:collapse;margin:1rem 0;}th,td{border:1px solid #E7E5E4;padding:0.5rem 0.75rem;text-align:left;font-size:0.85rem;}th{background:#F5F5F4;font-weight:600;}.verdict-ok{color:#16A34A;font-weight:600;}.verdict-cond{color:#F59E0B;font-weight:600;}.verdict-nok{color:#DC2626;font-weight:600;}.sig-block{display:inline-block;width:45%;margin:1rem 2%;vertical-align:top;}.sig-block img{max-width:100%;border:1px solid #E7E5E4;border-radius:4px;}@media print{body{padding:1rem;}}</style></head><body>
+<style>:root{--font-body:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI Variable','Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;--font-display:'Space Grotesk','Segoe UI Variable Display','Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,sans-serif;}*{box-sizing:border-box;margin:0;padding:0;}body{font-family:var(--font-body);color:#36363E;line-height:1.6;padding:2rem;max-width:900px;margin:0 auto;}h1{font-family:var(--font-display);font-size:1.8rem;margin-bottom:0.5rem;}h2{font-family:var(--font-display);font-size:1.3rem;margin:1.5rem 0 0.75rem;border-bottom:2px solid #E7E5E4;padding-bottom:0.5rem;}.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:1.5rem;}.meta-row{display:flex;gap:0.5rem;}.meta-label{font-weight:600;min-width:140px;font-size:0.85rem;color:#A1A1AA;}.meta-val{font-size:0.85rem;}table{width:100%;border-collapse:collapse;margin:1rem 0;}th,td{border:1px solid #E7E5E4;padding:0.5rem 0.75rem;text-align:left;font-size:0.85rem;}th{background:#F5F5F4;font-weight:600;}.verdict-ok{color:#16A34A;font-weight:600;}.verdict-cond{color:#F59E0B;font-weight:600;}.verdict-nok{color:#DC2626;font-weight:600;}.sig-block{display:inline-block;width:45%;margin:1rem 2%;vertical-align:top;}.sig-block img{max-width:100%;border:1px solid #E7E5E4;border-radius:4px;}@page{size:A4;margin:15mm;}@media print{html,body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:0;}body{padding:0;max-width:none;}h2{margin:0.75rem 0 0.4rem;font-size:1.05rem;}table{page-break-inside:avoid;}.sig-block{page-break-inside:avoid;}}</style></head><body>
 <h1>Proces-Verbaal van Oplevering</h1>
 <p style="color:#A1A1AA;margin-bottom:2rem;">${this.hoTypeLabel(ho.type)} · ${ho.date}</p>
 <h2>Projectgegevens</h2>
@@ -2025,6 +2907,7 @@ ${this.floorPlans.map(fp => {
 <div class="meta-row"><span class="meta-label">Project:</span><span class="meta-val">${this.esc(this.project.name)}</span></div>
 <div class="meta-row"><span class="meta-label">Projectnummer:</span><span class="meta-val">${this.esc(this.project.number)}</span></div>
 <div class="meta-row"><span class="meta-label">Adres:</span><span class="meta-val">${this.esc(this.project.address)}, ${this.esc(this.project.postalCode)} ${this.esc(this.project.city)}</span></div>
+${this.project.bagData?.nummeraanduidingId?`<div class="meta-row"><span class="meta-label">BAG-ID:</span><span class="meta-val" style="font-family:monospace;font-size:0.75rem;">${this.esc(this.project.bagData.nummeraanduidingId)}</span></div>`:''}
 <div class="meta-row"><span class="meta-label">Opdrachtgever:</span><span class="meta-val">${this.esc(this.project.client)}</span></div>
 <div class="meta-row"><span class="meta-label">Datum oplevering:</span><span class="meta-val">${ho.date}</span></div>
 </div>
@@ -2101,20 +2984,134 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
         } catch(err) { this.showNotification(this.t('msg_load_error'), 'error'); console.error(err); }
     }
 
+    // =====================================================
+    // IFC 3D VIEWER (lazy-load Three.js + web-ifc on first use)
+    // =====================================================
+    async loadIfcFile(file) {
+        const status = document.getElementById('ifc-status');
+        const container = document.getElementById('ifc-canvas-container');
+        if (!status || !container) return;
+        status.textContent = this.tFormat('ifc_loading', file.name);
+        status.style.color = 'var(--text-muted, #6b7280)';
+        try {
+            if (!window.__ofsIfcViewer) {
+                if (typeof window.__ofsLoadIfcViewer !== 'function') throw new Error('IFC-loader ontbreekt');
+                await window.__ofsLoadIfcViewer();
+            }
+            const buf = await file.arrayBuffer();
+            const { meshCount } = await window.__ofsIfcViewer.loadIfcArrayBuffer(container, buf);
+            status.textContent = this.tFormat('ifc_ok', file.name, meshCount);
+            status.style.color = 'var(--success, #059669)';
+            this.logActivity(this.tFormat('act_ifc_loaded', file.name, meshCount));
+        } catch (err) {
+            console.error('IFC load error', err);
+            status.textContent = this.tFormat('ifc_error', err.message || err);
+            status.style.color = 'var(--danger, #dc2626)';
+        }
+    }
+
+    // =====================================================
+    // BLOB STORE — IndexedDB
+    // Large binaries (photos, floor plans, signatures) live here, keyed by blobRef.
+    // localStorage holds only metadata + refs (< 5MB), IDB holds the payloads (GBs).
+    // =====================================================
+    _blobDb() {
+        if (this._blobDbP) return this._blobDbP;
+        this._blobDbP = new Promise((res, rej) => {
+            const req = indexedDB.open('ofs-blobs', 1);
+            req.onupgradeneeded = () => req.result.createObjectStore('blobs');
+            req.onsuccess = () => res(req.result);
+            req.onerror = () => rej(req.error);
+        });
+        return this._blobDbP;
+    }
+    async _blobPut(key, dataUrl) {
+        const db = await this._blobDb();
+        return new Promise((res, rej) => {
+            const tx = db.transaction('blobs', 'readwrite');
+            tx.objectStore('blobs').put(dataUrl, key);
+            tx.oncomplete = () => res();
+            tx.onerror = () => rej(tx.error);
+        });
+    }
+    async _blobGet(key) {
+        const db = await this._blobDb();
+        return new Promise((res, rej) => {
+            const tx = db.transaction('blobs', 'readonly');
+            const r = tx.objectStore('blobs').get(key);
+            r.onsuccess = () => res(r.result || null);
+            r.onerror = () => rej(r.error);
+        });
+    }
+    async _blobClearAll() {
+        const db = await this._blobDb();
+        return new Promise((res, rej) => {
+            const tx = db.transaction('blobs', 'readwrite');
+            tx.objectStore('blobs').clear();
+            tx.oncomplete = () => res();
+            tx.onerror = () => rej(tx.error);
+        });
+    }
+
+    // Walk `node` recursively; for every plain object shaped like { data: "data:..." },
+    // ensure it has a blobRef, write the payload to IDB (fire-and-forget), and return a
+    // shallow clone with `data` stripped. Non-blob values pass through unchanged.
+    _stripBlobs(node, pending) {
+        if (Array.isArray(node)) return node.map(v => this._stripBlobs(v, pending));
+        if (node && typeof node === 'object') {
+            const isBlob = typeof node.data === 'string' && node.data.startsWith('data:');
+            const out = {};
+            for (const k of Object.keys(node)) {
+                if (k === 'data' && isBlob) continue;
+                out[k] = this._stripBlobs(node[k], pending);
+            }
+            if (isBlob) {
+                if (!node.blobRef) node.blobRef = 'b_' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
+                out.blobRef = node.blobRef;
+                pending.push(this._blobPut(node.blobRef, node.data));
+            }
+            return out;
+        }
+        return node;
+    }
+
+    // Walk `node` recursively; for every object with { blobRef, no data }, resolve
+    // the blobRef from IDB and set `data`. Missing blobs stay unresolved (skipped by UI).
+    async _hydrateBlobs(node) {
+        if (Array.isArray(node)) { await Promise.all(node.map(v => this._hydrateBlobs(v))); return; }
+        if (node && typeof node === 'object') {
+            if (node.blobRef && typeof node.data !== 'string') {
+                try { const d = await this._blobGet(node.blobRef); if (d) node.data = d; }
+                catch (e) { console.warn('blob resolve failed', node.blobRef, e); }
+            }
+            for (const k of Object.keys(node)) await this._hydrateBlobs(node[k]);
+        }
+    }
+
     saveToLocalStorage() {
-        localStorage.setItem('openFieldStudio', JSON.stringify({
+        const pending = [];
+        const stripped = this._stripBlobs({
             project:this.project, contacts:this.contacts, floorPlans:this.floorPlans, tickets:this.tickets,
             inspections:this.inspections, handovers:this.handovers, checklistTemplates:this.checklistTemplates, activityLog:this.activityLog
-        }));
+        }, pending);
+        try {
+            localStorage.setItem('openFieldStudio', JSON.stringify(stripped));
+        } catch (e) {
+            console.error('localStorage full even after blob-strip', e);
+            this.showNotification(this.t('msg_storage_full'), 'error');
+        }
+        // Blob writes to IDB proceed in the background — safe to fire-and-forget for auto-save.
+        if (pending.length) Promise.all(pending).catch(err => console.warn('blob write failed', err));
         this._lastSaved = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
         this.updateStatusBar();
     }
 
-    loadFromLocalStorage() {
+    async loadFromLocalStorage() {
         try {
             const saved = localStorage.getItem('openFieldStudio');
             if (!saved) return;
             const d = JSON.parse(saved);
+            await this._hydrateBlobs(d);
             this.project = d.project || this.project;
             this.contacts = d.contacts || [];
             this.floorPlans = (d.floorPlans || []).filter(fp => fp.data && fp.data.startsWith('data:image'));
@@ -2139,7 +3136,8 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
         const ok = await this.asyncConfirm(this.t('msg_confirm_clear'));
         if (!ok) return;
         localStorage.removeItem('openFieldStudio');
-        this.project = { name:'',number:'',client:'',contactPerson:'',address:'',postalCode:'',city:'',surveyDate:'',surveyor:'',description:'',notes:'' };
+        try { await this._blobClearAll(); } catch (e) { console.warn('IDB clear failed', e); }
+        this.project = { name:'',number:'',client:'',contactPerson:'',address:'',postalCode:'',city:'',surveyDate:'',surveyor:'',description:'',notes:'',bagData:null };
         this.contacts = []; this.floorPlans = []; this.tickets = []; this.inspections = []; this.handovers = []; this.activityLog = [];
         this.activeFloorPlanId = null;
         this.loadProjectForm(); this.renderContacts(); this.renderFloorPlansList(); this.updateFloorPlanSelector(); this.clearCanvas(); this.setDefaultDate();

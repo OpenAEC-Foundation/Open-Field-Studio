@@ -10,21 +10,47 @@ Free, open-source tool for performing construction inspections, energy label sur
 
 ## Features
 
+### Core inspection workflow
 - **Tickets & defect registration** on floor plans with category, priority, status workflow and assignment
 - **Checklist inspections** with 15 built-in templates (pass/fail and NEN 2767 condition scoring)
 - **Energy label survey** — full NTA 8800 data collection in 43 items
 - **Monument inspection** — construction, interior, moisture/damage, maintenance plan
 - **Handover** with formal certificate, digital signatures and document attachments
 - **Dashboard** with real-time statistics and charts
-- **Interactive checklists** — smart item rendering with choice chips, per-item photo capture, and prefix-based UI
+
+### 3D BIM
+- **IFC viewer** (IFC 2x3 / IFC4) — Three.js + web-ifc WASM, orbit/pan/zoom, lazy-loaded on tab open
+
+### Media & evidentiary data
 - **Camera integration** for on-site photo capture with permission handling and mobile fallback
+- **Photo metadata** — every photo carries capture timestamp + GPS coordinates (Wkb evidentiary value); shown in viewer and PDF report
+- **IndexedDB blob store** — large binaries (photos, floor plans, signatures) live outside localStorage; quota effectively unlimited
+
+### Dutch registers (NL BAG/Kadaster/RVO)
+- **BAG address lookup** (Kadaster) — postcode + huisnummer → verified nummeraanduiding, verblijfsobject and pand IDs, stored on the project
+- **EP-Online energy label** — one-click fetch from RVO's public register, colored badge in project and PDF
+
+### Reports
+- **PDF export** via native browser print with A4-optimized styles, print-color-adjust, page-break rules, photo captions with GPS/timestamp
+- **HTML report** with save location picker
+- **BCF 2.1 export** (buildingSMART) — interop with BIMcollab, Revit, Solibri; per-topic markup.bcf + photo snapshots
+
+### Dossier publish / ERP connectors
+Send a completed handover dossier to your existing back-office with one click. Same modal, connector-picker:
+- **Woningborg WKI** — dossier + PvO to the Dutch home warranty registry
+- **SWK** — Stichting Waarborgfonds Koopwoningen (identical dossier shape)
+- **AFAS Profit** — KnSubject dossier item on the project
+- **Exact Online** — Document + attachment linked to the project
+- **n8n / generic webhook** — JSON POST for Zapier/Make/n8n/own relay
+- **KYP Project** (planning) — separate project-scope flow that pushes open tickets as planning tasks
+
+### UX & tech
 - **Mobile responsive** — optimized layout for 6-inch phones (360–412px)
-- **4 languages** — Dutch, English, German, French (i18next)
+- **4 languages** — Dutch, English, German, French (i18next, ~350 keys)
 - **Dark/Light theme** with system preference detection
 - **Keyboard shortcuts** — Ctrl+S save, Ctrl+E export, Ctrl+O load, 1-8 tab switch
 - **Native file dialogs** — save/open via OS dialogs (Tauri desktop)
-- **Offline capable** — PDF.js bundled locally, no internet required
-- **HTML reports** with save location picker
+- **Fully offline** — PDF.js, web-ifc WASM and fonts bundled locally, zero CDN calls
 - **Cross-platform** — Windows, Linux, Android, Web
 
 ## Installation
@@ -162,10 +188,12 @@ Open-Field-Studio/
 
 - **[Tauri v2](https://v2.tauri.app/)** — Desktop & mobile framework
 - **[Vite](https://vite.dev/)** — Frontend build tool
-- **[i18next](https://www.i18next.com/)** — Internationalization (4 languages, 277 keys)
+- **[i18next](https://www.i18next.com/)** — Internationalization (4 languages, ~350 keys)
 - **[PDF.js](https://mozilla.github.io/pdf.js/)** — PDF floor plan rendering (bundled offline)
+- **[Three.js](https://threejs.org/) + [web-ifc](https://github.com/ThatOpen/engine_web-ifc)** — 3D IFC BIM viewer (WASM, MIT-licensed)
+- **IndexedDB** — Blob store for photos/floor plans/signatures (past the localStorage quota)
 - **Vanilla JavaScript** — No UI framework, lightweight
-- **OpenAEC Foundation design system** — Construction amber, Space Grotesk typography
+- **System font stack** — Inter/Space Grotesk if installed, falls back to Segoe UI / San Francisco / Roboto (fully offline)
 
 ## Tauri Plugins
 
@@ -179,7 +207,7 @@ Open-Field-Studio/
 
 | Language | Code | Status |
 |----------|------|--------|
-| Nederlands | NL | Complete (277 keys) |
+| Nederlands | NL | Complete (~352 keys) |
 | English | EN | Complete |
 | Deutsch | DE | Complete |
 | Fran&ccedil;ais | FR | Complete |
@@ -187,6 +215,39 @@ Open-Field-Studio/
 Language preference is auto-detected from the browser/OS and persisted in localStorage.
 
 ## Changelog
+
+### v0.2.0
+
+Major expansion — Wkb-bewijskracht + BIM + Dutch registries + ERP publish.
+
+**Dutch registers**
+- **BAG address lookup** — postcode + huisnummer → verified nummeraanduiding / verblijfsobject / pand IDs, stored on the project and printed in the report.
+- **EP-Online energy label** — one-click fetch from RVO's public register once BAG has an addressable-object ID; colored A–G badge in project + report.
+
+**Media & storage**
+- **IndexedDB blob store** — photos, floor plans and signatures moved out of localStorage; effectively unlimited quota.
+- **Photo metadata** — every new photo carries capture timestamp + GPS coordinates (Wkb evidentiary value). Shown in photo viewer (with Google Maps link) and in PDF report captions.
+
+**Reports & interop**
+- **Real PDF export** via native browser print, A4-optimized styles, print-color-adjust, page-break rules per section/ticket/table/signature.
+- **BCF 2.1 export** (buildingSMART ZIP) — inline STORE-ZIP writer (no dep); per-topic markup.bcf + photo snapshots; importable in BIMcollab, Revit, Solibri.
+- **3D BIM viewer** — new "3D BIM" tab with IFC upload (Three.js + web-ifc WASM, lazy-loaded); orbit / pan / zoom; auto-frames the model.
+
+**Dossier publish / ERP connectors**
+- Generic `PublishConnector`-registry with one modal for six destinations:
+  - **Woningborg WKI** (dossier + PvO)
+  - **SWK** (Stichting Waarborgfonds Koopwoningen)
+  - **AFAS Profit** (KnSubject UpdateConnector)
+  - **Exact Online** (Document + attachment)
+  - **n8n / generic webhook** (JSON POST)
+  - **KYP Project** (project-scope — open tickets pushed as planning tasks)
+- Every connector: configurable endpoint, per-connector API key, test-mode that validates the payload without sending.
+
+**Housekeeping**
+- **Offline fonts** — Google Fonts CDN removed everywhere; system font stack (Inter/Space Grotesk if installed, fallback to Segoe UI / San Francisco / Roboto). Zero network requests on load.
+- **SVG icon bug fix** — `applyLanguage()` no longer wipes SVG children when relabeling buttons.
+- **~350 i18n keys** across NL/EN/DE/FR (from 277).
+- **New dependencies**: `three`, `web-ifc`, `@thatopen/components`.
 
 ### v0.1.3
 

@@ -4,9 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Open Field Studio</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+    <!-- Fonts: system-first stack (Segoe UI / San Francisco / Roboto). If Inter or Space Grotesk are installed locally, they are used. No CDN — app stays fully offline. -->
+    <style>
+        :root {
+            --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            --font-display: 'Space Grotesk', 'Segoe UI Variable Display', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Cascadia Mono', 'Consolas', 'Menlo', 'Courier New', monospace;
+        }
+    </style>
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/titlebar.css">
     <link rel="stylesheet" href="/themes.css">
@@ -89,6 +94,10 @@
                     <svg viewBox="0 0 24 24" width="18" height="18"><path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z" fill="currentColor"/></svg>
                     <span data-i18n="nav_plans">Plattegronden</span>
                 </button>
+                <button class="nav-btn" data-tab="ifc">
+                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/></svg>
+                    <span data-i18n="nav_ifc">3D BIM</span>
+                </button>
                 <button class="nav-btn" data-tab="opname">
                     <svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="currentColor"/></svg>
                     <span data-i18n="nav_opname">Opname</span>
@@ -149,6 +158,21 @@
                             <label for="city">Plaats *</label>
                             <input type="text" id="city" required placeholder="Amsterdam">
                         </div>
+                        <div class="form-group full-width" style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+                            <button type="button" class="btn btn-secondary" id="bag-lookup-btn" style="padding:0.4rem 0.8rem;font-size:0.85rem;">
+                                <svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align:middle;"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="currentColor"/></svg>
+                                Zoek adres (BAG)
+                            </button>
+                            <span id="bag-verified-badge" style="display:none;font-size:0.8rem;color:var(--success,#059669);">
+                                <svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align:middle;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" fill="currentColor"/></svg>
+                                <span id="bag-verified-text">BAG-geverifieerd</span>
+                            </span>
+                            <button type="button" class="btn btn-secondary" id="epol-lookup-btn" style="display:none;padding:0.4rem 0.8rem;font-size:0.85rem;">
+                                <svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align:middle;"><path d="M7 2v11h3v9l7-12h-4l3-8H7z" fill="currentColor"/></svg>
+                                Energielabel ophalen
+                            </button>
+                            <span id="epol-badge" style="display:none;font-weight:600;font-size:0.85rem;padding:0.15rem 0.5rem;border-radius:4px;color:#fff;"></span>
+                        </div>
                         <div class="form-group">
                             <label for="survey-date">Opnamedatum</label>
                             <input type="date" id="survey-date">
@@ -192,6 +216,24 @@
                         <input type="file" id="floor-plan-input" accept="image/*,application/pdf,.pdf" multiple hidden>
                     </div>
                     <div class="floor-plans-list" id="floor-plans-list"></div>
+                </div>
+            </section>
+
+            <!-- ==================== IFC / 3D BIM TAB ==================== -->
+            <section id="ifc-tab" class="tab-content">
+                <div class="panel">
+                    <h2 id="ifc-h2">3D BIM (IFC-viewer)</h2>
+                    <div class="upload-zone" id="ifc-upload" style="margin-bottom:1rem;">
+                        <svg viewBox="0 0 24 24" width="48" height="48"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" fill="currentColor"/></svg>
+                        <p id="ifc-upload-text">Sleep een .ifc-bestand hierheen of klik om te uploaden</p>
+                        <span class="upload-hint">IFC 2x3 / IFC4</span>
+                        <input type="file" id="ifc-input" accept=".ifc,application/ifc" hidden>
+                    </div>
+                    <div id="ifc-status" style="font-size:0.85rem;color:var(--text-muted, #6b7280);margin-bottom:0.5rem;"></div>
+                    <div id="ifc-canvas-container" style="width:100%;height:calc(100vh - 260px);min-height:400px;border-radius:8px;overflow:hidden;background:#1a1a20;"></div>
+                    <p style="margin-top:0.75rem;font-size:0.8rem;color:var(--text-muted, #6b7280);" id="ifc-info-txt">
+                        Muis: linksklik+sleep = draaien · scroll = zoomen · rechtsklik+sleep = pannen. Ticket-koppeling op 3D-model volgt in een latere fase.
+                    </p>
                 </div>
             </section>
 
@@ -552,9 +594,21 @@
                         </div>
                     </div>
                     <div class="form-actions">
-                        <button type="button" class="btn btn-primary btn-large" id="export-html">
+                        <button type="button" class="btn btn-primary btn-large" id="export-pdf">
+                            <svg viewBox="0 0 24 24" width="20" height="20"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9.5 11.5c0 .83-.67 1.5-1.5 1.5H7v2H5.5V9H8c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5H11V9h2c.83 0 1.5.67 1.5 1.5v3zm4-3H17v1h1.5V13H17v2h-1.5V9h3v1.5zM7 10.5h1v1H7zm5.5 0H14v3h-1.5z" fill="currentColor"/></svg>
+                            Exporteer als PDF
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-large" id="export-html">
                             <svg viewBox="0 0 24 24" width="20" height="20"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" fill="currentColor"/></svg>
                             Exporteer als HTML
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-large" id="export-bcf" title="BIM Collaboration Format 2.1 — voor BIMcollab, Revit, Solibri">
+                            <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/></svg>
+                            Exporteer als BCF (BIM)
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-large" id="sync-kyp" title="Sync open tickets als taken naar KYP Project (planning)">
+                            <svg viewBox="0 0 24 24" width="20" height="20"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z" fill="currentColor"/></svg>
+                            Sync met KYP Project
                         </button>
                         <button type="button" class="btn btn-secondary" id="save-json">Project Opslaan (JSON)</button>
                         <button type="button" class="btn btn-secondary" id="load-json">Project Laden</button>
@@ -701,6 +755,7 @@
             <img id="photo-viewer-image" src="" alt="Foto">
             <button class="photo-viewer-nav next" id="photo-next">&gt;</button>
             <div class="photo-viewer-caption" id="photo-viewer-caption"></div>
+            <div class="photo-viewer-meta" id="photo-viewer-meta" style="text-align:center;font-size:0.8rem;color:#e5e7eb;padding:0.5rem 1rem;font-family:monospace;"></div>
         </div>
     </div>
 
@@ -749,6 +804,96 @@
                 <button type="button" class="btn btn-secondary" id="cancel-contact">Annuleren</button>
                 <button type="button" class="btn btn-danger" id="delete-contact" style="display:none;">Verwijderen</button>
                 <button type="button" class="btn btn-primary" id="save-contact">Opslaan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== WONINGBORG PUBLISH MODAL ==================== -->
+    <div class="modal" id="wb-modal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content modal-wide">
+            <div class="modal-header">
+                <h3 id="wb-modal-title">Publiceer naar Woningborg</h3>
+                <button class="modal-close" id="wb-modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label for="wb-connector">Bestemming</label>
+                        <select id="wb-connector"></select>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="wb-endpoint">API-endpoint</label>
+                        <input type="url" id="wb-endpoint" placeholder="https://…" style="font-family:monospace;">
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="wb-apikey">API-sleutel</label>
+                        <input type="text" id="wb-apikey" placeholder="Bearer-token van Woningborg partner-portal" style="font-family:monospace;">
+                    </div>
+                    <div class="form-group full-width">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="wb-testmode" checked>
+                            <span id="wb-testmode-lbl">Testmodus (alleen payload voorbeeld, geen echte verzending)</span>
+                        </label>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="wb-payload">Voorbeeld payload</label>
+                        <textarea id="wb-payload" rows="14" readonly style="font-family:monospace;font-size:0.75rem;"></textarea>
+                    </div>
+                </div>
+                <div id="wb-status" style="margin-top:0.5rem;font-size:0.85rem;"></div>
+                <p style="margin-top:0.75rem;font-size:0.8rem;color:var(--text-muted, #6b7280);">
+                    <span id="wb-info-txt">API-sleutel op aanvraag bij Woningborg (partner-portal). Payload-schema is voorlopig; sync met Woningborg's officiële spec bij livegang.</span>
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="wb-cancel">Annuleren</button>
+                <button type="button" class="btn btn-primary" id="wb-send">Verstuur</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== BAG LOOKUP MODAL ==================== -->
+    <div class="modal" id="bag-modal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="bag-modal-title">Adres zoeken (BAG Kadaster)</h3>
+                <button class="modal-close" id="bag-modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="bag-postcode-input">Postcode *</label>
+                        <input type="text" id="bag-postcode-input" placeholder="1234AB" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="bag-huisnr-input">Huisnummer *</label>
+                        <input type="number" id="bag-huisnr-input" placeholder="123" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="bag-toev-input">Huisletter / toevoeging</label>
+                        <input type="text" id="bag-toev-input" placeholder="A of bis" autocomplete="off">
+                    </div>
+                </div>
+                <div id="bag-status" style="margin-top:0.5rem;font-size:0.85rem;color:var(--text-muted,#6b7280);"></div>
+                <div id="bag-results" style="margin-top:1rem;"></div>
+                <details style="margin-top:1rem;font-size:0.85rem;">
+                    <summary style="cursor:pointer;color:var(--text-muted,#6b7280);" id="bag-key-summary">API-sleutel instellen / wijzigen</summary>
+                    <div style="margin-top:0.5rem;">
+                        <p id="bag-key-help" style="margin:0.25rem 0;color:var(--text-muted,#6b7280);">
+                            Vraag een gratis sleutel aan bij
+                            <a href="https://www.kadaster.nl/zakelijk/producten/adressen-en-gebouwen/bag-api-individuele-bevragingen" target="_blank" rel="noopener">Kadaster</a>.
+                            De sleutel wordt lokaal opgeslagen.
+                        </p>
+                        <input type="text" id="bag-apikey-input" placeholder="Plak hier je BAG API-key" style="width:100%;font-family:monospace;">
+                        <button type="button" class="btn btn-secondary" id="bag-apikey-save" style="margin-top:0.5rem;padding:0.35rem 0.7rem;font-size:0.85rem;">Sleutel opslaan</button>
+                    </div>
+                </details>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="bag-cancel">Annuleren</button>
+                <button type="button" class="btn btn-primary" id="bag-search">Zoeken</button>
             </div>
         </div>
     </div>

@@ -1,14 +1,14 @@
 name: CI
 
+# Builds only run on pull requests. Direct pushes to main no longer trigger
+# a Tauri build — production installers are cut by the Build and Release
+# workflow (release.yml), which is triggered by pushing a v* tag or by
+# creating a GitHub Release from the Releases page.
 on:
-  push:
-    branches:
-      - main
-    tags-ignore:
-      - 'v*'
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   build:

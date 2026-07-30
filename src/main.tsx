@@ -3,8 +3,21 @@
 
 import i18next from './i18n';
 
+// __APP_VERSION__ is injected by Vite at build time from package.json.
+declare const __APP_VERSION__: string;
+
 // Expose i18next globally
 (window as any).i18next = i18next;
+
+// Keep the title-bar version label in sync with package.json.
+(function syncVersionLabel() {
+  const set = () => {
+    const el = document.querySelector('.title-bar-version');
+    if (el) el.textContent = 'v' + __APP_VERSION__;
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', set);
+  else set();
+})();
 
 // Lazy-load the IFC viewer only when the user opens the BIM tab (heavy — three.js + web-ifc WASM).
 (window as any).__ofsLoadIfcViewer = () => import('./ifc-viewer.ts');

@@ -198,6 +198,11 @@ class OpenFieldStudio {
         setText('#export-html', 'btn_export_html');
         setText('#export-bcf', 'btn_export_bcf');
         setText('#sync-kyp', 'btn_sync_kyp');
+        setText('#connectors-h2', 'connectors_h2');
+        const cIntro = document.getElementById('connectors-intro');
+        if (cIntro) cIntro.textContent = this.t('connectors_intro');
+        // Re-render if the tab is visible
+        if (document.getElementById('export-tab')?.classList.contains('active')) this.renderConnectorsList();
         setText('#save-json', 'btn_save_json');
         setText('#load-json', 'btn_load_json');
         setText('#clear-data', 'btn_clear_all');
@@ -875,7 +880,7 @@ class OpenFieldStudio {
         document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
         document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
         document.getElementById(`${tabName}-tab`).classList.add('active');
-        if (tabName === 'export') this.updateExportSummary();
+        if (tabName === 'export') { this.updateExportSummary(); this.renderConnectorsList(); }
         if (tabName === 'dashboard') this.updateDashboard();
         if (tabName === 'inspectie') this.renderInspectionsList();
         if (tabName === 'oplevering') this.renderHandoversList();
@@ -2299,6 +2304,27 @@ class OpenFieldStudio {
             build: (ho) => this._buildWoningborgPayload(ho),
             send: async (cfg, payload) => this._httpJson(cfg.endpoint, payload, `Bearer ${cfg.apiKey}`)
         };
+        const erpnext = {
+            id: 'erpnext',
+            label: 'ERPNext (Frappe)',
+            endpointDefault: 'https://<klant>.frappe.cloud/api/resource/Project',
+            endpointLabel: 'Frappe REST endpoint (Doctype)',
+            apiKeyLabel: 'API-key:API-secret (`token`) of OAuth Bearer',
+            infoKey: 'pub_info_erpnext',
+            build: (ho) => this._buildErpnextPayload(ho),
+            // Frappe accepteert 'token <apikey>:<apisecret>' — als er ':' in de sleutel zit prefixen we met 'token', anders 'Bearer' (OAuth2).
+            send: async (cfg, payload) => this._httpJson(cfg.endpoint, payload, (cfg.apiKey || '').includes(':') ? `token ${cfg.apiKey}` : `Bearer ${cfg.apiKey}`)
+        };
+        const bouw7 = {
+            id: 'bouw7',
+            label: 'Bouw7',
+            endpointDefault: 'https://api.bouw7.nl/v1/projects/<project-id>/documents',
+            endpointLabel: 'Bouw7 endpoint (met project-ID)',
+            apiKeyLabel: 'Bouw7 API-token',
+            infoKey: 'pub_info_bouw7',
+            build: (ho) => this._buildBouw7Payload(ho),
+            send: async (cfg, payload) => this._httpJson(cfg.endpoint, payload, `Bearer ${cfg.apiKey}`)
+        };
         const webhook = {
             id: 'webhook',
             label: 'n8n / webhook',
@@ -2321,7 +2347,7 @@ class OpenFieldStudio {
             build: (_ho) => this._buildKypPayload(),
             send: async (cfg, payload) => this._httpJson(cfg.endpoint, payload, `Bearer ${cfg.apiKey}`)
         };
-        this._connCache = { wb, swk, afas, exact, webhook, kyp };
+        this._connCache = { wb, swk, afas, exact, erpnext, bouw7, webhook, kyp };
         return this._connCache;
     }
     _connectorGet(id) { return this._connectorDefs()[id] || this._connectorDefs().wb; }
@@ -2389,6 +2415,39 @@ class OpenFieldStudio {
         ];
         if (ho.notes) lines.push(`Opmerkingen: ${ho.notes}`);
         return lines.join('\n');
+    }
+
+    _buildErpnextPayload(ho) {
+        // Doel: Frappe Project-doctype of custom OFS Doctype.
+        const p = this.project;
+        const verdictMap = { approved: 'Approved', conditional: 'Conditional', rejected: 'Rejected' };
+        return {
+            project_name: `${p.name || ''} — ${this.hoTypeLabel(ho.type)} ${ho.date}`,
+            expected_start_date: p.surveyDate || null,
+            expected_end_date: ho.date || null,
+            notes: this._afasNotesText(ho),
+            custom_ofs_verdict: verdictMap[ho.verdict] || ho.verdict,
+            custom_ofs_bag_pand: p.bagData?.pandId || null,
+            custom_ofs_participants: (ho.participants || []).map(pt => `${pt.name} (${pt.role})`).join('; '),
+            custom_ofs_open_items: (ho.items || []).length
+        };
+    }
+
+    _buildBouw7Payload(ho) {
+        // Bouw7 document-koppeling: gestandaardiseerd document met projectkoppeling en kern-veld voor opleverdossier.
+        const p = this.project;
+        return {
+            title: `Opleverdossier ${p.name || ''} (${ho.date})`,
+            type: 'oplevering',
+            projectReference: p.number || p.name,
+            externalId: `ofs-${ho.id}`,
+            date: ho.date,
+            verdict: ho.verdict,
+            summary: this._afasNotesText(ho),
+            participants: (ho.participants || []).map(pt => ({ name: pt.name, role: pt.role, company: pt.company || '' })),
+            openItems: (ho.items || []).filter(it => it.verdict !== 'approved').length,
+            source: 'openfieldstudio'
+        };
     }
 
     _buildKypPayload() {
@@ -2465,6 +2524,48 @@ class OpenFieldStudio {
     openWoningborgModal(hoId) { this.openPublishModal(hoId, 'wb'); }
     closeWoningborgModal() { this.closePublishModal(); }
 
+    renderConnectorsList() {
+        const c = document.getElementById('connectors-list');
+        if (!c) return;
+        this._pubMigrateLegacy();
+        c.innerHTML = Object.values(this._connectorDefs()).map(def => {
+            const cfg = this._pubConfig(def.id);
+            const configured = !!(cfg.endpoint && cfg.apiKey);
+            const scopeTxt = def.scope === 'project' ? this.t('connector_scope_project') : this.t('connector_scope_handover');
+            const badge = configured
+                ? `<span class="status-badge status-verified">${this.t('connector_configured')}</span>`
+                : `<span class="status-badge status-open">${this.t('connector_unconfigured')}</span>`;
+            return `<div class="handover-card">
+                <div class="handover-card-info">
+                    <h4>${this.esc(def.label)} <span style="font-weight:400;font-size:0.75rem;color:var(--text-muted,#6b7280);">· ${scopeTxt}</span></h4>
+                    <p style="font-family:monospace;font-size:0.75rem;">${this.esc(cfg.endpoint || def.endpointDefault)}</p>
+                </div>
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                    ${badge}
+                    <button class="btn btn-sm btn-secondary" onclick="app.openConnectorConfig('${def.id}')">${this.t('connector_configure')}</button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // Open the publish modal in configure-only mode (no handover context, no send).
+    openConnectorConfig(connectorId) {
+        this._pubMigrateLegacy();
+        this._pubCurrentHoId = null;
+        this._pubCurrentConnId = connectorId;
+        this._pubConfigOnly = true;
+        const def = this._connectorGet(connectorId);
+        const picker = document.getElementById('wb-connector');
+        picker.innerHTML = `<option value="${def.id}">${def.label}</option>`;
+        picker.value = def.id;
+        this._applyConnectorToModal(connectorId);
+        // Disable send in config-only mode
+        const send = document.getElementById('wb-send');
+        send.textContent = this.t('connector_save_only');
+        send.dataset.configOnly = '1';
+        document.getElementById('wb-modal').classList.add('active');
+    }
+
     openPublishModal(hoId, connectorId) {
         // hoId may be null for project-scope connectors (e.g. KYP planning-sync).
         const def = this._connectorGet(connectorId || 'wb');
@@ -2481,19 +2582,35 @@ class OpenFieldStudio {
         this._applyConnectorToModal(this._pubCurrentConnId);
         document.getElementById('wb-modal').classList.add('active');
     }
-    closePublishModal() { document.getElementById('wb-modal').classList.remove('active'); }
+    closePublishModal() {
+        document.getElementById('wb-modal').classList.remove('active');
+        // Reset config-only state so next open (from handover card) behaves normally.
+        this._pubConfigOnly = false;
+        const send = document.getElementById('wb-send');
+        if (send && send.dataset.configOnly) {
+            send.textContent = this.t('wb_send') || 'Verstuur';
+            delete send.dataset.configOnly;
+        }
+        // Re-render connectors list in case configured-state changed.
+        this.renderConnectorsList();
+    }
 
     _applyConnectorToModal(connectorId) {
         this._pubCurrentConnId = connectorId;
         const def = this._connectorGet(connectorId);
+        const isConfigOnly = !!this._pubConfigOnly;
         const ho = def.scope === 'project' ? null : this.handovers.find(h => h.id === this._pubCurrentHoId);
-        if (def.scope !== 'project' && !ho) return;
+        if (!isConfigOnly && def.scope !== 'project' && !ho) return;
         const cfg = this._pubConfig(connectorId);
-        const payload = def.build(ho);
         document.getElementById('wb-endpoint').value = cfg.endpoint;
         document.getElementById('wb-apikey').value = cfg.apiKey;
         document.getElementById('wb-testmode').checked = cfg.testMode;
-        document.getElementById('wb-payload').value = JSON.stringify(payload, null, 2);
+        if (isConfigOnly) {
+            document.getElementById('wb-payload').value = this.t('connector_config_only_hint');
+        } else {
+            const payload = def.build(ho);
+            document.getElementById('wb-payload').value = JSON.stringify(payload, null, 2);
+        }
         document.getElementById('wb-status').textContent = '';
         // Adaptive labels
         const setLbl = (id, txt) => { const el = document.getElementById(id)?.closest('.form-group')?.querySelector('label'); if (el) el.textContent = txt; };
@@ -2507,14 +2624,21 @@ class OpenFieldStudio {
         const hoId = this._pubCurrentHoId;
         const connectorId = this._pubCurrentConnId || 'wb';
         const def = this._connectorGet(connectorId);
-        const ho = def.scope === 'project' ? null : this.handovers.find(h => h.id === hoId);
-        if (def.scope !== 'project' && !ho) return;
+        const isConfigOnly = !!this._pubConfigOnly;
         const cfg = {
             endpoint: document.getElementById('wb-endpoint').value.trim(),
             apiKey: document.getElementById('wb-apikey').value.trim(),
             testMode: document.getElementById('wb-testmode').checked
         };
         this._pubSaveConfig(connectorId, cfg);
+        if (isConfigOnly) {
+            const status = document.getElementById('wb-status');
+            status.textContent = this.t('connector_saved');
+            status.style.color = 'var(--success, #059669)';
+            return;
+        }
+        const ho = def.scope === 'project' ? null : this.handovers.find(h => h.id === hoId);
+        if (def.scope !== 'project' && !ho) return;
         const payload = def.build(ho);
         const status = document.getElementById('wb-status');
         if (cfg.testMode) {

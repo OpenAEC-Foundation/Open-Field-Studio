@@ -216,6 +216,14 @@ Language preference is auto-detected from the browser/OS and persisted in localS
 
 ## Changelog
 
+### v0.2.1
+
+- **ERPNext (Frappe)** — 6th publish-connector; REST + dual auth (`api-key:api-secret` triggers Frappe `token` header, else OAuth Bearer).
+- **Bouw7** — 7th publish-connector for the Dutch construction ERP; dossier attached as document with `projectReference`.
+- **Koppelingen panel** on the export tab — all 8 connectors are now discoverable and configurable without needing a completed handover; "Set up / Not set up" badges + config-only modal that just stores endpoint + API key.
+- **Version label** now injected from `package.json` at build time (`__APP_VERSION__` via Vite `define`); titlebar can no longer drift out of sync.
+- **CI change**: pushes to `main` no longer trigger the multi-platform Tauri build. Production installers are cut by `release.yml`, triggered by publishing a GitHub Release (tag `v*`) or via workflow_dispatch. PR builds still run as a pre-merge sanity check.
+
 ### v0.2.0
 
 Major expansion — Wkb-bewijskracht + BIM + Dutch registries + ERP publish.

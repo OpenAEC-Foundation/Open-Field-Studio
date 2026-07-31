@@ -82,6 +82,14 @@ function initApp() {
 
   // Kick off update check — non-blocking, silent-fail.
   setTimeout(runUpdateCheck, 500);
+
+  // Optional deep-link: /#tab=koppelingen (used by scripts/screenshot.ps1 and demo links).
+  try {
+    const m = /(?:^|[#&])tab=([^&]+)/.exec(location.hash || '');
+    if (m && m[1] && typeof app.switchTab === 'function') {
+      setTimeout(() => app.switchTab(decodeURIComponent(m[1])), 100);
+    }
+  } catch { /* ignore malformed hash */ }
 }
 
 if (i18next.isInitialized) {

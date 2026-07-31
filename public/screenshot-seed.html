@@ -1,0 +1,67 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Seed demo state</title>
+<script>
+// Only runs when opened explicitly (public/screenshot-seed.html?state=…). Seeds localStorage
+// with a demo project + connector config so the main app can be captured with realistic
+// data for docs/screenshots. No side effects on normal app use.
+(function () {
+  const params = new URLSearchParams(location.search);
+  const state = params.get('state') || 'project';
+  const tab = params.get('tab') || null;
+
+  // Base demo project
+  const project = {
+    name: 'Renovatie Damrak 1',
+    number: 'DAM-2026-001',
+    client: 'BouwCo BV',
+    contactPerson: 'Jan Jansen',
+    address: 'Damrak 1',
+    postalCode: '1012LG',
+    city: 'Amsterdam',
+    surveyDate: '2026-07-30',
+    surveyor: 'Martijn de Vries',
+    description: 'Volledige renovatie van het monumentale pand aan het Damrak.',
+    notes: 'Werkzaamheden in samenspraak met Monumentenzorg Amsterdam.',
+    bagData: {
+      nummeraanduidingId: '0363200000481734',
+      adresseerbaarObjectId: '0363010001028800',
+      pandId: '0363100012163398',
+      openbareRuimteNaam: 'Damrak', huisnummer: 1,
+      postcode: '1012LG', woonplaatsNaam: 'Amsterdam',
+      verifiedAt: new Date().toISOString()
+    },
+    energyLabel: { label: 'B', opnamedatum: '2024-05-15', geldigTot: '2034-05-15', source: 'ep-online-v5' }
+  };
+  const contacts = [
+    { id: 'c1', name: 'Jan Jansen', role: 'Opdrachtgever', company: 'BouwCo BV', email: 'jan@bouwco.nl', phone: '06-12345678' },
+    { id: 'c2', name: 'Marie de Wit', role: 'Aannemer', company: 'De Wit Bouw', email: 'marie@dewitbouw.nl', phone: '06-87654321' },
+    { id: 'c3', name: 'Piet Slager', role: 'Onderaannemer', company: 'Slager Loodgieters', email: 'piet@slager.nl', phone: '06-11122233' }
+  ];
+  const tickets = [
+    { id: 't1', floorPlanId: 'fp1', label: 'Scheur in kozijn', category: 'Kozijnen', priority: 'high', severity: 'structural', status: 'open', x: 34, y: 42, description: 'Verticale scheur naast de linker gevelkozijn.', assignedTo: 'De Wit Bouw', deadline: '2026-08-15', photos: [] },
+    { id: 't2', floorPlanId: 'fp1', label: 'Lekkage plafond WC', category: 'Sanitair', priority: 'medium', severity: 'functional', status: 'assigned', x: 62, y: 55, description: '', assignedTo: 'Slager Loodgieters', deadline: '', photos: [] },
+    { id: 't3', floorPlanId: 'fp1', label: 'Stopcontact defect', category: 'Elektra', priority: 'low', severity: 'cosmetic', status: 'completed', x: 75, y: 30, description: '', assignedTo: '', deadline: '', photos: [] }
+  ];
+
+  const data = {
+    project, contacts, tickets, floorPlans: [], inspections: [], handovers: [],
+    checklistTemplates: [], activityLog: []
+  };
+  localStorage.setItem('openFieldStudio', JSON.stringify(data));
+
+  // Pre-configure a few connectors so the Koppelingen panel shows "Ingesteld" badges
+  if (state === 'connectors' || state === 'import') {
+    localStorage.setItem('ofs_pub_erpnext_endpoint', 'https://demo.frappe.cloud/api/resource/Project');
+    localStorage.setItem('ofs_pub_erpnext_apikey', 'demo-key:demo-secret');
+    localStorage.setItem('ofs_pub_webhook_endpoint', 'https://n8n.demo.nl/webhook/ofs-dossier');
+    localStorage.setItem('ofs_pub_webhook_apikey', 'demo-token');
+    localStorage.setItem('ofs_pub_afas_endpoint', 'https://12345.rest.afas.online/profitrestservices/connectors/KnSubject');
+    localStorage.setItem('ofs_pub_afas_apikey', 'AfasDemoToken');
+  }
+
+  const targetTab = tab || (state === 'connectors' ? 'koppelingen' : state === 'project' ? 'project' : state);
+  // Land the user on the intended tab via a hash so the main app can pick it up on load.
+  location.replace('/#tab=' + encodeURIComponent(targetTab));
+})();
+</script>

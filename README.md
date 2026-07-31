@@ -8,6 +8,17 @@ Free, open-source tool for performing construction inspections, energy label sur
 ![Tauri](https://img.shields.io/badge/built%20with-Tauri%20v2-orange)
 ![i18next](https://img.shields.io/badge/i18n-i18next-green)
 
+## Screenshots
+
+| | |
+|---|---|
+| ![Project](docs/screenshots/01-project.png) | ![Koppelingen](docs/screenshots/02-koppelingen.png) |
+| **Project** — BAG-verified address, energielabel B, contactpersonen | **Koppelingen** — 8 integrations, "Ingesteld/Niet ingesteld" badges, Importeren-knop op bidirectionele connectors |
+| ![Inspectie](docs/screenshots/03-inspectie.png) | ![Oplevering](docs/screenshots/04-oplevering.png) |
+| **Inspectie** — checklist-templates + digitale handtekening | **Oplevering** — proces-verbaal + verdict per ticket |
+| ![Dashboard](docs/screenshots/05-dashboard.png) | ![Export](docs/screenshots/06-export.png) |
+| **Dashboard** — statistieken per status/categorie/assignee | **Export** — HTML/PDF/BCF/JSON + KYP-sync |
+
 ## Features
 
 ### Core inspection workflow

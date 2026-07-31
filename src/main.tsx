@@ -22,6 +22,19 @@ declare const __APP_VERSION__: string;
 // Lazy-load the IFC viewer only when the user opens the BIM tab (heavy — three.js + web-ifc WASM).
 (window as any).__ofsLoadIfcViewer = () => import('./ifc-viewer.ts');
 
+// Check GitHub Releases for a newer version and render a titlebar badge.
+// Silent-fails on offline/rate-limit so it never breaks the app.
+import { checkForUpdates, renderUpdateBadge } from './updater';
+function runUpdateCheck() {
+  const tGet = (key: string, ...args: string[]) => {
+    if (!(window as any).i18next) return key;
+    let s = i18next.t(key, { defaultValue: key });
+    args.forEach((a, i) => { s = s.replace(`{${i}}`, a); });
+    return s;
+  };
+  checkForUpdates().then(status => renderUpdateBadge(status, tGet)).catch(() => {});
+}
+
 // Expose Tauri plugin APIs globally for app.js (non-blocking)
 function exposeTauriPlugins() {
   import('@tauri-apps/plugin-dialog').then(dialog => {
@@ -63,7 +76,12 @@ function initApp() {
     if ((window as any)._setActiveLang) {
       (window as any)._setActiveLang(lang);
     }
+    // Re-render the update-badge label in the new language
+    runUpdateCheck();
   };
+
+  // Kick off update check — non-blocking, silent-fail.
+  setTimeout(runUpdateCheck, 500);
 }
 
 if (i18next.isInitialized) {

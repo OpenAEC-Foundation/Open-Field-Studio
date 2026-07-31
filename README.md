@@ -216,6 +216,30 @@ Language preference is auto-detected from the browser/OS and persisted in localS
 
 ## Changelog
 
+### v0.3.0
+
+Bidirectional connectors + own tab + in-app update notification.
+
+**Nieuwe structuur**
+- **"Koppelingen" is nu een aparte tab** — niet meer onder Export, want koppelingen zijn een primaire feature (configureren én ophalen van data).
+
+**Bidirectionele integraties** — trek klantgegevens en tekeningen op vanuit een geconfigureerde koppeling:
+- **ERPNext (Frappe)** — Customer + Contacts (via Dynamic Link) + Addresses + Files, met picker en apply-checkboxes. PDF-tekeningen worden via pdf.js gerasterd naar plattegronden.
+- **n8n / generieke webhook** — GET je eigen endpoint dat een `{ project, contacts, floorPlans }` envelope teruggeeft. Werkt met elk systeem waar je een n8n-workflow voor kunt bouwen.
+- Contact-dedup op email (of naam+bedrijf) — re-importeren verdubbelt niets meer.
+- Same-origin auth-gate: API-tokens worden nooit meegestuurd naar third-party URLs (S3/CDN/attacker).
+
+**In-app update-notificatie**
+- Badge naast versielabel in titlebar zodra een nieuwere GitHub Release beschikbaar is.
+- Werkt via `api.github.com/repos/.../releases/latest` — geen signer-keys of Tauri-updater-plugin nodig, silent-fail bij offline/dev, 6u localStorage-cache.
+
+**Security-hardening**
+- XSS-guard in `renderFloorPlansList` — `fp.name` wordt escaped, `fp.data` gevalideerd tegen strict data-URL regex (blokkeert attribute-breakout via hostile connector-payload).
+- `_httpJsonGet` toont Frappe/backend error-body in de UI ("Import mislukt: HTTP 417 — Invalid filter …") ipv losse HTTP-status.
+
+**Housekeeping**
+- ~40 nieuwe i18n-keys × 4 talen (import_*, update_*, connector_bidirectional, nav_koppelingen).
+
 ### v0.2.1
 
 - **ERPNext (Frappe)** — 6th publish-connector; REST + dual auth (`api-key:api-secret` triggers Frappe `token` header, else OAuth Bearer).

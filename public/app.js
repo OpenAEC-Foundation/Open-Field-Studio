@@ -199,10 +199,12 @@ class OpenFieldStudio {
         setText('#export-bcf', 'btn_export_bcf');
         setText('#sync-kyp', 'btn_sync_kyp');
         setText('#connectors-h2', 'connectors_h2');
+        setText('#import-cancel', 'import_close');
+        setText('#import-confirm', 'import_confirm_btn');
         const cIntro = document.getElementById('connectors-intro');
         if (cIntro) cIntro.textContent = this.t('connectors_intro');
         // Re-render if the tab is visible
-        if (document.getElementById('export-tab')?.classList.contains('active')) this.renderConnectorsList();
+        if (document.getElementById('koppelingen-tab')?.classList.contains('active')) this.renderConnectorsList();
         setText('#save-json', 'btn_save_json');
         setText('#load-json', 'btn_load_json');
         setText('#clear-data', 'btn_clear_all');
@@ -721,6 +723,12 @@ class OpenFieldStudio {
         document.getElementById('save-project').addEventListener('click', () => this.saveProject());
         document.getElementById('project-form').addEventListener('input', () => this.autoSaveProject());
 
+        // Import modal (bidirectional connectors: ERPNext + n8n)
+        document.getElementById('import-modal-close').addEventListener('click', () => this.closeImportModal());
+        document.querySelector('#import-modal .modal-overlay').addEventListener('click', () => this.closeImportModal());
+        document.getElementById('import-cancel').addEventListener('click', () => this.closeImportModal());
+        document.getElementById('import-confirm').addEventListener('click', () => this.confirmImport());
+
         // Publish modal (Woningborg / AFAS / Exact / webhook)
         document.getElementById('wb-modal-close').addEventListener('click', () => this.closePublishModal());
         document.querySelector('#wb-modal .modal-overlay').addEventListener('click', () => this.closePublishModal());
@@ -880,7 +888,8 @@ class OpenFieldStudio {
         document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
         document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
         document.getElementById(`${tabName}-tab`).classList.add('active');
-        if (tabName === 'export') { this.updateExportSummary(); this.renderConnectorsList(); }
+        if (tabName === 'export') this.updateExportSummary();
+        if (tabName === 'koppelingen') this.renderConnectorsList();
         if (tabName === 'dashboard') this.updateDashboard();
         if (tabName === 'inspectie') this.renderInspectionsList();
         if (tabName === 'oplevering') this.renderHandoversList();
@@ -1251,11 +1260,18 @@ class OpenFieldStudio {
     }
 
     renderFloorPlansList() {
-        document.getElementById('floor-plans-list').innerHTML = this.floorPlans.map(fp => `
-            <div class="floor-plan-card"><div class="floor-plan-thumbnail-wrapper"><img src="${fp.data}" alt="${fp.name}" class="floor-plan-thumbnail">${fp.originalType === 'application/pdf' ? '<span class="pdf-badge">PDF</span>' : ''}</div>
+        // Validate data-URL and escape name — floorPlans may come from external connectors that
+        // could inject HTML via unsanitized `fp.name` (alt=) or attribute-breakout in `fp.data` (src=).
+        const isSafeDataUrl = (s) => typeof s === 'string' && /^data:[a-z0-9]+\/[a-z0-9+.\-]+;base64,[A-Za-z0-9+/=]+$/.test(s);
+        document.getElementById('floor-plans-list').innerHTML = this.floorPlans.map(fp => {
+            const safeSrc = isSafeDataUrl(fp.data) ? fp.data : '';
+            const safeAlt = this.esc(fp.name || '');
+            return `
+            <div class="floor-plan-card"><div class="floor-plan-thumbnail-wrapper"><img src="${safeSrc}" alt="${safeAlt}" class="floor-plan-thumbnail">${fp.originalType === 'application/pdf' ? '<span class="pdf-badge">PDF</span>' : ''}</div>
             <div class="floor-plan-info"><input type="text" value="${this.esc(fp.name)}" onchange="app.updateFloorPlanName('${fp.id}', this.value)">
             <div class="floor-plan-actions"><button class="select-btn" onclick="app.selectFloorPlan('${fp.id}')">${this.t('btn_select')}</button><button class="delete-btn" onclick="app.deleteFloorPlan('${fp.id}')">${this.t('btn_delete')}</button></div></div></div>
-        `).join('');
+        `;
+        }).join('');
     }
 
     updateFloorPlanSelector() {
@@ -2313,7 +2329,9 @@ class OpenFieldStudio {
             infoKey: 'pub_info_erpnext',
             build: (ho) => this._buildErpnextPayload(ho),
             // Frappe accepteert 'token <apikey>:<apisecret>' — als er ':' in de sleutel zit prefixen we met 'token', anders 'Bearer' (OAuth2).
-            send: async (cfg, payload) => this._httpJson(cfg.endpoint, payload, (cfg.apiKey || '').includes(':') ? `token ${cfg.apiKey}` : `Bearer ${cfg.apiKey}`)
+            send: async (cfg, payload) => this._httpJson(cfg.endpoint, payload, (cfg.apiKey || '').includes(':') ? `token ${cfg.apiKey}` : `Bearer ${cfg.apiKey}`),
+            canImport: true,
+            runImport: (cfg) => this._importFromErpnext(cfg)
         };
         const bouw7 = {
             id: 'bouw7',
@@ -2333,7 +2351,10 @@ class OpenFieldStudio {
             apiKeyLabel: 'Header-token (optioneel)',
             infoKey: 'pub_info_webhook',
             build: (ho) => this._buildWoningborgPayload(ho),
-            send: async (cfg, payload) => this._httpJson(cfg.endpoint, payload, cfg.apiKey ? `Bearer ${cfg.apiKey}` : null)
+            send: async (cfg, payload) => this._httpJson(cfg.endpoint, payload, cfg.apiKey ? `Bearer ${cfg.apiKey}` : null),
+            canImport: true,
+            // Voor import verwacht n8n een aparte GET-webhook — endpoint kan via de import-key op de config staan, of gedeeld met de publish-URL.
+            runImport: (cfg) => this._importFromWebhook(cfg)
         };
         // KYP is project-scope: tickets → planningtaken (niet per-oplevering).
         const kyp = {
@@ -2359,6 +2380,42 @@ class OpenFieldStudio {
         let bodyRef = '';
         try { const j = await res.json(); bodyRef = j.id || j.dossierId || j.Id || j.ID || ''; } catch (_) {}
         return { ok: res.ok, status: res.status, ref: bodyRef };
+    }
+
+    async _httpJsonGet(url, authHeader, accept) {
+        const headers = { 'Accept': accept || 'application/json' };
+        if (authHeader) headers['Authorization'] = authHeader;
+        const res = await fetch(url, { method: 'GET', headers });
+        if (!res.ok) {
+            // Attach a body preview so Frappe exceptions ("Invalid filter …") surface in the UI
+            // instead of the useless "HTTP 417".
+            let detail = '';
+            try {
+                const txt = await res.text();
+                try {
+                    const j = JSON.parse(txt);
+                    detail = j.exception || j._server_messages || j.message || txt.slice(0, 300);
+                } catch { detail = txt.slice(0, 300); }
+            } catch { /* body unreadable */ }
+            const err = new Error(`HTTP ${res.status}${detail ? ` — ${detail}` : ''}`);
+            err.status = res.status;
+            throw err;
+        }
+        return res.json();
+    }
+
+    async _httpBinaryGet(url, authHeader) {
+        const headers = {};
+        if (authHeader) headers['Authorization'] = authHeader;
+        const res = await fetch(url, { method: 'GET', headers });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        return new Promise((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(r.result);
+            r.onerror = reject;
+            r.readAsDataURL(blob);
+        });
     }
 
     _pubConfig(connectorId) {
@@ -2524,6 +2581,317 @@ class OpenFieldStudio {
     openWoningborgModal(hoId) { this.openPublishModal(hoId, 'wb'); }
     closeWoningborgModal() { this.closePublishModal(); }
 
+    // =====================================================
+    // IMPORT FLOW — bidirectional connectors (klant/contacten/tekeningen ophalen)
+    // =====================================================
+    _erpnextAuthHeader(cfg) {
+        return (cfg.apiKey || '').includes(':') ? `token ${cfg.apiKey}` : `Bearer ${cfg.apiKey}`;
+    }
+    // Extract "https://site/" from an ERPNext endpoint like "https://site/api/resource/Project".
+    _erpnextBaseUrl(cfg) {
+        const m = (cfg.endpoint || '').match(/^(https?:\/\/[^/]+)/);
+        return m ? m[1] : '';
+    }
+
+    async _importFromErpnext(cfg) {
+        const base = this._erpnextBaseUrl(cfg);
+        if (!base) throw new Error(this.t('import_bad_endpoint'));
+        const auth = this._erpnextAuthHeader(cfg);
+        this._setImportStatus(this.t('import_fetching_customers'));
+
+        // Fetch customer list
+        const fields = encodeURIComponent(JSON.stringify(['name', 'customer_name', 'primary_address', 'mobile_no', 'email_id']));
+        const filters = encodeURIComponent(JSON.stringify([['disabled', '=', 0]]));
+        const listRes = await this._httpJsonGet(`${base}/api/resource/Customer?fields=${fields}&filters=${filters}&limit_page_length=200`, auth);
+        const customers = (listRes && listRes.data) || [];
+        if (!customers.length) throw new Error(this.t('import_no_customers'));
+
+        // Prompt user to pick one (via awaitPicker)
+        const chosen = await this._awaitImportPicker(customers.map(c => ({
+            id: c.name,
+            label: c.customer_name || c.name,
+            hint: c.email_id || c.mobile_no || ''
+        })));
+        if (!chosen) return null;
+
+        // Fetch customer detail + contacts + files in parallel.
+        // NOTE: Contact/Address link to Customer via the "Dynamic Link" child table —
+        // Frappe REST requires 4-tuple filters `["<ChildDocType>", "<field>", "<op>", <val>]`
+        // for child-table fields. Using 3-tuples returns zero rows (or errors) silently.
+        this._setImportStatus(this.t('import_fetching_details'));
+        const custName = encodeURIComponent(chosen);
+        const linkFilter = JSON.stringify([['Dynamic Link', 'link_doctype', '=', 'Customer'], ['Dynamic Link', 'link_name', '=', chosen]]);
+        const contactFilters = encodeURIComponent(linkFilter);
+        const addrFilters = encodeURIComponent(linkFilter);
+        const fileFilters = encodeURIComponent(JSON.stringify([['attached_to_doctype', '=', 'Customer'], ['attached_to_name', '=', chosen]]));
+
+        // Log-and-fallback instead of silent-catch so filter/perm regressions surface.
+        const soft = (label, p, fallback) => p.catch(err => { console.warn(`ERPNext ${label} failed:`, err); return fallback; });
+
+        const [cust, contactsList, addrList, filesList] = await Promise.all([
+            soft('customer', this._httpJsonGet(`${base}/api/resource/Customer/${custName}`, auth).then(r => r?.data || null), null),
+            soft('contacts', this._httpJsonGet(`${base}/api/resource/Contact?filters=${contactFilters}&fields=${encodeURIComponent(JSON.stringify(['name','first_name','last_name','email_id','mobile_no','company_name','designation']))}&limit_page_length=100`, auth).then(r => r?.data || []), []),
+            soft('address', this._httpJsonGet(`${base}/api/resource/Address?filters=${addrFilters}&fields=${encodeURIComponent(JSON.stringify(['address_line1','pincode','city','country','is_primary_address']))}&limit_page_length=10`, auth).then(r => r?.data || []), []),
+            soft('files', this._httpJsonGet(`${base}/api/resource/File?filters=${fileFilters}&fields=${encodeURIComponent(JSON.stringify(['name','file_name','file_url','file_type']))}&limit_page_length=100`, auth).then(r => r?.data || []), [])
+        ]);
+
+        // Prefer is_primary_address, else first.
+        const primaryAddr = addrList.find(a => a.is_primary_address) || addrList[0] || {};
+
+        // Only attach the ERPNext auth header to URLs that share the connector's origin —
+        // File.file_url can legitimately point at S3/CDN via the Attachment app, and forwarding
+        // the ERPNext token there would leak credentials to a third party.
+        let baseOrigin = '';
+        try { baseOrigin = new URL(base).origin; } catch { /* invalid base */ }
+        const sameOriginFetch = (url) => {
+            let same = false;
+            try { same = new URL(url, base).origin === baseOrigin; } catch { /* invalid url */ }
+            return this._httpBinaryGet(url, same ? auth : null);
+        };
+
+        return {
+            project: cust ? {
+                client: cust.customer_name || chosen,
+                address: primaryAddr.address_line1 || '',
+                postalCode: primaryAddr.pincode || '',
+                city: primaryAddr.city || ''
+            } : null,
+            contacts: contactsList.map(c => ({
+                name: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.name,
+                role: c.designation || 'Contactpersoon',
+                company: c.company_name || (cust?.customer_name || chosen),
+                email: c.email_id || '',
+                phone: c.mobile_no || ''
+            })),
+            floorPlans: filesList
+                // Accept image formats + PDF. applyImport() rasterizes PDFs via pdf.js.
+                .filter(f => /\.(png|jpe?g|pdf|gif|webp|svg)$/i.test(f.file_name || f.file_url || ''))
+                .map(f => ({
+                    name: f.file_name || 'Bijlage',
+                    url: /^https?:/.test(f.file_url) ? f.file_url : `${base}${f.file_url}`,
+                    type: f.file_type || ''
+                })),
+            _fetchBinary: sameOriginFetch
+        };
+    }
+
+    async _importFromWebhook(cfg) {
+        // Convention: publish endpoint is POST-only; the read endpoint is either
+        // the same URL as GET, or a separate URL stored as a query hint.
+        // Simplest: GET the same URL — n8n workflow decides based on method.
+        const url = cfg.endpoint;
+        const auth = cfg.apiKey ? `Bearer ${cfg.apiKey}` : null;
+        this._setImportStatus(this.t('import_fetching_generic'));
+        const data = await this._httpJsonGet(url, auth);
+        // Same-origin gate — never leak the webhook token to external file URLs (S3, imgix, …).
+        let baseOrigin = '';
+        try { baseOrigin = new URL(cfg.endpoint).origin; } catch { /* invalid endpoint */ }
+        const fetchBinary = async (fileUrl) => {
+            let same = false;
+            try { same = new URL(fileUrl, cfg.endpoint).origin === baseOrigin; } catch { /* invalid url */ }
+            return this._httpBinaryGet(fileUrl, same ? auth : null);
+        };
+        return {
+            project: data.project || null,
+            contacts: Array.isArray(data.contacts) ? data.contacts : [],
+            floorPlans: Array.isArray(data.floorPlans) ? data.floorPlans : [],
+            _fetchBinary: fetchBinary
+        };
+    }
+
+    async openConnectorImport(connectorId) {
+        const def = this._connectorGet(connectorId);
+        if (!def.canImport) { this.showNotification(this.t('import_not_supported'), 'error'); return; }
+        const cfg = this._pubConfig(connectorId);
+        if (!cfg.endpoint || !cfg.apiKey) { this.showNotification(this.t('wb_missing_creds'), 'error'); return; }
+        this._importCurrentDef = def;
+        this._importPickerResolve = null;
+        this._importPreviewData = null;
+        // Reset + open modal
+        document.getElementById('import-modal-title').textContent = this.tFormat('import_modal_title', def.label);
+        document.getElementById('import-picker').innerHTML = '';
+        document.getElementById('import-picker').style.display = 'none';
+        document.getElementById('import-preview').innerHTML = '';
+        document.getElementById('import-preview').style.display = 'none';
+        document.getElementById('import-confirm').style.display = 'none';
+        this._setImportStatus(this.t('import_starting'));
+        document.getElementById('import-modal').classList.add('active');
+        try {
+            const data = await def.runImport(cfg);
+            if (!data) { this.closeImportModal(); return; } // user cancelled
+            this._importPreviewData = data;
+            this._renderImportPreview(data);
+        } catch (err) {
+            console.error('Import error', err);
+            this._setImportStatus(this.tFormat('import_error', err.message || err), 'error');
+        }
+    }
+
+    closeImportModal() {
+        document.getElementById('import-modal').classList.remove('active');
+        if (this._importPickerResolve) { this._importPickerResolve(null); this._importPickerResolve = null; }
+        this._importPreviewData = null;
+    }
+
+    _setImportStatus(msg, kind) {
+        const el = document.getElementById('import-status');
+        if (!el) return;
+        el.textContent = msg || '';
+        el.style.color = kind === 'error' ? 'var(--danger, #dc2626)'
+                       : kind === 'success' ? 'var(--success, #059669)'
+                       : 'var(--text-muted, #6b7280)';
+    }
+
+    _awaitImportPicker(items) {
+        // items: [{id, label, hint?}]
+        const picker = document.getElementById('import-picker');
+        picker.innerHTML = `
+            <label for="import-pick-select" style="display:block;margin-bottom:0.35rem;font-size:0.85rem;">${this.t('import_pick_prompt')}</label>
+            <select id="import-pick-select" style="width:100%;padding:0.5rem;">
+                ${items.map(it => `<option value="${this.esc(it.id)}">${this.esc(it.label)}${it.hint ? ' — ' + this.esc(it.hint) : ''}</option>`).join('')}
+            </select>
+            <button type="button" class="btn btn-primary" id="import-pick-ok" style="margin-top:0.5rem;">${this.t('import_pick_continue')}</button>
+        `;
+        picker.style.display = 'block';
+        this._setImportStatus(this.t('import_pick_status'));
+        return new Promise(resolve => {
+            this._importPickerResolve = resolve;
+            document.getElementById('import-pick-ok').addEventListener('click', () => {
+                const val = document.getElementById('import-pick-select').value;
+                picker.style.display = 'none';
+                this._importPickerResolve = null;
+                resolve(val);
+            }, { once: true });
+        });
+    }
+
+    _renderImportPreview(data) {
+        const p = document.getElementById('import-preview');
+        const proj = data.project;
+        const contactCount = (data.contacts || []).length;
+        const drawingCount = (data.floorPlans || []).length;
+        p.innerHTML = `
+            <label class="checkbox-label"><input type="checkbox" id="imp-chk-project" ${proj ? 'checked' : 'disabled'}>
+                <span><strong>${this.t('import_lbl_customer')}</strong> — ${proj ? this.esc([proj.client, proj.address, [proj.postalCode, proj.city].filter(Boolean).join(' ')].filter(Boolean).join(' · ')) : this.t('import_lbl_none')}</span>
+            </label>
+            <label class="checkbox-label" style="margin-top:0.35rem;"><input type="checkbox" id="imp-chk-contacts" ${contactCount ? 'checked' : 'disabled'}>
+                <span><strong>${this.t('import_lbl_contacts')}</strong> — ${this.tFormat('import_lbl_count', contactCount)}</span>
+            </label>
+            <label class="checkbox-label" style="margin-top:0.35rem;"><input type="checkbox" id="imp-chk-drawings" ${drawingCount ? 'checked' : 'disabled'}>
+                <span><strong>${this.t('import_lbl_drawings')}</strong> — ${this.tFormat('import_lbl_count', drawingCount)}${drawingCount ? ' (' + this.t('import_lbl_drawings_note') + ')' : ''}</span>
+            </label>
+        `;
+        p.style.display = 'block';
+        document.getElementById('import-confirm').style.display = 'inline-flex';
+        this._setImportStatus(this.t('import_ready'), 'success');
+    }
+
+    async confirmImport() {
+        const data = this._importPreviewData;
+        if (!data) return;
+        const applyProject = document.getElementById('imp-chk-project')?.checked;
+        const applyContacts = document.getElementById('imp-chk-contacts')?.checked;
+        const applyDrawings = document.getElementById('imp-chk-drawings')?.checked;
+        try {
+            const stats = await this.applyImport(data, { project: applyProject, contacts: applyContacts, drawings: applyDrawings });
+            const skipped = (stats.contactsSkipped || 0) + (stats.drawingsSkipped || 0);
+            const msg = skipped > 0
+                ? this.tFormat('import_applied_with_skipped', stats.contacts, stats.drawings, skipped)
+                : this.tFormat('import_applied', stats.contacts, stats.drawings);
+            this._setImportStatus(msg, 'success');
+            this.logActivity(this.tFormat('act_import_ok', this._importCurrentDef?.label || '?', stats.contacts, stats.drawings));
+            setTimeout(() => this.closeImportModal(), 1200);
+        } catch (err) {
+            console.error('Import apply error', err);
+            this._setImportStatus(this.tFormat('import_error', err.message || err), 'error');
+        }
+    }
+
+    async applyImport(data, sel) {
+        let contactsAdded = 0;
+        let drawingsAdded = 0;
+        if (sel.project && data.project) {
+            const p = this.project;
+            const src = data.project;
+            if (src.client) p.client = src.client;
+            if (src.address) p.address = src.address;
+            if (src.postalCode) p.postalCode = src.postalCode;
+            if (src.city) p.city = src.city;
+            if (src.contactPerson) p.contactPerson = src.contactPerson;
+            this.loadProjectForm();
+        }
+        let contactsSkipped = 0;
+        let drawingsSkipped = 0;
+        if (sel.contacts && Array.isArray(data.contacts)) {
+            // Dedup on email (case-insensitive) or on (name+company). Re-importing the same
+            // customer must not double every contact.
+            const keyOf = (c) => (c.email || '').trim().toLowerCase()
+                || `${(c.name || '').trim().toLowerCase()}::${(c.company || '').trim().toLowerCase()}`;
+            const seen = new Set(this.contacts.map(keyOf));
+            for (const c of data.contacts) {
+                if (!c.name) { contactsSkipped++; continue; }
+                const k = keyOf(c);
+                if (seen.has(k)) { contactsSkipped++; continue; }
+                seen.add(k);
+                this.contacts.push({
+                    id: this.genId(),
+                    name: c.name, role: c.role || 'Contactpersoon',
+                    company: c.company || '', email: c.email || '', phone: c.phone || ''
+                });
+                contactsAdded++;
+            }
+            this.renderContacts();
+        }
+        if (sel.drawings && Array.isArray(data.floorPlans)) {
+            // Strict data-URL validator: matches only well-formed base64 image/pdf payloads.
+            // Blocks attribute-breakout attempts if a hostile connector returns crafted "data:image/…;… <script>"
+            // strings that would otherwise land unescaped in an <img src="…">.
+            const isSafeDataUrl = (s) => typeof s === 'string' && /^data:[a-z0-9]+\/[a-z0-9+.\-]+;base64,[A-Za-z0-9+/=]+$/.test(s);
+
+            for (const fp of data.floorPlans) {
+                try {
+                    let dataUrl = fp.dataUrl;
+                    if (!dataUrl && fp.url && typeof data._fetchBinary === 'function') {
+                        dataUrl = await data._fetchBinary(fp.url);
+                    }
+                    if (!dataUrl) { drawingsSkipped++; continue; }
+
+                    // PDFs: reuse the existing pdf.js rasterization pipeline (one image per page).
+                    if (dataUrl.startsWith('data:application/pdf')) {
+                        try {
+                            const b64 = dataUrl.split(',')[1] || '';
+                            const bin = atob(b64);
+                            const bytes = new Uint8Array(bin.length);
+                            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                            const file = new File([bytes], fp.name || 'import.pdf', { type: 'application/pdf' });
+                            const before = this.floorPlans.length;
+                            await this.processPDFFile(file);
+                            drawingsAdded += (this.floorPlans.length - before);
+                        } catch (pdfErr) {
+                            console.warn('PDF rasterization failed', fp, pdfErr);
+                            drawingsSkipped++;
+                        }
+                        continue;
+                    }
+
+                    if (!isSafeDataUrl(dataUrl) || !dataUrl.startsWith('data:image')) {
+                        drawingsSkipped++;
+                        continue;
+                    }
+                    this.floorPlans.push({ id: this.genId(), name: (fp.name || 'Import').slice(0, 200), data: dataUrl, type: fp.type || 'image/jpeg' });
+                    drawingsAdded++;
+                } catch (e) {
+                    console.warn('Skipping drawing (fetch failed)', fp, e);
+                    drawingsSkipped++;
+                }
+            }
+            this.renderFloorPlansList();
+            this.updateFloorPlanSelector();
+        }
+        this.saveToLocalStorage();
+        return { contacts: contactsAdded, drawings: drawingsAdded, contactsSkipped, drawingsSkipped };
+    }
+
     renderConnectorsList() {
         const c = document.getElementById('connectors-list');
         if (!c) return;
@@ -2535,13 +2903,17 @@ class OpenFieldStudio {
             const badge = configured
                 ? `<span class="status-badge status-verified">${this.t('connector_configured')}</span>`
                 : `<span class="status-badge status-open">${this.t('connector_unconfigured')}</span>`;
+            const importBtn = (def.canImport && configured)
+                ? `<button class="btn btn-sm btn-secondary" onclick="app.openConnectorImport('${def.id}')" title="${this.t('import_btn_title')}">${this.t('import_btn')}</button>`
+                : '';
             return `<div class="handover-card">
                 <div class="handover-card-info">
-                    <h4>${this.esc(def.label)} <span style="font-weight:400;font-size:0.75rem;color:var(--text-muted,#6b7280);">· ${scopeTxt}</span></h4>
+                    <h4>${this.esc(def.label)} <span style="font-weight:400;font-size:0.75rem;color:var(--text-muted,#6b7280);">· ${scopeTxt}${def.canImport ? ' · ' + this.t('connector_bidirectional') : ''}</span></h4>
                     <p style="font-family:monospace;font-size:0.75rem;">${this.esc(cfg.endpoint || def.endpointDefault)}</p>
                 </div>
-                <div style="display:flex;align-items:center;gap:0.5rem;">
+                <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
                     ${badge}
+                    ${importBtn}
                     <button class="btn btn-sm btn-secondary" onclick="app.openConnectorConfig('${def.id}')">${this.t('connector_configure')}</button>
                 </div>
             </div>`;

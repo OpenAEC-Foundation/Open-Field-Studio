@@ -999,7 +999,7 @@ class OpenFieldStudio {
         }
         const url = `https://public.ep-online.nl/api/v5/PandEnergielabel/AdresseerbaarObject/${encodeURIComponent(b.adresseerbaarObjectId)}`;
         try {
-            const res = await fetch(url, {
+            const res = await this._netFetch(url, {
                 headers: {
                     'Authorization': key,
                     'Accept': 'application/json'
@@ -1084,7 +1084,7 @@ class OpenFieldStudio {
         this.setBagStatus(this.t('bag_searching'), '');
         document.getElementById('bag-results').innerHTML = '';
         try {
-            const res = await fetch(url, {
+            const res = await this._netFetch(url, {
                 headers: {
                     'X-Api-Key': apiKey,
                     'Accept': 'application/hal+json',
@@ -2378,10 +2378,18 @@ class OpenFieldStudio {
     }
     _connectorGet(id) { return this._connectorDefs()[id] || this._connectorDefs().wb; }
 
+    // Network fetch for external connector APIs. Inside the Tauri app this routes through
+    // the Rust backend (tauri-plugin-http) which is not subject to webview CORS — most ERP
+    // APIs (ERPNext/AFAS/Exact) don't send CORS headers. Web build falls back to fetch().
+    _netFetch(url, opts) {
+        const f = window.__tauriHttpFetch || fetch;
+        return f(url, opts);
+    }
+
     async _httpJson(url, payload, authHeader) {
         const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
         if (authHeader) headers['Authorization'] = authHeader;
-        const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
+        const res = await this._netFetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
         let bodyRef = '';
         try { const j = await res.json(); bodyRef = j.id || j.dossierId || j.Id || j.ID || ''; } catch (_) {}
         return { ok: res.ok, status: res.status, ref: bodyRef };
@@ -2390,7 +2398,7 @@ class OpenFieldStudio {
     async _httpJsonGet(url, authHeader, accept) {
         const headers = { 'Accept': accept || 'application/json' };
         if (authHeader) headers['Authorization'] = authHeader;
-        const res = await fetch(url, { method: 'GET', headers });
+        const res = await this._netFetch(url, { method: 'GET', headers });
         if (!res.ok) {
             // Attach a body preview so Frappe exceptions ("Invalid filter …") surface in the UI
             // instead of the useless "HTTP 417".
@@ -2412,7 +2420,7 @@ class OpenFieldStudio {
     async _httpBinaryGet(url, authHeader) {
         const headers = {};
         if (authHeader) headers['Authorization'] = authHeader;
-        const res = await fetch(url, { method: 'GET', headers });
+        const res = await this._netFetch(url, { method: 'GET', headers });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const blob = await res.blob();
         return new Promise((resolve, reject) => {

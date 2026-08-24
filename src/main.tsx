@@ -43,6 +43,11 @@ function exposeTauriPlugins() {
   import('@tauri-apps/plugin-fs').then(fs => {
     (window as any).__tauriFs = { writeTextFile: fs.writeTextFile, readTextFile: fs.readTextFile };
   }).catch(() => {});
+  // Backend-routed fetch: bypasses webview CORS for connector APIs (ERPNext, AFAS, ...).
+  // Only available inside the Tauri app; web build falls back to window.fetch.
+  import('@tauri-apps/plugin-http').then(http => {
+    (window as any).__tauriHttpFetch = http.fetch;
+  }).catch(() => {});
 }
 
 // Initialize the app

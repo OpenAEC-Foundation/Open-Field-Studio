@@ -24,6 +24,10 @@
     {
       "identifier": "fs:allow-read-text-file",
       "allow": [{ "path": "**" }]
+    },
+    {
+      "identifier": "http:default",
+      "allow": [{ "url": "https://**" }]
     }
   ]
 }

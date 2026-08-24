@@ -2606,50 +2606,87 @@ class OpenFieldStudio {
         return m ? m[1] : '';
     }
 
+    // Fetch everything OFS wants to know about one ERPNext customer: the doc itself,
+    // contacts + addresses (linked via the "Dynamic Link" child table — Frappe REST
+    // requires 4-tuple filters `["<ChildDocType>", "<field>", "<op>", <val>]` for
+    // child-table fields; 3-tuples return zero rows or error silently), and attachments.
+    async _erpnextCustomerBundle(base, auth, customerId) {
+        if (!customerId) return { cust: null, contactsList: [], primaryAddr: {}, custFiles: [] };
+        const soft = (label, p, fallback) => p.catch(err => { console.warn(`ERPNext ${label} failed:`, err); return fallback; });
+        const linkFilter = JSON.stringify([['Dynamic Link', 'link_doctype', '=', 'Customer'], ['Dynamic Link', 'link_name', '=', customerId]]);
+        const fileFilters = encodeURIComponent(JSON.stringify([['attached_to_doctype', '=', 'Customer'], ['attached_to_name', '=', customerId]]));
+        const [cust, contactsList, addrList, custFiles] = await Promise.all([
+            soft('customer', this._httpJsonGet(`${base}/api/resource/Customer/${encodeURIComponent(customerId)}`, auth).then(r => r?.data || null), null),
+            soft('contacts', this._httpJsonGet(`${base}/api/resource/Contact?filters=${encodeURIComponent(linkFilter)}&fields=${encodeURIComponent(JSON.stringify(['name','first_name','last_name','email_id','mobile_no','company_name','designation']))}&limit_page_length=100`, auth).then(r => r?.data || []), []),
+            soft('address', this._httpJsonGet(`${base}/api/resource/Address?filters=${encodeURIComponent(linkFilter)}&fields=${encodeURIComponent(JSON.stringify(['address_line1','pincode','city','country','is_primary_address']))}&limit_page_length=10`, auth).then(r => r?.data || []), []),
+            soft('customer files', this._httpJsonGet(`${base}/api/resource/File?filters=${fileFilters}&fields=${encodeURIComponent(JSON.stringify(['name','file_name','file_url','file_type']))}&limit_page_length=100`, auth).then(r => r?.data || []), [])
+        ]);
+        const primaryAddr = addrList.find(a => a.is_primary_address) || addrList[0] || {};
+        return { cust, contactsList, primaryAddr, custFiles };
+    }
+
+    _erpnextMapFiles(base, filesList) {
+        // Accept image formats + PDF. applyImport() rasterizes PDFs via pdf.js.
+        return (filesList || [])
+            .filter(f => /\.(png|jpe?g|pdf|gif|webp|svg)$/i.test(f.file_name || f.file_url || ''))
+            .map(f => ({
+                name: f.file_name || 'Bijlage',
+                url: /^https?:/.test(f.file_url) ? f.file_url : `${base}${f.file_url}`,
+                type: f.file_type || ''
+            }));
+    }
+
     async _importFromErpnext(cfg) {
         const base = this._erpnextBaseUrl(cfg);
         if (!base) throw new Error(this.t('import_bad_endpoint'));
         const auth = this._erpnextAuthHeader(cfg);
-        this._setImportStatus(this.t('import_fetching_customers'));
-
-        // Fetch customer list
-        const fields = encodeURIComponent(JSON.stringify(['name', 'customer_name', 'primary_address', 'mobile_no', 'email_id']));
-        const filters = encodeURIComponent(JSON.stringify([['disabled', '=', 0]]));
-        const listRes = await this._httpJsonGet(`${base}/api/resource/Customer?fields=${fields}&filters=${filters}&limit_page_length=200`, auth);
-        const customers = (listRes && listRes.data) || [];
-        if (!customers.length) throw new Error(this.t('import_no_customers'));
-
-        // Prompt user to pick one (via awaitPicker)
-        const chosen = await this._awaitImportPicker(customers.map(c => ({
-            id: c.name,
-            label: c.customer_name || c.name,
-            hint: c.email_id || c.mobile_no || ''
-        })));
-        if (!chosen) return null;
-
-        // Fetch customer detail + contacts + files in parallel.
-        // NOTE: Contact/Address link to Customer via the "Dynamic Link" child table —
-        // Frappe REST requires 4-tuple filters `["<ChildDocType>", "<field>", "<op>", <val>]`
-        // for child-table fields. Using 3-tuples returns zero rows (or errors) silently.
-        this._setImportStatus(this.t('import_fetching_details'));
-        const custName = encodeURIComponent(chosen);
-        const linkFilter = JSON.stringify([['Dynamic Link', 'link_doctype', '=', 'Customer'], ['Dynamic Link', 'link_name', '=', chosen]]);
-        const contactFilters = encodeURIComponent(linkFilter);
-        const addrFilters = encodeURIComponent(linkFilter);
-        const fileFilters = encodeURIComponent(JSON.stringify([['attached_to_doctype', '=', 'Customer'], ['attached_to_name', '=', chosen]]));
-
-        // Log-and-fallback instead of silent-catch so filter/perm regressions surface.
         const soft = (label, p, fallback) => p.catch(err => { console.warn(`ERPNext ${label} failed:`, err); return fallback; });
 
-        const [cust, contactsList, addrList, filesList] = await Promise.all([
-            soft('customer', this._httpJsonGet(`${base}/api/resource/Customer/${custName}`, auth).then(r => r?.data || null), null),
-            soft('contacts', this._httpJsonGet(`${base}/api/resource/Contact?filters=${contactFilters}&fields=${encodeURIComponent(JSON.stringify(['name','first_name','last_name','email_id','mobile_no','company_name','designation']))}&limit_page_length=100`, auth).then(r => r?.data || []), []),
-            soft('address', this._httpJsonGet(`${base}/api/resource/Address?filters=${addrFilters}&fields=${encodeURIComponent(JSON.stringify(['address_line1','pincode','city','country','is_primary_address']))}&limit_page_length=10`, auth).then(r => r?.data || []), []),
-            soft('files', this._httpJsonGet(`${base}/api/resource/File?filters=${fileFilters}&fields=${encodeURIComponent(JSON.stringify(['name','file_name','file_url','file_type']))}&limit_page_length=100`, auth).then(r => r?.data || []), [])
-        ]);
+        // Project-first: the natural unit for OFS is an ERPNext Project (naam + nummer +
+        // gekoppelde klant + bijlagen). Environments without the Projects module fall
+        // back to the customer-based flow below.
+        this._setImportStatus(this.t('import_fetching_projects'));
+        const projFields = encodeURIComponent(JSON.stringify(['name', 'project_name', 'customer', 'status']));
+        const projects = await soft('projects',
+            this._httpJsonGet(`${base}/api/resource/Project?fields=${projFields}&limit_page_length=1000&order_by=${encodeURIComponent('modified desc')}`, auth).then(r => r?.data || []),
+            []);
 
-        // Prefer is_primary_address, else first.
-        const primaryAddr = addrList.find(a => a.is_primary_address) || addrList[0] || {};
+        let chosenProject = null;
+        let customerId = null;
+
+        if (projects.length) {
+            const pick = await this._awaitImportPicker(projects.map(p => ({
+                id: p.name,
+                label: p.project_name || p.name,
+                hint: [p.name, p.customer].filter(Boolean).join(' · ')
+            })), 'import_pick_project');
+            if (!pick) return null;
+            chosenProject = projects.find(p => p.name === pick) || { name: pick };
+            customerId = chosenProject.customer || null;
+        } else {
+            // Fallback: customer-based (no Projects in this environment)
+            this._setImportStatus(this.t('import_fetching_customers'));
+            const fields = encodeURIComponent(JSON.stringify(['name', 'customer_name', 'primary_address', 'mobile_no', 'email_id']));
+            const filters = encodeURIComponent(JSON.stringify([['disabled', '=', 0]]));
+            const listRes = await this._httpJsonGet(`${base}/api/resource/Customer?fields=${fields}&filters=${filters}&limit_page_length=200`, auth);
+            const customers = (listRes && listRes.data) || [];
+            if (!customers.length) throw new Error(this.t('import_no_customers'));
+            const chosen = await this._awaitImportPicker(customers.map(c => ({
+                id: c.name,
+                label: c.customer_name || c.name,
+                hint: c.email_id || c.mobile_no || ''
+            })));
+            if (!chosen) return null;
+            customerId = chosen;
+        }
+
+        this._setImportStatus(this.t('import_fetching_details'));
+        const bundlePromise = this._erpnextCustomerBundle(base, auth, customerId);
+        // Project attachments (drawings usually live on the Project, not the Customer)
+        const projFilesPromise = chosenProject
+            ? soft('project files', this._httpJsonGet(`${base}/api/resource/File?filters=${encodeURIComponent(JSON.stringify([['attached_to_doctype', '=', 'Project'], ['attached_to_name', '=', chosenProject.name]]))}&fields=${encodeURIComponent(JSON.stringify(['name','file_name','file_url','file_type']))}&limit_page_length=100`, auth).then(r => r?.data || []), [])
+            : Promise.resolve([]);
+        const [{ cust, contactsList, primaryAddr, custFiles }, projFiles] = await Promise.all([bundlePromise, projFilesPromise]);
 
         // Only attach the ERPNext auth header to URLs that share the connector's origin —
         // File.file_url can legitimately point at S3/CDN via the Attachment app, and forwarding
@@ -2662,9 +2699,12 @@ class OpenFieldStudio {
             return this._httpBinaryGet(url, same ? auth : null);
         };
 
+        const clientName = cust?.customer_name || customerId || '';
         return {
-            project: cust ? {
-                client: cust.customer_name || chosen,
+            project: (chosenProject || cust) ? {
+                name: chosenProject ? (chosenProject.project_name || chosenProject.name) : '',
+                number: chosenProject ? chosenProject.name : '',
+                client: clientName,
                 address: primaryAddr.address_line1 || '',
                 postalCode: primaryAddr.pincode || '',
                 city: primaryAddr.city || ''
@@ -2672,18 +2712,12 @@ class OpenFieldStudio {
             contacts: contactsList.map(c => ({
                 name: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.name,
                 role: c.designation || 'Contactpersoon',
-                company: c.company_name || (cust?.customer_name || chosen),
+                company: c.company_name || clientName,
                 email: c.email_id || '',
                 phone: c.mobile_no || ''
             })),
-            floorPlans: filesList
-                // Accept image formats + PDF. applyImport() rasterizes PDFs via pdf.js.
-                .filter(f => /\.(png|jpe?g|pdf|gif|webp|svg)$/i.test(f.file_name || f.file_url || ''))
-                .map(f => ({
-                    name: f.file_name || 'Bijlage',
-                    url: /^https?:/.test(f.file_url) ? f.file_url : `${base}${f.file_url}`,
-                    type: f.file_type || ''
-                })),
+            // Project drawings first, then customer attachments
+            floorPlans: [...this._erpnextMapFiles(base, projFiles), ...this._erpnextMapFiles(base, custFiles)],
             _fetchBinary: sameOriginFetch
         };
     }
@@ -2804,25 +2838,47 @@ class OpenFieldStudio {
     }
 
     _awaitImportPicker(items, promptKey) {
-        // items: [{id, label, hint?}]
+        // items: [{id, label, hint?}]. Large lists (ERPNext with honderden projecten)
+        // get a search box + list-box; small lists keep the compact dropdown.
         const picker = document.getElementById('import-picker');
+        const many = items.length > 8;
+        const optionHtml = (list) => list.map(it =>
+            `<option value="${this.esc(it.id)}">${this.esc(it.label)}${it.hint ? ' — ' + this.esc(it.hint) : ''}</option>`).join('');
         picker.innerHTML = `
             <label for="import-pick-select" style="display:block;margin-bottom:0.35rem;font-size:0.85rem;">${this.t(promptKey || 'import_pick_prompt')}</label>
-            <select id="import-pick-select" style="width:100%;padding:0.5rem;">
-                ${items.map(it => `<option value="${this.esc(it.id)}">${this.esc(it.label)}${it.hint ? ' — ' + this.esc(it.hint) : ''}</option>`).join('')}
+            ${many ? `<input type="text" id="import-pick-search" placeholder="${this.esc(this.t('import_pick_search'))}" autocomplete="off" style="width:100%;padding:0.5rem;margin-bottom:0.5rem;">` : ''}
+            <select id="import-pick-select" ${many ? 'size="10"' : ''} style="width:100%;padding:0.5rem;">
+                ${optionHtml(items)}
             </select>
+            ${many ? `<div id="import-pick-count" style="margin-top:0.35rem;font-size:0.75rem;color:var(--text-muted,#6b7280);">${this.tFormat('import_pick_count', items.length, items.length)}</div>` : ''}
             <button type="button" class="btn btn-primary" id="import-pick-ok" style="margin-top:0.5rem;">${this.t('import_pick_continue')}</button>
         `;
         picker.style.display = 'block';
         this._setImportStatus(this.t('import_pick_status'));
+        if (many) {
+            const search = document.getElementById('import-pick-search');
+            const select = document.getElementById('import-pick-select');
+            const count = document.getElementById('import-pick-count');
+            search.addEventListener('input', () => {
+                const q = search.value.trim().toLowerCase();
+                const filtered = q
+                    ? items.filter(it => (it.label + ' ' + (it.hint || '')).toLowerCase().includes(q))
+                    : items;
+                select.innerHTML = optionHtml(filtered);
+                if (filtered.length) select.selectedIndex = 0;
+                if (count) count.textContent = this.tFormat('import_pick_count', filtered.length, items.length);
+            });
+            setTimeout(() => search.focus(), 50);
+        }
         return new Promise(resolve => {
             this._importPickerResolve = resolve;
             document.getElementById('import-pick-ok').addEventListener('click', () => {
                 const val = document.getElementById('import-pick-select').value;
+                if (!val) return; // filtered list empty — keep picker open
                 picker.style.display = 'none';
                 this._importPickerResolve = null;
                 resolve(val);
-            }, { once: true });
+            }, { once: false });
         });
     }
 
@@ -2831,9 +2887,17 @@ class OpenFieldStudio {
         const proj = data.project;
         const contactCount = (data.contacts || []).length;
         const drawingCount = (data.floorPlans || []).length;
+        const isProjectImport = !!(proj && (proj.name || proj.number));
+        const projDesc = proj
+            ? this.esc([
+                isProjectImport ? [proj.name, proj.number && `(${proj.number})`].filter(Boolean).join(' ') : null,
+                proj.client, proj.address,
+                [proj.postalCode, proj.city].filter(Boolean).join(' ')
+              ].filter(Boolean).join(' · '))
+            : this.t('import_lbl_none');
         p.innerHTML = `
             <label class="checkbox-label"><input type="checkbox" id="imp-chk-project" ${proj ? 'checked' : 'disabled'}>
-                <span><strong>${this.t('import_lbl_customer')}</strong> — ${proj ? this.esc([proj.client, proj.address, [proj.postalCode, proj.city].filter(Boolean).join(' ')].filter(Boolean).join(' · ')) : this.t('import_lbl_none')}</span>
+                <span><strong>${this.t(isProjectImport ? 'import_lbl_projectdata' : 'import_lbl_customer')}</strong> — ${projDesc}</span>
             </label>
             <label class="checkbox-label" style="margin-top:0.35rem;"><input type="checkbox" id="imp-chk-contacts" ${contactCount ? 'checked' : 'disabled'}>
                 <span><strong>${this.t('import_lbl_contacts')}</strong> — ${this.tFormat('import_lbl_count', contactCount)}</span>
@@ -2874,6 +2938,8 @@ class OpenFieldStudio {
         if (sel.project && data.project) {
             const p = this.project;
             const src = data.project;
+            if (src.name) p.name = src.name;
+            if (src.number) p.number = src.number;
             if (src.client) p.client = src.client;
             if (src.address) p.address = src.address;
             if (src.postalCode) p.postalCode = src.postalCode;

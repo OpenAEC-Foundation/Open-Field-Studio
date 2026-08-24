@@ -227,6 +227,12 @@ Language preference is auto-detected from the browser/OS and persisted in localS
 
 ## Changelog
 
+### v0.3.4
+
+- **Project-gerichte ERPNext-import** — de import laadt nu een compleet ERPNext-project in: projectnaam, projectnummer, gekoppelde klant + adres, contactpersonen én bijlagen die aan het project hangen (naast klant-bijlagen). Omgevingen zonder Projects-module vallen automatisch terug op de klant-gerichte flow.
+- **Zoekveld in de keuzelijst** — bij meer dan 8 resultaten (bijv. honderden projecten) verschijnt een zoekbox die filtert op naam, nummer en klant, met teller "x van y getoond".
+- **Fix web-versie**: de Tauri-HTTP-router wordt nu alleen geactiveerd binnen de desktop-app (runtime-check i.p.v. module-check); in de browser brak elke connector-call sinds v0.3.3 op de ontbrekende IPC-bridge.
+
 ### v0.3.3
 
 - **HTTP via de Tauri-backend (`tauri-plugin-http`)** — alle connector-, BAG- en EP-Online-verkeer loopt in de desktop-app nu door de Rust-backend in plaats van webview-`fetch()`. Daarmee werken koppelingen naar API's die geen CORS-headers sturen (zoals zelf-gehoste ERPNext/Frappe-instanties, AFAS, Exact) ook echt vanuit de geïnstalleerde app. De webversie valt automatisch terug op gewone `fetch()`.

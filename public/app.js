@@ -2714,11 +2714,15 @@ class OpenFieldStudio {
         });
     }
 
-    // Show the Project-tab import button only when at least one bidirectional connector is set up.
+    // Always show the Project-tab import button (discoverability); dim it when no
+    // bidirectional connector is configured yet — clicking then explains what to set up.
     refreshProjectImportBtn() {
         const btn = document.getElementById('project-import-btn');
         if (!btn) return;
-        btn.style.display = this._importableConnectors().length ? 'inline-flex' : 'none';
+        const ready = this._importableConnectors().length > 0;
+        btn.style.display = 'inline-flex';
+        btn.style.opacity = ready ? '' : '0.55';
+        btn.title = ready ? '' : this.t('import_none_configured');
     }
 
     // Entry point from the Project tab: pick a connector (if more than one), then run its import.
@@ -3024,8 +3028,18 @@ class OpenFieldStudio {
         const ho = def.scope === 'project' ? null : this.handovers.find(h => h.id === this._pubCurrentHoId);
         if (!isConfigOnly && def.scope !== 'project' && !ho) return;
         const cfg = this._pubConfig(connectorId);
-        document.getElementById('wb-endpoint').value = cfg.endpoint;
-        document.getElementById('wb-apikey').value = cfg.apiKey;
+        // Title + placeholders follow the ACTIVE connector — the static HTML defaults
+        // (Woningborg) confused users configuring e.g. ERPNext.
+        const title = document.getElementById('wb-modal-title');
+        if (title) title.textContent = isConfigOnly
+            ? this.tFormat('connector_config_title', def.label)
+            : this.tFormat('pub_modal_title_for', def.label);
+        const epEl = document.getElementById('wb-endpoint');
+        epEl.value = cfg.endpoint;
+        epEl.placeholder = def.endpointDefault;
+        const keyEl = document.getElementById('wb-apikey');
+        keyEl.value = cfg.apiKey;
+        keyEl.placeholder = def.apiKeyLabel;
         document.getElementById('wb-testmode').checked = cfg.testMode;
         if (isConfigOnly) {
             document.getElementById('wb-payload').value = this.t('connector_config_only_hint');
@@ -3055,8 +3069,19 @@ class OpenFieldStudio {
         this._pubSaveConfig(connectorId, cfg);
         if (isConfigOnly) {
             const status = document.getElementById('wb-status');
-            status.textContent = this.t('connector_saved');
-            status.style.color = 'var(--success, #059669)';
+            if (!cfg.endpoint || !cfg.apiKey) {
+                // Saved, but the connector is not active yet — tell the user what's missing
+                // instead of a green "opgeslagen" that leaves everything on "Niet ingesteld".
+                status.textContent = this.t('connector_saved_incomplete');
+                status.style.color = 'var(--danger, #dc2626)';
+            } else if (def.canImport) {
+                status.textContent = this.t('connector_saved_import_hint');
+                status.style.color = 'var(--success, #059669)';
+            } else {
+                status.textContent = this.t('connector_saved');
+                status.style.color = 'var(--success, #059669)';
+            }
+            this.refreshProjectImportBtn();
             return;
         }
         const ho = def.scope === 'project' ? null : this.handovers.find(h => h.id === hoId);

@@ -227,6 +227,15 @@ Language preference is auto-detected from the browser/OS and persisted in localS
 
 ## Changelog
 
+### v0.3.2
+
+Duidelijkheid rond koppelingen configureren en importeren:
+
+- **Modal-titel en placeholders volgen nu de gekozen koppeling** — configureer je ERPNext, dan staat er "Koppeling configureren — ERPNext (Frappe)" in plaats van het verwarrende hardcoded "Publiceer naar Woningborg".
+- **Opslaan zonder API-sleutel geeft nu een rode waarschuwing** ("koppeling nog niet actief: vul endpoint én API-sleutel in") in plaats van een misleidende groene bevestiging.
+- **Succesvol opslaan van een bidirectionele koppeling vertelt je waar je kunt importeren** (Importeren-knop op de kaart, of "Importeer uit koppeling" op het Project-tabblad).
+- **"Importeer uit koppeling"-knop op het Project-tabblad is nu altijd zichtbaar** — gedimd zolang er geen koppeling is ingesteld, met tooltip-uitleg; klikken springt naar het Koppelingen-tabblad.
+
 ### v0.3.1
 
 - **Project-tab import** — nieuwe knop "Importeer uit koppeling" naast de BAG-zoekknop. Zichtbaar zodra minstens één bidirectionele koppeling (ERPNext/n8n) is ingesteld; één koppeling springt direct de import-flow in, bij meerdere kies je eerst de bron.

@@ -227,6 +227,12 @@ Language preference is auto-detected from the browser/OS and persisted in localS
 
 ## Changelog
 
+### v0.3.1
+
+- **Project-tab import** — nieuwe knop "Importeer uit koppeling" naast de BAG-zoekknop. Zichtbaar zodra minstens één bidirectionele koppeling (ERPNext/n8n) is ingesteld; één koppeling springt direct de import-flow in, bij meerdere kies je eerst de bron.
+- **Screenshots** in de README + `scripts/screenshot.ps1` (headless-Edge capture) + demo-seed pagina.
+- Deep-link ondersteuning: `/#tab=<naam>` opent direct het gewenste tabblad.
+
 ### v0.3.0
 
 Bidirectional connectors + own tab + in-app update notification.

@@ -201,6 +201,8 @@ class OpenFieldStudio {
         setText('#connectors-h2', 'connectors_h2');
         setText('#import-cancel', 'import_close');
         setText('#import-confirm', 'import_confirm_btn');
+        setText('#project-import-btn', 'btn_project_import');
+        this.refreshProjectImportBtn();
         const cIntro = document.getElementById('connectors-intro');
         if (cIntro) cIntro.textContent = this.t('connectors_intro');
         // Re-render if the tab is visible
@@ -740,6 +742,8 @@ class OpenFieldStudio {
         document.getElementById('bag-lookup-btn').addEventListener('click', () => this.openBagModal());
         // EP-Online energielabel lookup (via RVO API)
         document.getElementById('epol-lookup-btn').addEventListener('click', () => this.lookupEnergyLabel());
+        // Import project data from a configured bidirectional connector (ERPNext / n8n)
+        document.getElementById('project-import-btn').addEventListener('click', () => this.openProjectImport());
         document.getElementById('bag-modal-close').addEventListener('click', () => this.closeBagModal());
         document.querySelector('#bag-modal .modal-overlay').addEventListener('click', () => this.closeBagModal());
         document.getElementById('bag-cancel').addEventListener('click', () => this.closeBagModal());
@@ -938,6 +942,7 @@ class OpenFieldStudio {
         document.getElementById('project-description').value = p.description || '';
         document.getElementById('project-notes').value = p.notes || '';
         this.refreshBagBadge();
+        this.refreshProjectImportBtn();
     }
 
     // =====================================================
@@ -2699,6 +2704,50 @@ class OpenFieldStudio {
         };
     }
 
+    // Importable + configured connectors (used by the Project-tab shortcut button).
+    _importableConnectors() {
+        this._pubMigrateLegacy();
+        return Object.values(this._connectorDefs()).filter(def => {
+            if (!def.canImport) return false;
+            const cfg = this._pubConfig(def.id);
+            return !!(cfg.endpoint && cfg.apiKey);
+        });
+    }
+
+    // Show the Project-tab import button only when at least one bidirectional connector is set up.
+    refreshProjectImportBtn() {
+        const btn = document.getElementById('project-import-btn');
+        if (!btn) return;
+        btn.style.display = this._importableConnectors().length ? 'inline-flex' : 'none';
+    }
+
+    // Entry point from the Project tab: pick a connector (if more than one), then run its import.
+    async openProjectImport() {
+        const options = this._importableConnectors();
+        if (!options.length) {
+            this.showNotification(this.t('import_none_configured'), 'error');
+            this.switchTab('koppelingen');
+            return;
+        }
+        if (options.length === 1) {
+            return this.openConnectorImport(options[0].id);
+        }
+        // Multiple candidates: reuse the import-modal picker to choose the source system.
+        this._importCurrentDef = null;
+        this._importPickerResolve = null;
+        this._importPreviewData = null;
+        document.getElementById('import-modal-title').textContent = this.t('import_modal_title_generic');
+        document.getElementById('import-picker').innerHTML = '';
+        document.getElementById('import-preview').innerHTML = '';
+        document.getElementById('import-preview').style.display = 'none';
+        document.getElementById('import-confirm').style.display = 'none';
+        this._setImportStatus('');
+        document.getElementById('import-modal').classList.add('active');
+        const chosen = await this._awaitImportPicker(options.map(def => ({ id: def.id, label: def.label })), 'import_pick_connector');
+        if (!chosen) return;
+        return this.openConnectorImport(chosen);
+    }
+
     async openConnectorImport(connectorId) {
         const def = this._connectorGet(connectorId);
         if (!def.canImport) { this.showNotification(this.t('import_not_supported'), 'error'); return; }
@@ -2742,11 +2791,11 @@ class OpenFieldStudio {
                        : 'var(--text-muted, #6b7280)';
     }
 
-    _awaitImportPicker(items) {
+    _awaitImportPicker(items, promptKey) {
         // items: [{id, label, hint?}]
         const picker = document.getElementById('import-picker');
         picker.innerHTML = `
-            <label for="import-pick-select" style="display:block;margin-bottom:0.35rem;font-size:0.85rem;">${this.t('import_pick_prompt')}</label>
+            <label for="import-pick-select" style="display:block;margin-bottom:0.35rem;font-size:0.85rem;">${this.t(promptKey || 'import_pick_prompt')}</label>
             <select id="import-pick-select" style="width:100%;padding:0.5rem;">
                 ${items.map(it => `<option value="${this.esc(it.id)}">${this.esc(it.label)}${it.hint ? ' — ' + this.esc(it.hint) : ''}</option>`).join('')}
             </select>
@@ -2965,6 +3014,7 @@ class OpenFieldStudio {
         }
         // Re-render connectors list in case configured-state changed.
         this.renderConnectorsList();
+        this.refreshProjectImportBtn();
     }
 
     _applyConnectorToModal(connectorId) {

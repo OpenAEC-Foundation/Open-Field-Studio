@@ -744,6 +744,8 @@ class OpenFieldStudio {
         document.getElementById('epol-lookup-btn').addEventListener('click', () => this.lookupEnergyLabel());
         // Import project data from a configured bidirectional connector (ERPNext / n8n)
         document.getElementById('project-import-btn').addEventListener('click', () => this.openProjectImport());
+        // Linked-ERP badge: click = save the project file to the linked ERP project now
+        document.getElementById('erp-link-badge').addEventListener('click', () => this.syncProjectToErp(true));
         document.getElementById('bag-modal-close').addEventListener('click', () => this.closeBagModal());
         document.querySelector('#bag-modal .modal-overlay').addEventListener('click', () => this.closeBagModal());
         document.getElementById('bag-cancel').addEventListener('click', () => this.closeBagModal());
@@ -912,6 +914,7 @@ class OpenFieldStudio {
     saveProject(showConfirmation = true) {
         const prevBag = this.project?.bagData || null;
         const prevEnergy = this.project?.energyLabel || null;
+        const prevErpRef = this.project?.erpRef || null;
         this.project = {
             name: document.getElementById('project-name').value, number: document.getElementById('project-number').value,
             client: document.getElementById('client-name').value, contactPerson: document.getElementById('contact-person').value,
@@ -920,10 +923,14 @@ class OpenFieldStudio {
             surveyor: document.getElementById('surveyor').value, description: document.getElementById('project-description').value,
             notes: document.getElementById('project-notes').value,
             bagData: prevBag,
-            energyLabel: prevEnergy
+            energyLabel: prevEnergy,
+            erpRef: prevErpRef
         };
         this.saveToLocalStorage();
         if (showConfirmation) this.saveJSON();
+        // Auto-sync to the linked ERP project on explicit saves only — autosave (typing)
+        // stays local so we don't hammer the ERP on every keystroke.
+        if (showConfirmation && this.project.erpRef) this.syncProjectToErp(false);
     }
 
     autoSaveProject() { clearTimeout(this._ast); this._ast = setTimeout(() => this.saveProject(false), 2000); }
@@ -943,6 +950,7 @@ class OpenFieldStudio {
         document.getElementById('project-notes').value = p.notes || '';
         this.refreshBagBadge();
         this.refreshProjectImportBtn();
+        this.refreshErpLinkBadge();
     }
 
     // =====================================================
@@ -2251,6 +2259,8 @@ class OpenFieldStudio {
         });
         this.logActivity(this.tFormat('log_ho_completed', this.hoTypeLabel(ho.type), ho.verdict === 'approved' ? this.t('verdict_approved') : ho.verdict === 'conditional' ? this.t('verdict_conditional') : this.t('verdict_rejected')));
         this.saveToLocalStorage();
+        // A completed handover is a milestone — push the project file to the linked ERP project.
+        if (this.project?.erpRef) this.syncProjectToErp(false);
         this.showNotification(this.t('msg_ho_signed'), 'success');
         this.showHandoverOverview();
     }
@@ -2606,6 +2616,83 @@ class OpenFieldStudio {
         return m ? m[1] : '';
     }
 
+    // =====================================================
+    // ERP BACK-SYNC — save the OFS project file onto the linked ERPNext project
+    // =====================================================
+    refreshErpLinkBadge(state) {
+        const el = document.getElementById('erp-link-badge');
+        if (!el) return;
+        const ref = this.project?.erpRef;
+        if (!ref?.id) { el.style.display = 'none'; return; }
+        el.style.display = 'inline-flex';
+        const icon = state === 'busy' ? '⏳' : state === 'fail' ? '⚠' : '⇄';
+        el.textContent = `${icon} ERPNext: ${ref.id}`;
+        el.title = this.tFormat('erp_link_title', ref.id)
+            + (ref.lastSyncAt ? `\n${this.tFormat('erp_last_sync', new Date(ref.lastSyncAt).toLocaleString())}` : '');
+        el.style.color = state === 'fail' ? 'var(--danger, #dc2626)' : 'var(--success, #059669)';
+    }
+
+    // Upload the complete OFS project (same shape as the JSON export) as ONE stable
+    // attachment `OFS_<projectId>.json` on the linked ERPNext Project. Previous versions
+    // with the same prefix are removed first so repeated saves don't pile up files.
+    async syncProjectToErp(manual = false) {
+        const ref = this.project?.erpRef;
+        if (!ref || ref.connector !== 'erpnext' || !ref.id) return;
+        const cfg = this._pubConfig('erpnext');
+        if (!cfg.endpoint || !cfg.apiKey) { if (manual) this.showNotification(this.t('wb_missing_creds'), 'error'); return; }
+        const base = ref.base || this._erpnextBaseUrl(cfg);
+        const auth = this._erpnextAuthHeader(cfg);
+        if (this._erpSyncBusy) return;
+        this._erpSyncBusy = true;
+        this.refreshErpLinkBadge('busy');
+        try {
+            const data = {
+                version: '2.0', exportDate: new Date().toISOString(),
+                project: this.project, contacts: this.contacts, floorPlans: this.floorPlans,
+                tickets: this.tickets, inspections: this.inspections, handovers: this.handovers,
+                checklistTemplates: this.checklistTemplates, activityLog: this.activityLog
+            };
+            const fileName = `OFS_${ref.id}.json`;
+            // Remove older OFS_* attachments on this project (best-effort).
+            try {
+                const filters = encodeURIComponent(JSON.stringify([
+                    ['attached_to_doctype', '=', 'Project'],
+                    ['attached_to_name', '=', ref.id],
+                    ['file_name', 'like', 'OFS_%']
+                ]));
+                const old = await this._httpJsonGet(`${base}/api/resource/File?filters=${filters}&fields=${encodeURIComponent(JSON.stringify(['name', 'file_name']))}&limit_page_length=20`, auth).then(r => r?.data || []);
+                for (const f of old) {
+                    await this._netFetch(`${base}/api/resource/File/${encodeURIComponent(f.name)}`, {
+                        method: 'DELETE', headers: { 'Authorization': auth, 'Accept': 'application/json' }
+                    }).catch(e => console.warn('old OFS file delete failed', f.name, e));
+                }
+            } catch (e) { console.warn('old OFS file cleanup failed', e); }
+
+            const fd = new FormData();
+            fd.append('file', new Blob([JSON.stringify(data)], { type: 'application/json' }), fileName);
+            fd.append('is_private', '1');
+            fd.append('doctype', 'Project');
+            fd.append('docname', ref.id);
+            const res = await this._netFetch(`${base}/api/method/upload_file`, {
+                method: 'POST',
+                headers: { 'Authorization': auth, 'Accept': 'application/json' },
+                body: fd
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            this.project.erpRef.lastSyncAt = new Date().toISOString();
+            this.saveToLocalStorage();
+            this.refreshErpLinkBadge();
+            if (manual) this.showNotification(this.tFormat('erp_sync_ok', ref.id), 'success');
+            this.logActivity(this.tFormat('act_erp_sync', ref.id));
+        } catch (err) {
+            console.error('ERP sync failed', err);
+            this.refreshErpLinkBadge('fail');
+            this.showNotification(this.tFormat('erp_sync_fail', err.message || err), 'error');
+        } finally {
+            this._erpSyncBusy = false;
+        }
+    }
+
     // Fetch everything OFS wants to know about one ERPNext customer: the doc itself,
     // contacts + addresses (linked via the "Dynamic Link" child table — Frappe REST
     // requires 4-tuple filters `["<ChildDocType>", "<field>", "<op>", <val>]` for
@@ -2718,7 +2805,10 @@ class OpenFieldStudio {
             })),
             // Project drawings first, then customer attachments
             floorPlans: [...this._erpnextMapFiles(base, projFiles), ...this._erpnextMapFiles(base, custFiles)],
-            _fetchBinary: sameOriginFetch
+            _fetchBinary: sameOriginFetch,
+            // Link metadata so applyImport can remember which ERP project this came from
+            // (enables automatic back-sync of the OFS project file to that project).
+            _meta: chosenProject ? { connector: 'erpnext', doctype: 'Project', id: chosenProject.name, base } : null
         };
     }
 
@@ -2945,6 +3035,14 @@ class OpenFieldStudio {
             if (src.postalCode) p.postalCode = src.postalCode;
             if (src.city) p.city = src.city;
             if (src.contactPerson) p.contactPerson = src.contactPerson;
+            // Remember the source ERP project so saves can flow back automatically.
+            if (data._meta?.id) {
+                p.erpRef = {
+                    connector: data._meta.connector, doctype: data._meta.doctype,
+                    id: data._meta.id, base: data._meta.base,
+                    linkedAt: new Date().toISOString()
+                };
+            }
             this.loadProjectForm();
         }
         let contactsSkipped = 0;

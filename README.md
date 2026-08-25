@@ -227,6 +227,12 @@ Language preference is auto-detected from the browser/OS and persisted in localS
 
 ## Changelog
 
+### v0.3.5
+
+- **Automatische terug-sync naar het gekoppelde ERPNext-project** — na een project-import onthoudt OFS uit welk ERPNext-project de gegevens komen (`erpRef`). Bij "Project Opslaan" en bij het afronden van een oplevering wordt het complete OFS-projectbestand (`OFS_<projectnummer>.json`) automatisch als bijlage bij dát ERPNext-project opgeslagen; oudere versies worden eerst opgeruimd zodat er altijd precies één actueel bestand hangt.
+- **Koppelings-badge op de Project-tab** — "⇄ ERPNext: PROJ-…" toont de gekoppelde bron (groen = gesynchroniseerd, ⏳ = bezig, ⚠ = mislukt) met de laatst-opgeslagen-tijd in de tooltip; klikken = nu direct opslaan bij het project.
+- Autosave tijdens het typen blijft lokaal — alleen expliciete opslagmomenten gaan naar het ERP.
+
 ### v0.3.4
 
 - **Project-gerichte ERPNext-import** — de import laadt nu een compleet ERPNext-project in: projectnaam, projectnummer, gekoppelde klant + adres, contactpersonen én bijlagen die aan het project hangen (naast klant-bijlagen). Omgevingen zonder Projects-module vallen automatisch terug op de klant-gerichte flow.

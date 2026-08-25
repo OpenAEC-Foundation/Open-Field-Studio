@@ -745,7 +745,7 @@ class OpenFieldStudio {
         // Import project data from a configured bidirectional connector (ERPNext / n8n)
         document.getElementById('project-import-btn').addEventListener('click', () => this.openProjectImport());
         // Linked-ERP badge: click = save the project file to the linked ERP project now
-        document.getElementById('erp-link-badge').addEventListener('click', () => this.syncProjectToErp(true));
+        document.getElementById('erp-link-badge').addEventListener('click', () => this.syncProjectToLinked(true));
         document.getElementById('bag-modal-close').addEventListener('click', () => this.closeBagModal());
         document.querySelector('#bag-modal .modal-overlay').addEventListener('click', () => this.closeBagModal());
         document.getElementById('bag-cancel').addEventListener('click', () => this.closeBagModal());
@@ -930,7 +930,7 @@ class OpenFieldStudio {
         if (showConfirmation) this.saveJSON();
         // Auto-sync to the linked ERP project on explicit saves only — autosave (typing)
         // stays local so we don't hammer the ERP on every keystroke.
-        if (showConfirmation && this.project.erpRef) this.syncProjectToErp(false);
+        if (showConfirmation && this.project.erpRef) this.syncProjectToLinked(false);
     }
 
     autoSaveProject() { clearTimeout(this._ast); this._ast = setTimeout(() => this.saveProject(false), 2000); }
@@ -2260,7 +2260,7 @@ class OpenFieldStudio {
         this.logActivity(this.tFormat('log_ho_completed', this.hoTypeLabel(ho.type), ho.verdict === 'approved' ? this.t('verdict_approved') : ho.verdict === 'conditional' ? this.t('verdict_conditional') : this.t('verdict_rejected')));
         this.saveToLocalStorage();
         // A completed handover is a milestone — push the project file to the linked ERP project.
-        if (this.project?.erpRef) this.syncProjectToErp(false);
+        if (this.project?.erpRef) this.syncProjectToLinked(false);
         this.showNotification(this.t('msg_ho_signed'), 'success');
         this.showHandoverOverview();
     }
@@ -2346,7 +2346,9 @@ class OpenFieldStudio {
             // Frappe accepteert 'token <apikey>:<apisecret>' — als er ':' in de sleutel zit prefixen we met 'token', anders 'Bearer' (OAuth2).
             send: async (cfg, payload) => this._httpJson(cfg.endpoint, payload, (cfg.apiKey || '').includes(':') ? `token ${cfg.apiKey}` : `Bearer ${cfg.apiKey}`),
             canImport: true,
-            runImport: (cfg) => this._importFromErpnext(cfg)
+            runImport: (cfg) => this._importFromErpnext(cfg),
+            shortLabel: 'ERPNext',
+            backSync: (cfg, ref, data) => this._erpnextBackSync(cfg, ref, data)
         };
         const bouw7 = {
             id: 'bouw7',
@@ -2369,7 +2371,9 @@ class OpenFieldStudio {
             send: async (cfg, payload) => this._httpJson(cfg.endpoint, payload, cfg.apiKey ? `Bearer ${cfg.apiKey}` : null),
             canImport: true,
             // Voor import verwacht n8n een aparte GET-webhook — endpoint kan via de import-key op de config staan, of gedeeld met de publish-URL.
-            runImport: (cfg) => this._importFromWebhook(cfg)
+            runImport: (cfg) => this._importFromWebhook(cfg),
+            shortLabel: 'n8n',
+            backSync: (cfg, ref, data) => this._webhookBackSync(cfg, ref, data)
         };
         // KYP is project-scope: tickets → planningtaken (niet per-oplevering).
         const kyp = {
@@ -2617,80 +2621,114 @@ class OpenFieldStudio {
     }
 
     // =====================================================
-    // ERP BACK-SYNC — save the OFS project file onto the linked ERPNext project
+    // LINKED-SOURCE BACK-SYNC — save the OFS project file onto the linked source
+    // project. Connector-agnostic: any connector def with a `backSync(cfg, ref, data)`
+    // implementation participates (currently ERPNext + n8n/webhook).
     // =====================================================
     refreshErpLinkBadge(state) {
         const el = document.getElementById('erp-link-badge');
         if (!el) return;
         const ref = this.project?.erpRef;
         if (!ref?.id) { el.style.display = 'none'; return; }
+        const def = this._connectorGet(ref.connector);
+        const label = def.shortLabel || def.label || ref.connector;
         el.style.display = 'inline-flex';
         const icon = state === 'busy' ? '⏳' : state === 'fail' ? '⚠' : '⇄';
-        el.textContent = `${icon} ERPNext: ${ref.id}`;
-        el.title = this.tFormat('erp_link_title', ref.id)
+        el.textContent = `${icon} ${label}: ${ref.id}`;
+        el.title = this.tFormat('erp_link_title', label, ref.id)
             + (ref.lastSyncAt ? `\n${this.tFormat('erp_last_sync', new Date(ref.lastSyncAt).toLocaleString())}` : '');
         el.style.color = state === 'fail' ? 'var(--danger, #dc2626)' : 'var(--success, #059669)';
     }
 
-    // Upload the complete OFS project (same shape as the JSON export) as ONE stable
-    // attachment `OFS_<projectId>.json` on the linked ERPNext Project. Previous versions
-    // with the same prefix are removed first so repeated saves don't pile up files.
-    async syncProjectToErp(manual = false) {
+    _buildProjectExport() {
+        return {
+            version: '2.0', exportDate: new Date().toISOString(),
+            project: this.project, contacts: this.contacts, floorPlans: this.floorPlans,
+            tickets: this.tickets, inspections: this.inspections, handovers: this.handovers,
+            checklistTemplates: this.checklistTemplates, activityLog: this.activityLog
+        };
+    }
+
+    async syncProjectToLinked(manual = false) {
         const ref = this.project?.erpRef;
-        if (!ref || ref.connector !== 'erpnext' || !ref.id) return;
-        const cfg = this._pubConfig('erpnext');
-        if (!cfg.endpoint || !cfg.apiKey) { if (manual) this.showNotification(this.t('wb_missing_creds'), 'error'); return; }
-        const base = ref.base || this._erpnextBaseUrl(cfg);
-        const auth = this._erpnextAuthHeader(cfg);
+        if (!ref?.id || !ref.connector) return;
+        const def = this._connectorGet(ref.connector);
+        if (typeof def.backSync !== 'function') return;
+        const label = def.shortLabel || def.label || ref.connector;
+        const cfg = this._pubConfig(ref.connector);
         if (this._erpSyncBusy) return;
         this._erpSyncBusy = true;
         this.refreshErpLinkBadge('busy');
         try {
-            const data = {
-                version: '2.0', exportDate: new Date().toISOString(),
-                project: this.project, contacts: this.contacts, floorPlans: this.floorPlans,
-                tickets: this.tickets, inspections: this.inspections, handovers: this.handovers,
-                checklistTemplates: this.checklistTemplates, activityLog: this.activityLog
-            };
-            const fileName = `OFS_${ref.id}.json`;
-            // Remove older OFS_* attachments on this project (best-effort).
-            try {
-                const filters = encodeURIComponent(JSON.stringify([
-                    ['attached_to_doctype', '=', 'Project'],
-                    ['attached_to_name', '=', ref.id],
-                    ['file_name', 'like', 'OFS_%']
-                ]));
-                const old = await this._httpJsonGet(`${base}/api/resource/File?filters=${filters}&fields=${encodeURIComponent(JSON.stringify(['name', 'file_name']))}&limit_page_length=20`, auth).then(r => r?.data || []);
-                for (const f of old) {
-                    await this._netFetch(`${base}/api/resource/File/${encodeURIComponent(f.name)}`, {
-                        method: 'DELETE', headers: { 'Authorization': auth, 'Accept': 'application/json' }
-                    }).catch(e => console.warn('old OFS file delete failed', f.name, e));
-                }
-            } catch (e) { console.warn('old OFS file cleanup failed', e); }
-
-            const fd = new FormData();
-            fd.append('file', new Blob([JSON.stringify(data)], { type: 'application/json' }), fileName);
-            fd.append('is_private', '1');
-            fd.append('doctype', 'Project');
-            fd.append('docname', ref.id);
-            const res = await this._netFetch(`${base}/api/method/upload_file`, {
-                method: 'POST',
-                headers: { 'Authorization': auth, 'Accept': 'application/json' },
-                body: fd
-            });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            await def.backSync(cfg, ref, this._buildProjectExport());
             this.project.erpRef.lastSyncAt = new Date().toISOString();
             this.saveToLocalStorage();
             this.refreshErpLinkBadge();
-            if (manual) this.showNotification(this.tFormat('erp_sync_ok', ref.id), 'success');
-            this.logActivity(this.tFormat('act_erp_sync', ref.id));
+            if (manual) this.showNotification(this.tFormat('erp_sync_ok', label, ref.id), 'success');
+            this.logActivity(this.tFormat('act_erp_sync', label, ref.id));
         } catch (err) {
-            console.error('ERP sync failed', err);
+            console.error('Back-sync failed', err);
             this.refreshErpLinkBadge('fail');
-            this.showNotification(this.tFormat('erp_sync_fail', err.message || err), 'error');
+            this.showNotification(this.tFormat('erp_sync_fail', label, err.message || err), 'error');
         } finally {
             this._erpSyncBusy = false;
         }
+    }
+
+    // ERPNext: upload the export as ONE stable attachment `OFS_<projectId>.json` on the
+    // linked Project doc; previous OFS_* attachments are removed first so repeated
+    // saves don't pile up files.
+    async _erpnextBackSync(cfg, ref, data) {
+        if (!cfg.endpoint || !cfg.apiKey) throw new Error(this.t('wb_missing_creds'));
+        const base = ref.base || this._erpnextBaseUrl(cfg);
+        const auth = this._erpnextAuthHeader(cfg);
+        const fileName = `OFS_${ref.id}.json`;
+        try {
+            const filters = encodeURIComponent(JSON.stringify([
+                ['attached_to_doctype', '=', 'Project'],
+                ['attached_to_name', '=', ref.id],
+                ['file_name', 'like', 'OFS_%']
+            ]));
+            const old = await this._httpJsonGet(`${base}/api/resource/File?filters=${filters}&fields=${encodeURIComponent(JSON.stringify(['name', 'file_name']))}&limit_page_length=20`, auth).then(r => r?.data || []);
+            for (const f of old) {
+                await this._netFetch(`${base}/api/resource/File/${encodeURIComponent(f.name)}`, {
+                    method: 'DELETE', headers: { 'Authorization': auth, 'Accept': 'application/json' }
+                }).catch(e => console.warn('old OFS file delete failed', f.name, e));
+            }
+        } catch (e) { console.warn('old OFS file cleanup failed', e); }
+
+        const fd = new FormData();
+        fd.append('file', new Blob([JSON.stringify(data)], { type: 'application/json' }), fileName);
+        fd.append('is_private', '1');
+        fd.append('doctype', 'Project');
+        fd.append('docname', ref.id);
+        const res = await this._netFetch(`${base}/api/method/upload_file`, {
+            method: 'POST',
+            headers: { 'Authorization': auth, 'Accept': 'application/json' },
+            body: fd
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    }
+
+    // n8n/webhook: POST the export in a typed envelope to the configured webhook.
+    // The receiving workflow distinguishes it from dossier-publishes by `type` and can
+    // route it to any target system (SharePoint, Dropbox, own ERP, ...).
+    async _webhookBackSync(cfg, ref, data) {
+        const url = ref.base || cfg.endpoint;
+        if (!url) throw new Error(this.t('wb_missing_creds'));
+        const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
+        if (cfg.apiKey) headers['Authorization'] = `Bearer ${cfg.apiKey}`;
+        const res = await this._netFetch(url, {
+            method: 'POST', headers,
+            body: JSON.stringify({
+                type: 'ofs.project.sync',
+                source: 'openfieldstudio',
+                projectRef: ref.id,
+                savedAt: new Date().toISOString(),
+                data
+            })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
     }
 
     // Fetch everything OFS wants to know about one ERPNext customer: the doc itself,
@@ -2828,11 +2866,15 @@ class OpenFieldStudio {
             try { same = new URL(fileUrl, cfg.endpoint).origin === baseOrigin; } catch { /* invalid url */ }
             return this._httpBinaryGet(fileUrl, same ? auth : null);
         };
+        // Link metadata: the workflow may return an explicit `projectRef`; otherwise fall
+        // back to the imported project's number/name so back-sync still has a stable id.
+        const refId = data.projectRef || data.project?.number || data.project?.name || null;
         return {
             project: data.project || null,
             contacts: Array.isArray(data.contacts) ? data.contacts : [],
             floorPlans: Array.isArray(data.floorPlans) ? data.floorPlans : [],
-            _fetchBinary: fetchBinary
+            _fetchBinary: fetchBinary,
+            _meta: refId ? { connector: 'webhook', doctype: 'external', id: String(refId), base: cfg.endpoint } : null
         };
     }
 

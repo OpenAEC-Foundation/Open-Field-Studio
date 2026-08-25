@@ -227,6 +227,15 @@ Language preference is auto-detected from the browser/OS and persisted in localS
 
 ## Changelog
 
+### v0.3.6
+
+- **Terug-sync is nu connector-generiek** — de automatische opslag bij het gekoppelde bronproject is een registry-capability (`backSync`) geworden in plaats van ERPNext-specifiek. Nu ondersteund:
+  - **ERPNext**: als bijlage `OFS_<projectnummer>.json` op het Project-doc (zoals in v0.3.5).
+  - **n8n / webhook**: POST van een getypte envelope `{ type: "ofs.project.sync", projectRef, savedAt, data }` naar je webhook — de workflow herkent sync-berichten aan het `type`-veld en kan ze naar elk doelsysteem routeren (SharePoint, Dropbox, eigen ERP).
+- **Webhook-import koppelt nu ook** — geeft je workflow een `projectRef` terug (of OFS valt terug op projectnummer/naam), dan onthoudt OFS de koppeling en verschijnt de badge "⇄ n8n: …".
+- Badge en meldingen tonen het gekoppelde systeem ("⇄ ERPNext: PROJ-…" / "⇄ n8n: EXT-…").
+- AFAS/Exact/Bouw7 haken op dezelfde capability aan zodra hun import-kant landt.
+
 ### v0.3.5
 
 - **Automatische terug-sync naar het gekoppelde ERPNext-project** — na een project-import onthoudt OFS uit welk ERPNext-project de gegevens komen (`erpRef`). Bij "Project Opslaan" en bij het afronden van een oplevering wordt het complete OFS-projectbestand (`OFS_<projectnummer>.json`) automatisch als bijlage bij dát ERPNext-project opgeslagen; oudere versies worden eerst opgeruimd zodat er altijd precies één actueel bestand hangt.

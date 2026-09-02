@@ -9,6 +9,9 @@
   const params = new URLSearchParams(location.search);
   const state = params.get('state') || 'project';
   const tab = params.get('tab') || null;
+  const cfg = params.get('cfg') || null;          // auto-open connector-config modal
+  const erpEp = params.get('erp_ep') || null;     // override ERPNext endpoint (handouts)
+  const erpKey = params.get('erp_key') || null;   // override ERPNext api key
 
   // Base demo project
   const project = {
@@ -44,11 +47,15 @@
     { id: 't3', floorPlanId: 'fp1', label: 'Stopcontact defect', category: 'Elektra', priority: 'low', severity: 'cosmetic', status: 'completed', x: 75, y: 30, description: '', assignedTo: '', deadline: '', photos: [] }
   ];
 
-  const data = {
-    project, contacts, tickets, floorPlans: [], inspections: [], handovers: [],
-    checklistTemplates: [], activityLog: []
-  };
-  localStorage.setItem('openFieldStudio', JSON.stringify(data));
+  if (state !== 'blank') {
+    const data = {
+      project, contacts, tickets, floorPlans: [], inspections: [], handovers: [],
+      checklistTemplates: [], activityLog: []
+    };
+    localStorage.setItem('openFieldStudio', JSON.stringify(data));
+  } else {
+    localStorage.removeItem('openFieldStudio');
+  }
 
   // Pre-configure a few connectors so the Koppelingen panel shows "Ingesteld" badges
   if (state === 'connectors' || state === 'import') {
@@ -60,8 +67,12 @@
     localStorage.setItem('ofs_pub_afas_apikey', 'AfasDemoToken');
   }
 
+  // Optional per-connector overrides (used for customer-specific handout screenshots)
+  if (erpEp) localStorage.setItem('ofs_pub_erpnext_endpoint', erpEp);
+  if (erpKey) localStorage.setItem('ofs_pub_erpnext_apikey', erpKey);
+
   const targetTab = tab || (state === 'connectors' ? 'koppelingen' : state === 'project' ? 'project' : state);
   // Land the user on the intended tab via a hash so the main app can pick it up on load.
-  location.replace('/#tab=' + encodeURIComponent(targetTab));
+  location.replace('/#tab=' + encodeURIComponent(targetTab) + (cfg ? '&cfg=' + encodeURIComponent(cfg) : ''));
 })();
 </script>

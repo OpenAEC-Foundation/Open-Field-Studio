@@ -91,11 +91,18 @@ function initApp() {
   // Kick off update check — non-blocking, silent-fail.
   setTimeout(runUpdateCheck, 500);
 
-  // Optional deep-link: /#tab=koppelingen (used by scripts/screenshot.ps1 and demo links).
+  // Optional deep-link: /#tab=koppelingen[&cfg=erpnext] (used by scripts/screenshot.ps1,
+  // handout screenshots and support links). `cfg` opens that connector's config modal.
   try {
     const m = /(?:^|[#&])tab=([^&]+)/.exec(location.hash || '');
+    const c = /(?:^|[#&])cfg=([^&]+)/.exec(location.hash || '');
     if (m && m[1] && typeof app.switchTab === 'function') {
-      setTimeout(() => app.switchTab(decodeURIComponent(m[1])), 100);
+      setTimeout(() => {
+        app.switchTab(decodeURIComponent(m[1]));
+        if (c && c[1] && typeof app.openConnectorConfig === 'function') {
+          setTimeout(() => app.openConnectorConfig(decodeURIComponent(c[1])), 150);
+        }
+      }, 100);
     }
   } catch { /* ignore malformed hash */ }
 }

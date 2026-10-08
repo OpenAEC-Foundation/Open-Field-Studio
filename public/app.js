@@ -1169,8 +1169,8 @@ class OpenFieldStudio {
         const c = document.getElementById('contacts-list');
         if (!this.contacts.length) { c.innerHTML = `<p class="empty-state" style="padding:1rem;">${this.t('empty_contacts')}</p>`; return; }
         c.innerHTML = this.contacts.map(ct => `
-            <div class="contact-card" onclick="app.openContactModal('${ct.id}')">
-                <div class="contact-avatar">${(ct.name||'?')[0].toUpperCase()}</div>
+            <div class="contact-card" onclick="app.openContactModal(${this.jsArg(ct.id)})">
+                <div class="contact-avatar">${this.esc((ct.name||'?')[0].toUpperCase())}</div>
                 <div class="contact-card-info">
                     <h4>${this.esc(ct.name)}</h4>
                     <p>${this.esc(ct.role)} ${ct.company ? '- '+this.esc(ct.company) : ''}</p>
@@ -1235,7 +1235,7 @@ class OpenFieldStudio {
     }
 
     updateAssigneeDropdowns() {
-        const opts = `<option value="">${this.t('ph_nobody')}</option>` + this.contacts.map(c => `<option value="${c.name}">${this.esc(c.name)} (${c.role})</option>`).join('');
+        const opts = `<option value="">${this.t('ph_nobody')}</option>` + this.contacts.map(c => `<option value="${this.esc(c.name)}">${this.esc(c.name)} (${this.esc(c.role)})</option>`).join('');
         document.getElementById('point-assigned').innerHTML = opts;
     }
 
@@ -1275,22 +1275,21 @@ class OpenFieldStudio {
     renderFloorPlansList() {
         // Validate data-URL and escape name — floorPlans may come from external connectors that
         // could inject HTML via unsanitized `fp.name` (alt=) or attribute-breakout in `fp.data` (src=).
-        const isSafeDataUrl = (s) => typeof s === 'string' && /^data:[a-z0-9]+\/[a-z0-9+.\-]+;base64,[A-Za-z0-9+/=]+$/.test(s);
         document.getElementById('floor-plans-list').innerHTML = this.floorPlans.map(fp => {
-            const safeSrc = isSafeDataUrl(fp.data) ? fp.data : '';
+            const safeSrc = this.imgSrc(fp.data);
             const safeAlt = this.esc(fp.name || '');
             return `
             <div class="floor-plan-card"><div class="floor-plan-thumbnail-wrapper"><img src="${safeSrc}" alt="${safeAlt}" class="floor-plan-thumbnail">${fp.originalType === 'application/pdf' ? '<span class="pdf-badge">PDF</span>' : ''}</div>
-            <div class="floor-plan-info"><input type="text" value="${this.esc(fp.name)}" onchange="app.updateFloorPlanName('${fp.id}', this.value)">
-            <div class="floor-plan-actions"><button class="select-btn" onclick="app.selectFloorPlan('${fp.id}')">${this.t('btn_select')}</button><button class="delete-btn" onclick="app.deleteFloorPlan('${fp.id}')">${this.t('btn_delete')}</button></div></div></div>
+            <div class="floor-plan-info"><input type="text" value="${this.esc(fp.name)}" onchange="app.updateFloorPlanName(${this.jsArg(fp.id)}, this.value)">
+            <div class="floor-plan-actions"><button class="select-btn" onclick="app.selectFloorPlan(${this.jsArg(fp.id)})">${this.t('btn_select')}</button><button class="delete-btn" onclick="app.deleteFloorPlan(${this.jsArg(fp.id)})">${this.t('btn_delete')}</button></div></div></div>
         `;
         }).join('');
     }
 
     updateFloorPlanSelector() {
-        const base = `<option value="">${this.t('ph_select_plan')}</option>` + this.floorPlans.map(fp => `<option value="${fp.id}">${this.esc(fp.name)}</option>`).join('');
+        const base = `<option value="">${this.t('ph_select_plan')}</option>` + this.floorPlans.map(fp => `<option value="${this.esc(fp.id)}">${this.esc(fp.name)}</option>`).join('');
         document.getElementById('active-floor').innerHTML = base;
-        document.getElementById('insp-floor').innerHTML = `<option value="">${this.t('ph_floor')}</option>` + this.floorPlans.map(fp => `<option value="${fp.id}">${this.esc(fp.name)}</option>`).join('');
+        document.getElementById('insp-floor').innerHTML = `<option value="">${this.t('ph_floor')}</option>` + this.floorPlans.map(fp => `<option value="${this.esc(fp.id)}">${this.esc(fp.name)}</option>`).join('');
         if (this.activeFloorPlanId && this.floorPlans.find(fp => fp.id === this.activeFloorPlanId)) document.getElementById('active-floor').value = this.activeFloorPlanId;
     }
 
@@ -1310,7 +1309,7 @@ class OpenFieldStudio {
         const fp = this.floorPlans.find(f => f.id === id);
         if (fp) {
             const img = document.getElementById('floor-plan-image');
-            img.src = fp.data;
+            img.src = this.imgSrc(fp.data);
             document.getElementById('floor-plan-wrapper').style.display = 'inline-block';
             document.getElementById('canvas-placeholder').style.display = 'none';
             img.onload = () => this.renderLocationPoints();
@@ -1465,7 +1464,7 @@ class OpenFieldStudio {
         const pts = this.tickets.filter(p => p.floorPlanId === this.activeFloorPlanId);
         const colors = { open:'#D97706', assigned:'#2563EB', completed:'#16A34A', verified:'#71717A', archived:'#A1A1AA' };
         container.innerHTML = pts.map((p, i) => `
-            <div class="location-point" style="left:${p.x}%;top:${p.y}%;" onclick="app.openPointModal('${p.id}')" title="${this.esc(p.label)}">
+            <div class="location-point" style="left:${+p.x || 0}%;top:${+p.y || 0}%;" onclick="app.openPointModal(${this.jsArg(p.id)})" title="${this.esc(p.label)}">
                 <svg viewBox="0 0 24 24" fill="${colors[p.status]||'#D97706'}"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
                 <span class="point-label">${i + 1}</span>
             </div>
@@ -1484,10 +1483,10 @@ class OpenFieldStudio {
         const tc = document.getElementById('ticket-count'); if (tc) tc.textContent = pts.length;
         if (!pts.length) { container.innerHTML = `<p class="empty-state">${this.t('empty_filtered')}</p>`; return; }
         container.innerHTML = pts.map((p, i) => `
-            <div class="point-item priority-${p.priority||'medium'}" onclick="app.openPointModal('${p.id}')">
+            <div class="point-item priority-${this.esc(p.priority||'medium')}" onclick="app.openPointModal(${this.jsArg(p.id)})">
                 <div class="point-item-icon">${i + 1}</div>
-                <div class="point-item-info"><h4>${this.esc(p.label)}</h4><p>${p.category||''} · ${p.photos?.length||0} ${this.t('lbl_photos')}${p.assignedTo ? ' · '+this.esc(p.assignedTo) : ''}</p></div>
-                <span class="status-badge status-${p.status||'open'}">${this.statusLabel(p.status)}</span>
+                <div class="point-item-info"><h4>${this.esc(p.label)}</h4><p>${this.esc(p.category)} · ${this.esc(p.photos?.length||0)} ${this.t('lbl_photos')}${p.assignedTo ? ' · '+this.esc(p.assignedTo) : ''}</p></div>
+                <span class="status-badge status-${this.esc(p.status||'open')}">${this.statusLabel(p.status)}</span>
             </div>
         `).join('');
     }
@@ -1551,7 +1550,7 @@ class OpenFieldStudio {
     }
     renderPhotoPreview() {
         document.getElementById('photo-preview').innerHTML = this.currentPhotos.map(p => `
-            <div class="photo-thumb"><img src="${p.data}" alt="${p.name}" onclick="app.viewPhoto('${p.id}')"><button class="remove-photo" onclick="event.stopPropagation();app.removePhoto('${p.id}')">&times;</button></div>
+            <div class="photo-thumb"><img src="${this.imgSrc(p.data)}" alt="${this.esc(p.name)}" onclick="app.viewPhoto(${this.jsArg(p.id)})"><button class="remove-photo" onclick="event.stopPropagation();app.removePhoto(${this.jsArg(p.id)})">&times;</button></div>
         `).join('');
     }
     removePhoto(id) { this.currentPhotos = this.currentPhotos.filter(p => p.id !== id); this.renderPhotoPreview(); }
@@ -1559,7 +1558,7 @@ class OpenFieldStudio {
     showPhotoViewer() {
         const p = this.currentPhotos[this.currentPhotoIndex];
         if (!p) return;
-        document.getElementById('photo-viewer-image').src = p.data;
+        document.getElementById('photo-viewer-image').src = this.imgSrc(p.data);
         document.getElementById('photo-viewer-caption').textContent = `${this.currentPhotoIndex+1} / ${this.currentPhotos.length}`;
         const meta = document.getElementById('photo-viewer-meta');
         if (meta) meta.innerHTML = this.formatPhotoMeta(p);
@@ -1577,7 +1576,7 @@ class OpenFieldStudio {
         if (p.gps) {
             const { lat, lon, accuracy } = p.gps;
             const mapUrl = `https://www.google.com/maps?q=${lat},${lon}`;
-            parts.push(`GPS: <a href="${mapUrl}" target="_blank" rel="noopener" style="color:#fbbf24;text-decoration:underline;">${lat.toFixed(6)}, ${lon.toFixed(6)}</a> (±${accuracy}m)`);
+            parts.push(`GPS: <a href="${this.esc(mapUrl)}" target="_blank" rel="noopener" style="color:#fbbf24;text-decoration:underline;">${lat.toFixed(6)}, ${lon.toFixed(6)}</a> (±${this.esc(accuracy)}m)`);
         } else if (p.capturedAt) {
             parts.push(this.t('photo_no_gps'));
         }
@@ -1696,7 +1695,7 @@ class OpenFieldStudio {
         document.getElementById('inspectie-overview').style.display = 'none';
         document.getElementById('inspectie-setup').style.display = 'block';
         document.getElementById('insp-template').innerHTML = `<option value="">${this.t('ph_template')}</option>` +
-            this.checklistTemplates.map(t => `<option value="${t.id}">${this.esc(t.name)}</option>`).join('');
+            this.checklistTemplates.map(t => `<option value="${this.esc(t.id)}">${this.esc(t.name)}</option>`).join('');
         document.getElementById('insp-inspector').value = this.project.surveyor || '';
     }
 
@@ -1717,7 +1716,7 @@ class OpenFieldStudio {
             document.getElementById('insp-edit-date').value = insp.date || '';
             const floorSelect = document.getElementById('insp-edit-floor');
             floorSelect.innerHTML = '<option value="">-- Optioneel --</option>' +
-                this.floorPlans.map(fp => `<option value="${fp.id}" ${fp.id === insp.floorPlanId ? 'selected' : ''}>${this.esc(fp.name)}</option>`).join('');
+                this.floorPlans.map(fp => `<option value="${this.esc(fp.id)}" ${fp.id === insp.floorPlanId ? 'selected' : ''}>${this.esc(fp.name)}</option>`).join('');
             panel.style.display = 'grid';
         } else {
             panel.style.display = 'none';
@@ -1784,7 +1783,7 @@ class OpenFieldStudio {
             const type = item.type || 'check';
             const hasRightActions = type === 'check' || type === 'nen2767';
             return `
-            <div class="checklist-item" data-idx="${idx}" data-type="${type}">
+            <div class="checklist-item" data-idx="${idx}" data-type="${this.esc(type)}">
                 <div style="flex:1">
                     <div class="checklist-item-question">${this.esc(item.question)}</div>
                     ${this.renderItemInput(item, idx)}
@@ -1813,14 +1812,14 @@ class OpenFieldStudio {
                 const opts = item.options || [];
                 const val = item.value || '';
                 return `<div class="checklist-choices">${opts.map(opt =>
-                    `<button type="button" class="checklist-choice ${val === opt ? 'selected' : ''}" onclick="app.selectChoice(${idx},'${opt.replace(/'/g,"\\'")}')">${this.esc(opt)}</button>`
+                    `<button type="button" class="checklist-choice ${val === opt ? 'selected' : ''}" onclick="app.selectChoice(${idx},${this.jsArg(opt)})">${this.esc(opt)}</button>`
                 ).join('')}</div>`;
             }
             case 'multi': {
                 const opts = item.options || [];
                 const sel = (item.value || '').split(',').map(s => s.trim()).filter(Boolean);
                 return `<div class="checklist-choices">${opts.map(opt =>
-                    `<button type="button" class="checklist-choice ${sel.includes(opt) ? 'selected' : ''}" onclick="app.toggleMultiChoice(${idx},'${opt.replace(/'/g,"\\'")}')">${this.esc(opt)}</button>`
+                    `<button type="button" class="checklist-choice ${sel.includes(opt) ? 'selected' : ''}" onclick="app.toggleMultiChoice(${idx},${this.jsArg(opt)})">${this.esc(opt)}</button>`
                 ).join('')}</div>`;
             }
             case 'number': {
@@ -1877,7 +1876,7 @@ class OpenFieldStudio {
         return `<div class="checklist-photo-input">
             <div class="checklist-photo-thumbs">${photos.map((p, pi) => `
                 <div class="checklist-photo-thumb">
-                    <img src="${p.data}" alt="${this.esc(p.name)}" onclick="app.viewItemPhoto(${idx},${pi})">
+                    <img src="${this.imgSrc(p.data)}" alt="${this.esc(p.name)}" onclick="app.viewItemPhoto(${idx},${pi})">
                     <button class="remove-photo" onclick="event.stopPropagation();app.removeItemPhoto(${idx},${pi})">&times;</button>
                 </div>`).join('')}</div>
             <div class="checklist-photo-actions">
@@ -1944,7 +1943,7 @@ class OpenFieldStudio {
         if (!insp) return;
         const photo = insp.items[idx].photos[photoIdx];
         if (photo) {
-            document.getElementById('photo-viewer-image').src = photo.data;
+            document.getElementById('photo-viewer-image').src = this.imgSrc(photo.data);
             document.getElementById('photo-viewer-modal').classList.add('active');
         }
     }
@@ -2061,8 +2060,8 @@ class OpenFieldStudio {
                 extra = ` · ${fail} ${this.t('insp_rejected')}`;
             }
             const catLabel = insp.scoring === 'nen2767' ? ' · NEN 2767' : '';
-            return `<div class="inspection-card" onclick="app.viewInspection('${insp.id}')">
-                <div class="inspection-card-info"><h4>${this.esc(insp.name)}</h4><p>${insp.date} · ${insp.inspector||''}${catLabel} · ${done}/${insp.items.length} items${extra}</p></div>
+            return `<div class="inspection-card" onclick="app.viewInspection(${this.jsArg(insp.id)})">
+                <div class="inspection-card-info"><h4>${this.esc(insp.name)}</h4><p>${this.esc(insp.date)} · ${this.esc(insp.inspector)}${catLabel} · ${done}/${this.esc(insp.items.length)} items${extra}</p></div>
                 <span class="status-badge status-${insp.status==='signed'?'verified':'assigned'}">${insp.status==='signed'?this.t('insp_signed'):this.t('insp_in_progress')}</span>
             </div>`;
         }).join('');
@@ -2162,7 +2161,7 @@ class OpenFieldStudio {
             const t = this.tickets.find(tk => tk.id === item.ticketId);
             if (!t) return '';
             return `<div class="ho-item">
-                <div class="ho-item-info"><h4>${this.esc(t.label)}</h4><p>${t.category||''} · ${this.priorityLabel(t.priority)} · ${this.severityLabel(t.severity)}</p></div>
+                <div class="ho-item-info"><h4>${this.esc(t.label)}</h4><p>${this.esc(t.category)} · ${this.priorityLabel(t.priority)} · ${this.severityLabel(t.severity)}</p></div>
                 <div class="ho-item-verdict">
                     <button class="verdict-btn approved ${item.verdict==='approved'?'selected':''}" onclick="app.setHandoverVerdict(${idx},'approved')">&#10003;</button>
                     <button class="verdict-btn conditional ${item.verdict==='conditional'?'selected':''}" onclick="app.setHandoverVerdict(${idx},'conditional')">&#9888;</button>
@@ -2207,7 +2206,7 @@ class OpenFieldStudio {
         const ho = this.handovers.find(h => h.id === this.currentHandoverId);
         if (!ho) return;
         document.getElementById('ho-documents-list').innerHTML = ho.documents.map(d => `
-            <div class="ho-doc-item"><span>${this.esc(d.name)}</span><button onclick="app.removeHandoverDoc('${d.id}')">&times;</button></div>
+            <div class="ho-doc-item"><span>${this.esc(d.name)}</span><button onclick="app.removeHandoverDoc(${this.jsArg(d.id)})">&times;</button></div>
         `).join('');
     }
 
@@ -2272,10 +2271,10 @@ class OpenFieldStudio {
             const approved = ho.items.filter(i => i.verdict === 'approved').length;
             const isDone = ho.status === 'completed';
             const publishBtn = isDone
-                ? `<button class="btn btn-sm btn-secondary" style="margin-left:0.5rem;" onclick="event.stopPropagation();app.openWoningborgModal('${ho.id}')" title="${this.t('wb_tooltip')}">🏛 ${this.t('wb_btn')}</button>`
+                ? `<button class="btn btn-sm btn-secondary" style="margin-left:0.5rem;" onclick="event.stopPropagation();app.openWoningborgModal(${this.jsArg(ho.id)})" title="${this.t('wb_tooltip')}">🏛 ${this.t('wb_btn')}</button>`
                 : '';
-            return `<div class="handover-card" onclick="app.viewHandover('${ho.id}')">
-                <div class="handover-card-info"><h4>${this.hoTypeLabel(ho.type)}</h4><p>${ho.date} · ${ho.items.length} ${this.t('sum_tickets')} · ${approved} ${this.t('ho_approved')}</p></div>
+            return `<div class="handover-card" onclick="app.viewHandover(${this.jsArg(ho.id)})">
+                <div class="handover-card-info"><h4>${this.esc(this.hoTypeLabel(ho.type))}</h4><p>${this.esc(ho.date)} · ${this.esc(ho.items.length)} ${this.t('sum_tickets')} · ${approved} ${this.t('ho_approved')}</p></div>
                 <div style="display:flex;align-items:center;gap:0.5rem;">
                     <span class="status-badge status-${isDone?'verified':'assigned'}">${isDone?this.t('ho_completed'):this.t('ho_in_progress')}</span>
                     ${publishBtn}
@@ -2615,6 +2614,13 @@ class OpenFieldStudio {
         return (cfg.apiKey || '').includes(':') ? `token ${cfg.apiKey}` : `Bearer ${cfg.apiKey}`;
     }
     // Extract "https://site/" from an ERPNext endpoint like "https://site/api/resource/Project".
+    // A linked project's `base` is stored in the project file, which can be shared. Credentials only
+    // go to the configured connector's origin, so a foreign base falls back to the configured URL.
+    _sameOriginOr(url, configured) {
+        try { if (url && new URL(url).origin === new URL(configured).origin) return url; } catch { /* invalid url */ }
+        return configured;
+    }
+
     _erpnextBaseUrl(cfg) {
         const m = (cfg.endpoint || '').match(/^(https?:\/\/[^/]+)/);
         return m ? m[1] : '';
@@ -2680,7 +2686,7 @@ class OpenFieldStudio {
     // saves don't pile up files.
     async _erpnextBackSync(cfg, ref, data) {
         if (!cfg.endpoint || !cfg.apiKey) throw new Error(this.t('wb_missing_creds'));
-        const base = ref.base || this._erpnextBaseUrl(cfg);
+        const base = this._sameOriginOr(ref.base, this._erpnextBaseUrl(cfg));
         const auth = this._erpnextAuthHeader(cfg);
         const fileName = `OFS_${ref.id}.json`;
         try {
@@ -2714,7 +2720,7 @@ class OpenFieldStudio {
     // The receiving workflow distinguishes it from dossier-publishes by `type` and can
     // route it to any target system (SharePoint, Dropbox, own ERP, ...).
     async _webhookBackSync(cfg, ref, data) {
-        const url = ref.base || cfg.endpoint;
+        const url = this._sameOriginOr(ref.base, cfg.endpoint);
         if (!url) throw new Error(this.t('wb_missing_creds'));
         const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
         if (cfg.apiKey) headers['Authorization'] = `Bearer ${cfg.apiKey}`;
@@ -3171,7 +3177,7 @@ class OpenFieldStudio {
                 ? `<span class="status-badge status-verified">${this.t('connector_configured')}</span>`
                 : `<span class="status-badge status-open">${this.t('connector_unconfigured')}</span>`;
             const importBtn = (def.canImport && configured)
-                ? `<button class="btn btn-sm btn-secondary" onclick="app.openConnectorImport('${def.id}')" title="${this.t('import_btn_title')}">${this.t('import_btn')}</button>`
+                ? `<button class="btn btn-sm btn-secondary" onclick="app.openConnectorImport(${this.jsArg(def.id)})" title="${this.t('import_btn_title')}">${this.t('import_btn')}</button>`
                 : '';
             return `<div class="handover-card">
                 <div class="handover-card-info">
@@ -3181,7 +3187,7 @@ class OpenFieldStudio {
                 <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
                     ${badge}
                     ${importBtn}
-                    <button class="btn btn-sm btn-secondary" onclick="app.openConnectorConfig('${def.id}')">${this.t('connector_configure')}</button>
+                    <button class="btn btn-sm btn-secondary" onclick="app.openConnectorConfig(${this.jsArg(def.id)})">${this.t('connector_configure')}</button>
                 </div>
             </div>`;
         }).join('');
@@ -3406,10 +3412,10 @@ class OpenFieldStudio {
         document.getElementById('export-inspection-select').style.display = type === 'inspection' ? 'block' : 'none';
         document.getElementById('export-handover-select').style.display = type === 'handover' ? 'block' : 'none';
         if (type === 'inspection') {
-            document.getElementById('export-inspection-id').innerHTML = this.inspections.map(i => `<option value="${i.id}">${this.esc(i.name)} (${i.date})</option>`).join('');
+            document.getElementById('export-inspection-id').innerHTML = this.inspections.map(i => `<option value="${this.esc(i.id)}">${this.esc(i.name)} (${this.esc(i.date)})</option>`).join('');
         }
         if (type === 'handover') {
-            document.getElementById('export-handover-id').innerHTML = this.handovers.map(h => `<option value="${h.id}">${HO_TYPE_LABELS[h.type]} (${h.date})</option>`).join('');
+            document.getElementById('export-handover-id').innerHTML = this.handovers.map(h => `<option value="${this.esc(h.id)}">${this.esc(HO_TYPE_LABELS[h.type])} (${this.esc(h.date)})</option>`).join('');
         }
     }
 
@@ -3418,13 +3424,13 @@ class OpenFieldStudio {
         const s = document.getElementById('export-summary');
         if (!this.project.name && !this.tickets.length) { s.innerHTML = `<p>${this.t('empty_export')}</p>`; return; }
         s.innerHTML = `
-            <div class="summary-item"><h4>${this.t('sum_project')}</h4><p>${this.project.name || this.t('sum_not_filled')}</p></div>
-            <div class="summary-item"><h4>${this.t('sum_address')}</h4><p>${this.project.address || this.t('sum_not_filled')}</p></div>
-            <div class="summary-item"><h4>${this.t('sum_plans')}</h4><p>${this.floorPlans.length}</p></div>
-            <div class="summary-item"><h4>${this.t('sum_tickets')}</h4><p>${this.tickets.length}</p></div>
-            <div class="summary-item"><h4>${this.t('sum_photos')}</h4><p>${totalPhotos}</p></div>
-            <div class="summary-item"><h4>${this.t('sum_inspections')}</h4><p>${this.inspections.length}</p></div>
-            <div class="summary-item"><h4>${this.t('sum_handovers')}</h4><p>${this.handovers.length}</p></div>`;
+            <div class="summary-item"><h4>${this.t('sum_project')}</h4><p>${this.esc(this.project.name) || this.t('sum_not_filled')}</p></div>
+            <div class="summary-item"><h4>${this.t('sum_address')}</h4><p>${this.esc(this.project.address) || this.t('sum_not_filled')}</p></div>
+            <div class="summary-item"><h4>${this.t('sum_plans')}</h4><p>${this.esc(this.floorPlans.length)}</p></div>
+            <div class="summary-item"><h4>${this.t('sum_tickets')}</h4><p>${this.esc(this.tickets.length)}</p></div>
+            <div class="summary-item"><h4>${this.t('sum_photos')}</h4><p>${this.esc(totalPhotos)}</p></div>
+            <div class="summary-item"><h4>${this.t('sum_inspections')}</h4><p>${this.esc(this.inspections.length)}</p></div>
+            <div class="summary-item"><h4>${this.t('sum_handovers')}</h4><p>${this.esc(this.handovers.length)}</p></div>`;
         this.updateExportTypeUI();
     }
 
@@ -3660,18 +3666,18 @@ ${this.project.surveyor?`<div class="meta-item"><label>Opgenomen door</label><sp
 ${this.floorPlans.map(fp => {
     const pts = byFloor[fp.id] || [];
     return `<div class="section"><h3>${this.esc(fp.name)}</h3>
-    ${incMap?`<div style="position:relative;display:inline-block;max-width:100%;margin-bottom:1rem;"><img src="${fp.data}" style="max-width:100%;border-radius:8px;border:1px solid var(--border);">
-    ${pts.map((p,i)=>`<div style="position:absolute;left:${p.x}%;top:${p.y}%;width:24px;height:24px;transform:translate(-50%,-100%);"><svg viewBox="0 0 24 24" fill="${{open:'#D97706',assigned:'#2563EB',completed:'#16A34A',verified:'#71717A'}[p.status]||'#D97706'}"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg></div>`).join('')}
+    ${incMap?`<div style="position:relative;display:inline-block;max-width:100%;margin-bottom:1rem;"><img src="${this.imgSrc(fp.data)}" style="max-width:100%;border-radius:8px;border:1px solid var(--border);">
+    ${pts.map((p,i)=>`<div style="position:absolute;left:${+p.x || 0}%;top:${+p.y || 0}%;width:24px;height:24px;transform:translate(-50%,-100%);"><svg viewBox="0 0 24 24" fill="${{open:'#D97706',assigned:'#2563EB',completed:'#16A34A',verified:'#71717A'}[p.status]||'#D97706'}"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg></div>`).join('')}
     </div>`:''}
-    ${pts.length?pts.map((p,i)=>`<div class="ticket-card"><div class="ticket-header"><strong>${i+1}. ${this.esc(p.label)}</strong><span class="ticket-badge tb-${p.status}">${this.statusLabel(p.status)}</span></div>
-    <p style="font-size:0.8rem;color:var(--gray);">${p.category||''} · ${this.priorityLabel(p.priority)} · ${this.severityLabel(p.severity)}${p.assignedTo?' · '+this.esc(p.assignedTo):''}${p.deadline?' · Deadline: '+p.deadline:''}</p>
+    ${pts.length?pts.map((p,i)=>`<div class="ticket-card"><div class="ticket-header"><strong>${i+1}. ${this.esc(p.label)}</strong><span class="ticket-badge tb-${this.esc(p.status)}">${this.statusLabel(p.status)}</span></div>
+    <p style="font-size:0.8rem;color:var(--gray);">${this.esc(p.category)} · ${this.priorityLabel(p.priority)} · ${this.severityLabel(p.severity)}${p.assignedTo?' · '+this.esc(p.assignedTo):''}${p.deadline?' · Deadline: '+this.esc(p.deadline):''}</p>
     ${p.description?`<p style="margin-top:0.5rem;">${this.esc(p.description)}</p>`:''}
     ${incPhotos&&p.photos?.length?`<div class="photos-grid">${p.photos.map(ph=>{
         const meta = [];
         if (ph.capturedAt) { const d = new Date(ph.capturedAt); if (!isNaN(d.getTime())) meta.push(d.toLocaleString('nl-NL')); }
         if (ph.gps) meta.push(`${ph.gps.lat.toFixed(5)}, ${ph.gps.lon.toFixed(5)}`);
         const cap = meta.length ? `<div class="photo-cap">${this.esc(meta.join(' · '))}</div>` : '';
-        return `<figure class="photo-fig"><img src="${ph.data}">${cap}</figure>`;
+        return `<figure class="photo-fig"><img src="${this.imgSrc(ph.data)}">${cap}</figure>`;
     }).join('')}</div>`:''}
     </div>`).join(''):'<p style="color:var(--gray);">Geen tickets</p>'}
     </div>`;
@@ -3686,7 +3692,7 @@ ${this.floorPlans.map(fp => {
 <title>Proces-Verbaal van Oplevering - ${this.esc(this.project.name)}</title>
 <style>:root{--font-body:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI Variable','Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;--font-display:'Space Grotesk','Segoe UI Variable Display','Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,sans-serif;}*{box-sizing:border-box;margin:0;padding:0;}body{font-family:var(--font-body);color:#36363E;line-height:1.6;padding:2rem;max-width:900px;margin:0 auto;}h1{font-family:var(--font-display);font-size:1.8rem;margin-bottom:0.5rem;}h2{font-family:var(--font-display);font-size:1.3rem;margin:1.5rem 0 0.75rem;border-bottom:2px solid #E7E5E4;padding-bottom:0.5rem;}.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:1.5rem;}.meta-row{display:flex;gap:0.5rem;}.meta-label{font-weight:600;min-width:140px;font-size:0.85rem;color:#A1A1AA;}.meta-val{font-size:0.85rem;}table{width:100%;border-collapse:collapse;margin:1rem 0;}th,td{border:1px solid #E7E5E4;padding:0.5rem 0.75rem;text-align:left;font-size:0.85rem;}th{background:#F5F5F4;font-weight:600;}.verdict-ok{color:#16A34A;font-weight:600;}.verdict-cond{color:#F59E0B;font-weight:600;}.verdict-nok{color:#DC2626;font-weight:600;}.sig-block{display:inline-block;width:45%;margin:1rem 2%;vertical-align:top;}.sig-block img{max-width:100%;border:1px solid #E7E5E4;border-radius:4px;}@page{size:A4;margin:15mm;}@media print{html,body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:0;}body{padding:0;max-width:none;}h2{margin:0.75rem 0 0.4rem;font-size:1.05rem;}table{page-break-inside:avoid;}.sig-block{page-break-inside:avoid;}}</style></head><body>
 <h1>Proces-Verbaal van Oplevering</h1>
-<p style="color:#A1A1AA;margin-bottom:2rem;">${this.hoTypeLabel(ho.type)} · ${ho.date}</p>
+<p style="color:#A1A1AA;margin-bottom:2rem;">${this.esc(this.hoTypeLabel(ho.type))} · ${this.esc(ho.date)}</p>
 <h2>Projectgegevens</h2>
 <div class="meta-grid">
 <div class="meta-row"><span class="meta-label">Project:</span><span class="meta-val">${this.esc(this.project.name)}</span></div>
@@ -3694,7 +3700,7 @@ ${this.floorPlans.map(fp => {
 <div class="meta-row"><span class="meta-label">Adres:</span><span class="meta-val">${this.esc(this.project.address)}, ${this.esc(this.project.postalCode)} ${this.esc(this.project.city)}</span></div>
 ${this.project.bagData?.nummeraanduidingId?`<div class="meta-row"><span class="meta-label">BAG-ID:</span><span class="meta-val" style="font-family:monospace;font-size:0.75rem;">${this.esc(this.project.bagData.nummeraanduidingId)}</span></div>`:''}
 <div class="meta-row"><span class="meta-label">Opdrachtgever:</span><span class="meta-val">${this.esc(this.project.client)}</span></div>
-<div class="meta-row"><span class="meta-label">Datum oplevering:</span><span class="meta-val">${ho.date}</span></div>
+<div class="meta-row"><span class="meta-label">Datum oplevering:</span><span class="meta-val">${this.esc(ho.date)}</span></div>
 </div>
 <h2>Deelnemers</h2>
 <table><tr><th>Naam</th><th>Rol</th><th>Bedrijf</th></tr>
@@ -3702,13 +3708,13 @@ ${(ho.participants||[]).map(p=>`<tr><td>${this.esc(p.name)}</td><td>${this.esc(p
 </table>
 <h2>Opleverpunten</h2>
 <table><tr><th>#</th><th>Punt</th><th>Categorie</th><th>Prioriteit</th><th>Oordeel</th></tr>
-${ho.items.map((item,i)=>{const t=this.tickets.find(tk=>tk.id===item.ticketId);if(!t)return'';const vc=item.verdict==='approved'?'verdict-ok':item.verdict==='conditional'?'verdict-cond':'verdict-nok';const vl=item.verdict==='approved'?'Goedgekeurd':item.verdict==='conditional'?'Onder voorbehoud':item.verdict==='rejected'?'Afgekeurd':'Niet beoordeeld';return`<tr><td>${i+1}</td><td>${this.esc(t.label)}</td><td>${t.category||''}</td><td>${this.priorityLabel(t.priority)}</td><td class="${vc}">${vl}</td></tr>`;}).join('')}
+${ho.items.map((item,i)=>{const t=this.tickets.find(tk=>tk.id===item.ticketId);if(!t)return'';const vc=item.verdict==='approved'?'verdict-ok':item.verdict==='conditional'?'verdict-cond':'verdict-nok';const vl=item.verdict==='approved'?'Goedgekeurd':item.verdict==='conditional'?'Onder voorbehoud':item.verdict==='rejected'?'Afgekeurd':'Niet beoordeeld';return`<tr><td>${i+1}</td><td>${this.esc(t.label)}</td><td>${this.esc(t.category)}</td><td>${this.priorityLabel(t.priority)}</td><td class="${vc}">${vl}</td></tr>`;}).join('')}
 </table>
 <h2>Eindoordeel</h2>
 <p style="font-size:1.2rem;font-weight:700;color:${ho.verdict==='approved'?'#16A34A':ho.verdict==='conditional'?'#F59E0B':'#DC2626'}">${ho.verdict==='approved'?'GOEDGEKEURD':ho.verdict==='conditional'?'GOEDGEKEURD ONDER VOORBEHOUD':'AFGEKEURD'}</p>
 ${ho.notes?`<p style="margin-top:0.5rem;">${this.esc(ho.notes)}</p>`:''}
 <h2>Handtekeningen</h2>
-${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.name)}</strong> (${this.esc(s.role)})</p><p style="font-size:0.8rem;color:#A1A1AA;">${new Date(s.date).toLocaleString('nl-NL')}</p><img src="${s.data}" alt="Handtekening"></div>`).join('')}
+${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.name)}</strong> (${this.esc(s.role)})</p><p style="font-size:0.8rem;color:#A1A1AA;">${new Date(s.date).toLocaleString('nl-NL')}</p><img src="${this.imgSrc(s.data)}" alt="Handtekening"></div>`).join('')}
 <hr style="margin:2rem 0;border:none;border-top:1px solid #E7E5E4;">
 <p style="text-align:center;font-size:0.75rem;color:#A1A1AA;">Gegenereerd met Open Field Studio op ${new Date().toLocaleString('nl-NL')}</p>
 </body></html>`;
@@ -3939,7 +3945,14 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
     // UTILITIES
     // =====================================================
     genId() { return 'id_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now(); }
-    esc(text) { if (!text) return ''; const d = document.createElement('div'); d.textContent = text; return d.innerHTML; }
+    esc(text) {
+        if (text == null) return '';
+        return String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+    // Argument for an inline on*="" handler: JSON makes a JS string literal, esc keeps it inside the attribute.
+    jsArg(v) { return this.esc(JSON.stringify(String(v))); }
+    // Image sources come from project files and connectors: only embedded images, never a remote URL.
+    imgSrc(s) { return typeof s === 'string' && /^data:image\/[a-z0-9+.\-]+;base64,[A-Za-z0-9+/=]+$/i.test(s) ? s : ''; }
 
     // Async confirm dialog — uses Tauri native dialog or custom HTML modal
     asyncConfirm(message) {

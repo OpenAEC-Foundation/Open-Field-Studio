@@ -22,6 +22,12 @@ declare const __APP_VERSION__: string;
 // Lazy-load the IFC viewer only when the user opens the BIM tab (heavy — three.js + web-ifc WASM).
 (window as any).__ofsLoadIfcViewer = () => import('./ifc-viewer.ts');
 
+// PDF export as a file (Blob), lazy-loaded on the first export (jsPDF + html2canvas).
+declare global {
+  interface Window { __ofsHtmlToPdf?: (html: string) => Promise<Blob>; }
+}
+window.__ofsHtmlToPdf = (html: string) => import('./pdf-export.ts').then(m => m.htmlToPdf(html));
+
 // Check GitHub Releases for a newer version and render a titlebar badge.
 // Silent-fails on offline/rate-limit so it never breaks the app.
 import { checkForUpdates, renderUpdateBadge } from './updater';
@@ -37,11 +43,14 @@ function runUpdateCheck() {
 
 // Expose Tauri plugin APIs globally for app.js (non-blocking)
 function exposeTauriPlugins() {
+  // Only inside Tauri: in a plain browser the modules load but every call fails on the missing
+  // IPC bridge, which made confirmations and file saves take a failing detour first.
+  if (!('__TAURI_INTERNALS__' in window)) return;
   import('@tauri-apps/plugin-dialog').then(dialog => {
     (window as any).__tauriDialog = { save: dialog.save, open: dialog.open, ask: dialog.ask };
   }).catch(() => {});
   import('@tauri-apps/plugin-fs').then(fs => {
-    (window as any).__tauriFs = { writeTextFile: fs.writeTextFile, readTextFile: fs.readTextFile };
+    (window as any).__tauriFs = { writeTextFile: fs.writeTextFile, writeFile: fs.writeFile, readTextFile: fs.readTextFile };
   }).catch(() => {});
   // Backend-routed fetch: bypasses webview CORS for connector APIs (ERPNext, AFAS, ...).
   // Guard on the Tauri runtime, not on the module import — the JS module loads fine in a
@@ -58,7 +67,7 @@ function initApp() {
   const OFS = (window as any).OpenFieldStudio;
   if (!OFS) return;
 
-  // Create app instance immediately (so onclick="app.xxx" works)
+  // Create app instance immediately (window.app is used by shell.js and main.tsx)
   const app = new OFS();
   (window as any).app = app;
 

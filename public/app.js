@@ -268,11 +268,14 @@ class OpenFieldStudio {
         setCb('include-photos','opt_photos'); setCb('include-map','opt_map');
 
         // Toolbar titles
-        setTitle('#theme-toggle', 'tb_theme');
         setTitle('#tb-lang-toggle', 'tb_language');
         setTitle('#tb-minimize', 'tb_minimize');
         setTitle('#tb-maximize', 'tb_maximize');
         setTitle('#tb-close', 'tb_close_window');
+        setTitle('#outdoor-toggle', 'view_outdoor_help');
+        document.querySelector('.tab-strip')?.setAttribute('aria-label', this.t('nav_aria'));
+        document.getElementById('field-actionbar')?.setAttribute('aria-label', this.t('actions_aria'));
+        this.updateFieldStatus();
 
         // Dashboard stat cards
         const setStatLabel = (id, key) => { const el = document.querySelector(`#${id} h4`); if (el) el.textContent = this.t(key); };
@@ -318,6 +321,7 @@ class OpenFieldStudio {
         if (sbTickets) sbTickets.textContent = `${this.tickets.length} ${this.t('sum_tickets')}`;
         if (sbPlans) sbPlans.textContent = `${this.floorPlans.length} ${this.t('sum_plans')}`;
         if (sbSaved) sbSaved.textContent = this._lastSaved || '—';
+        this.updateFieldStatus();
     }
 
     // Translated label helpers
@@ -711,6 +715,28 @@ class OpenFieldStudio {
     // EVENT BINDINGS
     // =====================================================
     bindEvents() {
+        // Event delegation for everything rendered as HTML strings: no inline on*= handlers,
+        // so the app runs under a Content-Security-Policy without 'unsafe-inline'.
+        document.addEventListener('click', (e) => this._onDelegated(e, 'click'));
+        document.addEventListener('change', (e) => this._onDelegated(e, 'change'));
+        document.addEventListener('input', (e) => this._onDelegated(e, 'input'));
+        // Keyboard activation for the clickable cards (role="button").
+        document.addEventListener('keydown', (e) => {
+            if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('[role="button"][data-click]')) {
+                e.preventDefault(); e.target.click();
+            }
+        });
+        // Unsaved-changes indicator: any edit in the work area until the next save.
+        // Only fields that hold project data (navigation and filter selects do not count).
+        document.querySelector('.main-content')?.addEventListener('input', (e) => {
+            if (e.target.closest('#project-form, .checklist-item, .floor-plan-info')) this.markDirty();
+        });
+
+        // Field action bar: one-tap photo
+        document.getElementById('quick-photo-input').addEventListener('change', (e) => {
+            const files = e.target.files; this.processQuickPhoto(files); e.target.value = '';
+        });
+
         // Language switcher
         document.querySelectorAll('.lang-btn').forEach(btn => {
             btn.addEventListener('click', () => this.setLanguage(btn.dataset.lang));
@@ -880,19 +906,289 @@ class OpenFieldStudio {
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 this.closePointModal(); this.closePhotoViewer(); this.closeContactModal();
-                this.isAddingPoint = false;
-                document.getElementById('add-point-btn')?.classList.remove('active');
+                this.closeModalById('view-modal'); this.closeModalById('status-modal');
+                if (this.isAddingPoint) this.toggleAddPointMode();
             }
         });
+    }
+
+    // =====================================================
+    // EVENT DELEGATION — data-click / data-change / data-input
+    // =====================================================
+    _onDelegated(e, type) {
+        const el = e.target.closest?.(`[data-${type}]`);
+        if (!el) return;
+        const name = el.dataset[type];
+        const fn = this._actions()[name];
+        if (!fn) { console.warn('No action for', type, name); return; }
+        fn(el, e);
+    }
+
+    _actions() {
+        if (this._actionMap) return this._actionMap;
+        const idx = (el) => parseInt(el.dataset.idx, 10);
+        this._actionMap = {
+            // Project
+            'contact-open': (el) => this.openContactModal(el.dataset.id),
+            // Floor plans
+            'plan-rename': (el) => this.updateFloorPlanName(el.dataset.id, el.value),
+            'plan-select': (el) => this.selectFloorPlan(el.dataset.id),
+            'plan-delete': (el) => this.deleteFloorPlan(el.dataset.id),
+            // Tickets and photos
+            'ticket-open': (el) => this.openPointModal(el.dataset.id),
+            'photo-view': (el) => this.viewPhoto(el.dataset.id),
+            'photo-remove': (el) => this.removePhoto(el.dataset.id),
+            // Inspection checklist
+            'inspection-open': (el) => this.viewInspection(el.dataset.id),
+            'item-notes': (el) => this.updateChecklistItem(idx(el), 'notes', el.value),
+            'item-score': (el) => this.updateChecklistItem(idx(el), 'score', parseInt(el.dataset.value, 10)),
+            'item-result': (el) => this.updateChecklistItem(idx(el), 'result', el.dataset.value),
+            'item-choice': (el) => this.selectChoice(idx(el), el.dataset.value),
+            'item-multi': (el) => this.toggleMultiChoice(idx(el), el.dataset.value),
+            'item-value': (el) => this.updateChecklistValue(idx(el), el.value),
+            'item-photo-view': (el) => this.viewItemPhoto(idx(el), parseInt(el.dataset.pi, 10)),
+            'item-photo-remove': (el) => this.removeItemPhoto(idx(el), parseInt(el.dataset.pi, 10)),
+            'item-camera': (el) => this.openItemCamera(idx(el)),
+            'item-upload': (el) => { this.uploadItemPhotos(idx(el), el.files); el.value = ''; },
+            // Handover
+            'handover-open': (el) => this.viewHandover(el.dataset.id),
+            'publish-open': (el) => this.openWoningborgModal(el.dataset.id),
+            'verdict': (el) => this.setHandoverVerdict(idx(el), el.dataset.value),
+            'ho-doc-remove': (el) => this.removeHandoverDoc(el.dataset.id),
+            'participant-remove': async (el) => { const row = el.closest('.ho-participant-row'); if (row && await this.asyncConfirm(this.t('msg_confirm_delete'))) row.remove(); },
+            'signature-clear': (el) => { const c = el.parentElement.querySelector('canvas'); if (c) c.getContext('2d').clearRect(0, 0, c.width, c.height); },
+            // Connectors
+            'connector-import': (el) => this.openConnectorImport(el.dataset.id),
+            'connector-config': (el) => this.openConnectorConfig(el.dataset.id),
+            // Field action bar
+            'field-photo': () => this.fieldPhoto(),
+            'field-note': () => this.fieldNote(),
+            'field-marker': () => this.fieldMarker(),
+            'field-save': () => this.fieldSave(),
+            // Status and display settings
+            'status-open': () => this.openStatusModal(),
+            'status-close': () => this.closeModalById('status-modal'),
+            'view-settings': () => this.openViewModal(),
+            'view-close': () => this.closeModalById('view-modal'),
+            'view-outdoor': (el) => window.ofsDisplay?.setOutdoor(el.checked),
+            // Picking a theme or size is a choice for normal mode: outdoor mode switches off.
+            'view-theme': (el) => { const v = el.value; window.ofsDisplay?.setOutdoor(false); window.ofsDisplay?.setTheme(v); },
+            'view-density': (el) => { const v = el.value; window.ofsDisplay?.setOutdoor(false); window.ofsDisplay?.setDensity(v); },
+            'view-geo': (el) => this.setGeoConsent(el.checked),
+        };
+        return this._actionMap;
+    }
+
+    closeModalById(id) { document.getElementById(id)?.classList.remove('active'); }
+
+    // =====================================================
+    // FIELD ACTION BAR — Foto, Notitie, Markering, Opslaan
+    // =====================================================
+    // Foto: one tap opens the camera (capture="environment"); the photo lands in a new
+    // ticket, or in the ticket that is open. Time is always recorded, location only with consent.
+    fieldPhoto() {
+        document.getElementById('quick-photo-input').click();
+    }
+
+    processQuickPhoto(files) {
+        const file = files && files[0];
+        if (!file || !file.type.startsWith('image/')) return;
+        const modalOpen = document.getElementById('point-modal').classList.contains('active');
+        const r = new FileReader();
+        r.onload = async (e) => {
+            const photo = await this.buildPhoto(e.target.result, file.name || `foto_${Date.now()}.jpg`, 'camera');
+            if (modalOpen) {
+                this.currentPhotos.push(photo);
+                this.renderPhotoPreview();
+            } else {
+                this.openQuickTicket({ photos: [photo], focus: 'description' });
+            }
+            this.showNotification(this.t('msg_photo_captured'), 'success');
+        };
+        r.readAsDataURL(file);
+    }
+
+    // Notitie: a new ticket with the cursor in the description; the keyboard's microphone dictates.
+    fieldNote() {
+        this.openQuickTicket({ photos: [], focus: 'description' });
+    }
+
+    openQuickTicket({ photos = [], focus = 'label' } = {}) {
+        this.openPointModal(null, '', '');
+        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        document.getElementById('point-label').value = this.tFormat('quick_label', time);
+        this.currentPhotos = [...photos];
+        this.renderPhotoPreview();
+        const target = document.getElementById(focus === 'description' ? 'point-description' : 'point-label');
+        setTimeout(() => target?.focus(), 50);
+    }
+
+    // Markering: place a marker on the floor plan (the existing add-ticket mode).
+    fieldMarker() {
+        if (!this.floorPlans.length) {
+            this.showNotification(this.t('msg_marker_no_plan'), 'error');
+            this.switchTab('plattegrond');
+            return;
+        }
+        this.switchTab('opname');
+        if (!this.activeFloorPlanId || !this.floorPlans.find(fp => fp.id === this.activeFloorPlanId)) {
+            const first = this.floorPlans[0].id;
+            document.getElementById('active-floor').value = first;
+            this.setActiveFloorPlan(first);
+        }
+        if (!this.isAddingPoint) this.toggleAddPointMode();
+        this.showNotification(this.t('msg_marker_tap'), 'info');
+    }
+
+    // Opslaan: store everything on this device and, when the project is linked, send the
+    // project file to the linked ERP project (or queue it until there is a connection).
+    async fieldSave() {
+        clearTimeout(this._ast);
+        this.saveProject(false);
+        if (this.project?.erpRef?.id) {
+            if (navigator.onLine === false) this.showNotification(this.t('msg_saved_offline'), 'info');
+            else await this.syncProjectToLinked(true);
+        } else {
+            this.showNotification(this.t('msg_saved_device'), 'success');
+        }
+    }
+
+    // =====================================================
+    // STATUS — saved / unsaved, online / offline, what goes to the ERP
+    // =====================================================
+    markDirty() {
+        if (this._dirty) return;
+        this._dirty = true;
+        this.updateFieldStatus();
+    }
+
+    _erpPending() { try { return localStorage.getItem('ofs_erp_pending') === '1'; } catch { return false; } }
+    _setErpPending(on) { try { if (on) localStorage.setItem('ofs_erp_pending', '1'); else localStorage.removeItem('ofs_erp_pending'); } catch { /* ignore */ } }
+
+    onNetworkChange() {
+        this.updateFieldStatus();
+        if (navigator.onLine && this.project?.erpRef?.id && this._erpPending()) this.syncProjectToLinked(false);
+    }
+
+    _statusState() {
+        const ref = this.project?.erpRef;
+        const def = ref?.connector ? this._connectorGet(ref.connector) : null;
+        return {
+            dirty: !!this._dirty,
+            savedAt: this._lastSaved || '',
+            online: navigator.onLine !== false,
+            linked: !!ref?.id,
+            erpLabel: def ? (def.shortLabel || def.label || ref.connector) : 'ERPNext',
+            erpId: ref?.id || '',
+            lastSyncAt: ref?.lastSyncAt || '',
+            pending: !!ref?.id && this._erpPending(),
+            busy: !!this._erpSyncBusy,
+            failed: !!this._erpSyncFailed,
+        };
+    }
+
+    _setChip(id, state, iconId, text, title, short) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.dataset.state = state;
+        const use = el.querySelector('use');
+        if (use) use.setAttribute('href', `openaec/icons/field-studio.svg#i16-${iconId}`);
+        const span = el.querySelector('.status-chip-text');
+        if (span) span.textContent = text;
+        const shortSpan = el.querySelector('.status-chip-short');
+        if (shortSpan) shortSpan.textContent = short || text;
+        el.title = title || text;
+        el.setAttribute('aria-label', `${text}. ${title && title !== text ? title + '. ' : ''}${this.t('status_title')}`);
+    }
+
+    updateFieldStatus() {
+        const s = this._statusState();
+        const appbarProject = document.getElementById('appbar-project');
+        if (appbarProject) appbarProject.textContent = this.project?.name || this.t('appbar_no_project');
+        // Saved on this device?
+        if (s.dirty) this._setChip('st-save', 'warning', 'status.pending', this.t('st_unsaved'), this.t('st_unsaved_title'));
+        else this._setChip('st-save', 'success', 'status.success', s.savedAt ? this.tFormat('st_saved_at', s.savedAt) : this.t('st_saved'), this.t('st_saved_title'), this.t('st_saved'));
+        // Connection
+        if (s.online) this._setChip('st-net', 'success', 'status.bridge-live', this.t('st_online'), this.t('st_online_title'));
+        else this._setChip('st-net', 'warning', 'status.bridge-off', this.t('st_offline'), this.t('st_offline_title'));
+        // Linked ERP project: what is sent, and is it up to date?
+        let erpText;
+        if (!s.linked) this._setChip('st-erp', 'neutral', 'integration.platform-sync', erpText = this.t('st_erp_none'), this.t('st_erp_none_title'), this.t('st_erp_none_short'));
+        else if (s.busy) this._setChip('st-erp', 'info', 'status.busy', erpText = this.tFormat('st_erp_busy', s.erpLabel), '', this.t('st_erp_busy_short'));
+        else if (s.failed) this._setChip('st-erp', 'error', 'status.error', erpText = this.tFormat('st_erp_failed', s.erpLabel), '', this.t('st_erp_failed_short'));
+        else if (s.pending || !s.lastSyncAt) this._setChip('st-erp', 'warning', 'status.pending', erpText = this.tFormat(s.online ? 'st_erp_pending' : 'st_erp_waiting', s.erpLabel), '', this.t('st_erp_wait_short'));
+        else this._setChip('st-erp', 'success', 'status.success', erpText = this.tFormat('st_erp_sent', s.erpLabel, new Date(s.lastSyncAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })), '', this.t('st_erp_sent_short'));
+        // Desktop status bar mirrors the chips
+        const sbNet = document.getElementById('sb-net'); if (sbNet) sbNet.textContent = s.online ? this.t('st_online') : this.t('st_offline');
+        const sbErp = document.getElementById('sb-erp'); if (sbErp) sbErp.textContent = erpText;
+        const sbSaved = document.getElementById('sb-saved');
+        if (sbSaved) sbSaved.textContent = s.dirty ? this.t('st_unsaved') : (s.savedAt ? this.tFormat('st_saved_at', s.savedAt) : '—');
+        if (document.getElementById('status-modal')?.classList.contains('active')) this.renderStatusModal();
+    }
+
+    openStatusModal() {
+        this.renderStatusModal();
+        document.getElementById('status-modal').classList.add('active');
+    }
+
+    renderStatusModal() {
+        const s = this._statusState();
+        const photos = this.tickets.reduce((n, t) => n + (t.photos?.length || 0), 0);
+        const row = (tone, icon, title, body) => `<div class="oa-banner oa-banner--${tone} status-row">
+            <svg class="oa-icon oa-icon--24" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-${icon}"/></svg>
+            <div><b>${this.esc(title)}</b><p>${body}</p></div></div>`;
+        const device = s.dirty
+            ? row('warning', 'status.pending', this.t('st_unsaved'), this.esc(this.t('status_device_dirty')))
+            : row('success', 'status.success', s.savedAt ? this.tFormat('st_saved_at', s.savedAt) : this.t('st_saved'), this.esc(this.t('status_device_ok')));
+        const net = s.online
+            ? row('success', 'status.bridge-live', this.t('st_online'), this.esc(this.t('status_net_online')))
+            : row('warning', 'status.bridge-off', this.t('st_offline'), this.esc(this.t('status_net_offline')));
+        let erp;
+        if (!s.linked) {
+            erp = row('info', 'integration.platform-sync', this.t('st_erp_none'), this.esc(this.t('status_erp_none')));
+        } else {
+            const what = this.tFormat('status_erp_what', `OFS_${s.erpId}.json`, s.erpLabel, s.erpId);
+            const content = this.tFormat('status_erp_content', this.contacts.length, this.floorPlans.length, this.tickets.length, photos, this.inspections.length, this.handovers.length);
+            const when = s.lastSyncAt ? this.tFormat('status_erp_last', new Date(s.lastSyncAt).toLocaleString()) : this.t('status_erp_never');
+            const state = s.failed ? this.t('status_erp_failed') : (s.pending || !s.lastSyncAt) ? (s.online ? this.t('status_erp_pending') : this.t('status_erp_waiting')) : this.t('status_erp_uptodate');
+            const tone = s.failed ? 'error' : (s.pending || !s.lastSyncAt) ? 'warning' : 'success';
+            erp = row(tone, 'integration.platform-sync', `${s.erpLabel}: ${s.erpId}`,
+                `${this.esc(what)}<br>${this.esc(content)}<br>${this.esc(when)} · <b>${this.esc(state)}</b><br><span class="oa-secondary">${this.esc(this.t('status_erp_handover'))}</span>`);
+        }
+        document.getElementById('status-modal-body').innerHTML = `
+            <h4 class="status-heading">${this.esc(this.t('status_h_device'))}</h4>${device}
+            <h4 class="status-heading">${this.esc(this.t('status_h_net'))}</h4>${net}
+            <h4 class="status-heading">${this.esc(this.tFormat('status_h_erp', s.erpLabel))}</h4>${erp}`;
+    }
+
+    openViewModal() {
+        document.dispatchEvent(new CustomEvent('ofs-display-change'));
+        const geo = document.getElementById('view-geo');
+        if (geo) geo.checked = this.geoConsent() === 'on';
+        document.getElementById('view-modal').classList.add('active');
+    }
+
+    // =====================================================
+    // LOCATION CONSENT — GPS only after the user agreed
+    // =====================================================
+    geoConsent() { try { return localStorage.getItem('ofs_geo'); } catch { return null; } }
+    setGeoConsent(on) {
+        try { localStorage.setItem('ofs_geo', on ? 'on' : 'off'); } catch { /* ignore */ }
+        this._gpsCache = null;
+        if (on) this.getCurrentGPS();
     }
 
     // =====================================================
     // TAB NAVIGATION
     // =====================================================
     switchTab(tabName) {
-        document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+        if (!document.getElementById(`${tabName}-tab`)) return;
+        document.querySelectorAll('.nav-btn').forEach(btn => { btn.classList.remove('active'); btn.removeAttribute('aria-current'); });
         document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+        const navBtn = document.querySelector(`.nav-btn[data-tab="${tabName}"]`);
+        navBtn.classList.add('active');
+        navBtn.setAttribute('aria-current', 'page');
+        navBtn.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
         document.getElementById(`${tabName}-tab`).classList.add('active');
         if (tabName === 'export') this.updateExportSummary();
         if (tabName === 'koppelingen') this.renderConnectorsList();
@@ -1062,9 +1358,9 @@ class OpenFieldStudio {
         const el = document.getElementById('bag-status');
         if (!el) return;
         el.textContent = msg || '';
-        el.style.color = kind === 'error' ? 'var(--danger, #dc2626)'
-                       : kind === 'success' ? 'var(--success, #059669)'
-                       : 'var(--text-muted, #6b7280)';
+        el.style.color = kind === 'error' ? 'var(--oa-error)'
+                       : kind === 'success' ? 'var(--oa-success)'
+                       : 'var(--oa-text-secondary)';
     }
 
     async searchBag() {
@@ -1169,7 +1465,7 @@ class OpenFieldStudio {
         const c = document.getElementById('contacts-list');
         if (!this.contacts.length) { c.innerHTML = `<p class="empty-state" style="padding:1rem;">${this.t('empty_contacts')}</p>`; return; }
         c.innerHTML = this.contacts.map(ct => `
-            <div class="contact-card" onclick="app.openContactModal('${ct.id}')">
+            <div class="contact-card" role="button" tabindex="0" data-click="contact-open" data-id="${this.escAttr(ct.id)}">
                 <div class="contact-avatar">${(ct.name||'?')[0].toUpperCase()}</div>
                 <div class="contact-card-info">
                     <h4>${this.esc(ct.name)}</h4>
@@ -1255,7 +1551,8 @@ class OpenFieldStudio {
     async processPDFFile(file) {
         try {
             this.showNotification(this.t('msg_pdf_processing'), 'info');
-            pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+            // Relative to the page, so the app also works below a sub-path (SuperCloud workplace, Tauri).
+            pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdf.worker.min.js', document.baseURI).href;
             const ab = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
             for (let i = 1; i <= pdf.numPages; i++) {
@@ -1281,8 +1578,8 @@ class OpenFieldStudio {
             const safeAlt = this.esc(fp.name || '');
             return `
             <div class="floor-plan-card"><div class="floor-plan-thumbnail-wrapper"><img src="${safeSrc}" alt="${safeAlt}" class="floor-plan-thumbnail">${fp.originalType === 'application/pdf' ? '<span class="pdf-badge">PDF</span>' : ''}</div>
-            <div class="floor-plan-info"><input type="text" value="${this.esc(fp.name)}" onchange="app.updateFloorPlanName('${fp.id}', this.value)">
-            <div class="floor-plan-actions"><button class="select-btn" onclick="app.selectFloorPlan('${fp.id}')">${this.t('btn_select')}</button><button class="delete-btn" onclick="app.deleteFloorPlan('${fp.id}')">${this.t('btn_delete')}</button></div></div></div>
+            <div class="floor-plan-info"><input type="text" class="oa-field" value="${this.escAttr(fp.name)}" data-change="plan-rename" data-id="${this.escAttr(fp.id)}" aria-label="${this.escAttr(this.t('h_plans'))}">
+            <div class="floor-plan-actions"><button type="button" class="oa-button oa-button--primary select-btn" data-click="plan-select" data-id="${this.escAttr(fp.id)}">${this.t('btn_select')}</button><button type="button" class="oa-button oa-button--danger delete-btn" data-click="plan-delete" data-id="${this.escAttr(fp.id)}">${this.t('btn_delete')}</button></div></div></div>
         `;
         }).join('');
     }
@@ -1332,6 +1629,8 @@ class OpenFieldStudio {
     toggleAddPointMode() {
         this.isAddingPoint = !this.isAddingPoint;
         document.getElementById('add-point-btn').classList.toggle('active', this.isAddingPoint);
+        document.getElementById('add-point-btn').setAttribute('aria-pressed', String(this.isAddingPoint));
+        document.getElementById('field-marker-btn')?.setAttribute('aria-pressed', String(this.isAddingPoint));
         document.getElementById('floor-plan-wrapper').classList.toggle('adding-point', this.isAddingPoint);
     }
 
@@ -1364,8 +1663,8 @@ class OpenFieldStudio {
             document.getElementById('point-status').value = t.status || 'open';
             document.getElementById('point-assigned').value = t.assignedTo || '';
             document.getElementById('point-deadline').value = t.deadline || '';
-            document.getElementById('point-x').value = t.x;
-            document.getElementById('point-y').value = t.y;
+            document.getElementById('point-x').value = Number.isFinite(t.x) ? t.x : '';
+            document.getElementById('point-y').value = Number.isFinite(t.y) ? t.y : '';
             this.currentPhotos = [...(t.photos || [])];
             delBtn.style.display = 'block';
             this.editingPointId = pointId;
@@ -1409,8 +1708,9 @@ class OpenFieldStudio {
             status: document.getElementById('point-status').value,
             assignedTo: document.getElementById('point-assigned').value,
             deadline: document.getElementById('point-deadline').value,
-            x: parseFloat(document.getElementById('point-x').value),
-            y: parseFloat(document.getElementById('point-y').value),
+            // Tickets from the Foto/Notitie actions have no marker yet: x/y stay null.
+            x: Number.isFinite(parseFloat(document.getElementById('point-x').value)) ? parseFloat(document.getElementById('point-x').value) : null,
+            y: Number.isFinite(parseFloat(document.getElementById('point-y').value)) ? parseFloat(document.getElementById('point-y').value) : null,
             photos: [...this.currentPhotos],
             comments: existingTicket ? existingTicket.comments || [] : [],
             history: existingTicket ? existingTicket.history || [] : [],
@@ -1462,11 +1762,11 @@ class OpenFieldStudio {
 
     renderLocationPoints() {
         const container = document.getElementById('location-points');
-        const pts = this.tickets.filter(p => p.floorPlanId === this.activeFloorPlanId);
-        const colors = { open:'#D97706', assigned:'#2563EB', completed:'#16A34A', verified:'#71717A', archived:'#A1A1AA' };
+        const pts = this.tickets.filter(p => p.floorPlanId === this.activeFloorPlanId && Number.isFinite(p.x) && Number.isFinite(p.y));
+
         container.innerHTML = pts.map((p, i) => `
-            <div class="location-point" style="left:${p.x}%;top:${p.y}%;" onclick="app.openPointModal('${p.id}')" title="${this.esc(p.label)}">
-                <svg viewBox="0 0 24 24" fill="${colors[p.status]||'#D97706'}"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+            <div class="location-point pin-${this.escAttr(p.status || 'open')}" style="left:${p.x}%;top:${p.y}%;" role="button" tabindex="0" data-click="ticket-open" data-id="${this.escAttr(p.id)}" title="${this.escAttr(p.label)}">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
                 <span class="point-label">${i + 1}</span>
             </div>
         `).join('');
@@ -1484,9 +1784,9 @@ class OpenFieldStudio {
         const tc = document.getElementById('ticket-count'); if (tc) tc.textContent = pts.length;
         if (!pts.length) { container.innerHTML = `<p class="empty-state">${this.t('empty_filtered')}</p>`; return; }
         container.innerHTML = pts.map((p, i) => `
-            <div class="point-item priority-${p.priority||'medium'}" onclick="app.openPointModal('${p.id}')">
+            <div class="point-item priority-${p.priority||'medium'}" role="button" tabindex="0" data-click="ticket-open" data-id="${this.escAttr(p.id)}">
                 <div class="point-item-icon">${i + 1}</div>
-                <div class="point-item-info"><h4>${this.esc(p.label)}</h4><p>${p.category||''} · ${p.photos?.length||0} ${this.t('lbl_photos')}${p.assignedTo ? ' · '+this.esc(p.assignedTo) : ''}</p></div>
+                <div class="point-item-info"><h4>${this.esc(p.label)}</h4><p>${this.esc(this.categoryLabel(p.category||''))} · ${p.photos?.length||0} ${this.t('lbl_photos')}${p.assignedTo ? ' · '+this.esc(p.assignedTo) : ''}${Number.isFinite(p.x) ? '' : ' · '+this.t('lbl_no_marker')}</p></div>
                 <span class="status-badge status-${p.status||'open'}">${this.statusLabel(p.status)}</span>
             </div>
         `).join('');
@@ -1501,11 +1801,19 @@ class OpenFieldStudio {
     // =====================================================
 
     // Geolocation with a 5-minute cache to avoid pinging on every photo.
+    // Only with consent: the first photo asks once; the answer is kept (Weergave > Locatie).
     async getCurrentGPS() {
+        if (!navigator.geolocation) return null;
+        let consent = this.geoConsent();
+        if (consent !== 'on' && consent !== 'off') {
+            const yes = await this.askChoice(this.t('geo_ask'), this.t('geo_ask_yes'), this.t('geo_ask_no'), false);
+            this.setGeoConsent(yes);
+            consent = yes ? 'on' : 'off';
+        }
+        if (consent !== 'on') return null;
         const cached = this._gpsCache;
         const now = Date.now();
         if (cached && (now - cached.at) < 5 * 60 * 1000) return cached.gps;
-        if (!navigator.geolocation) return null;
         return new Promise(resolve => {
             const t = setTimeout(() => resolve(null), 6000);
             navigator.geolocation.getCurrentPosition(
@@ -1551,7 +1859,7 @@ class OpenFieldStudio {
     }
     renderPhotoPreview() {
         document.getElementById('photo-preview').innerHTML = this.currentPhotos.map(p => `
-            <div class="photo-thumb"><img src="${p.data}" alt="${p.name}" onclick="app.viewPhoto('${p.id}')"><button class="remove-photo" onclick="event.stopPropagation();app.removePhoto('${p.id}')">&times;</button></div>
+            <div class="photo-thumb"><img src="${p.data}" alt="${this.escAttr(p.name)}" data-click="photo-view" data-id="${this.escAttr(p.id)}"><button type="button" class="remove-photo" data-click="photo-remove" data-id="${this.escAttr(p.id)}"><span aria-hidden="true">&times;</span> ${this.t('btn_remove')}</button></div>
         `).join('');
     }
     removePhoto(id) { this.currentPhotos = this.currentPhotos.filter(p => p.id !== id); this.renderPhotoPreview(); }
@@ -1789,16 +2097,16 @@ class OpenFieldStudio {
                     <div class="checklist-item-question">${this.esc(item.question)}</div>
                     ${this.renderItemInput(item, idx)}
                     <div class="checklist-item-detail">
-                        <textarea rows="1" placeholder="Notitie..." onchange="app.updateChecklistItem(${idx},'notes',this.value)">${this.esc(item.notes || '')}</textarea>
+                        <textarea class="oa-field" rows="1" placeholder="${this.escAttr(this.t('ph_item_note'))}" data-change="item-notes" data-idx="${idx}" autocapitalize="sentences" spellcheck="true">${this.esc(item.notes || '')}</textarea>
                     </div>
                 </div>
                 ${hasRightActions ? `
                 <div class="checklist-item-actions ${type === 'nen2767' ? 'nen-scores' : ''}">
                     ${type === 'nen2767'
-                        ? [1,2,3,4,5,6].map(sc => `<button class="checklist-btn nen-score nen-score-${sc} ${item.score==sc?'selected':''}" onclick="app.updateChecklistItem(${idx},'score',${sc})" title="${this.getNENLabel(sc)}">${sc}</button>`).join('')
-                        : `<button class="checklist-btn pass ${item.result==='pass'?'selected':''}" onclick="app.updateChecklistItem(${idx},'result','pass')" title="Goed">&#10003;</button>
-                           <button class="checklist-btn fail ${item.result==='fail'?'selected':''}" onclick="app.updateChecklistItem(${idx},'result','fail')" title="Fout">&#10007;</button>
-                           <button class="checklist-btn na ${item.result==='na'?'selected':''}" onclick="app.updateChecklistItem(${idx},'result','na')" title="N.v.t.">-</button>`
+                        ? [1,2,3,4,5,6].map(sc => `<button type="button" class="checklist-btn nen-score nen-score-${sc} ${item.score==sc?'selected':''}" aria-pressed="${item.score==sc}" data-click="item-score" data-idx="${idx}" data-value="${sc}" title="${this.escAttr(this.getNENLabel(sc))}">${sc}</button>`).join('')
+                        : `<button type="button" class="checklist-btn pass ${item.result==='pass'?'selected':''}" aria-pressed="${item.result==='pass'}" data-click="item-result" data-idx="${idx}" data-value="pass"><span aria-hidden="true">&#10003;</span> ${this.t('res_pass')}</button>
+                           <button type="button" class="checklist-btn fail ${item.result==='fail'?'selected':''}" aria-pressed="${item.result==='fail'}" data-click="item-result" data-idx="${idx}" data-value="fail"><span aria-hidden="true">&#10007;</span> ${this.t('res_fail')}</button>
+                           <button type="button" class="checklist-btn na ${item.result==='na'?'selected':''}" aria-pressed="${item.result==='na'}" data-click="item-result" data-idx="${idx}" data-value="na">${this.t('res_na')}</button>`
                     }
                 </div>` : ''}
             </div>`;
@@ -1813,26 +2121,26 @@ class OpenFieldStudio {
                 const opts = item.options || [];
                 const val = item.value || '';
                 return `<div class="checklist-choices">${opts.map(opt =>
-                    `<button type="button" class="checklist-choice ${val === opt ? 'selected' : ''}" onclick="app.selectChoice(${idx},'${opt.replace(/'/g,"\\'")}')">${this.esc(opt)}</button>`
+                    `<button type="button" class="checklist-choice ${val === opt ? 'selected' : ''}" aria-pressed="${val === opt}" data-click="item-choice" data-idx="${idx}" data-value="${this.escAttr(opt)}">${this.esc(opt)}</button>`
                 ).join('')}</div>`;
             }
             case 'multi': {
                 const opts = item.options || [];
                 const sel = (item.value || '').split(',').map(s => s.trim()).filter(Boolean);
                 return `<div class="checklist-choices">${opts.map(opt =>
-                    `<button type="button" class="checklist-choice ${sel.includes(opt) ? 'selected' : ''}" onclick="app.toggleMultiChoice(${idx},'${opt.replace(/'/g,"\\'")}')">${this.esc(opt)}</button>`
+                    `<button type="button" class="checklist-choice ${sel.includes(opt) ? 'selected' : ''}" aria-pressed="${sel.includes(opt)}" data-click="item-multi" data-idx="${idx}" data-value="${this.escAttr(opt)}">${this.esc(opt)}</button>`
                 ).join('')}</div>`;
             }
             case 'number': {
                 const unit = item.unit || '';
                 return `<div class="checklist-number-input">
-                    <input type="number" step="any" value="${this.esc(item.value||'')}" placeholder="0" oninput="app.updateChecklistValue(${idx},this.value)">
+                    <input type="number" class="oa-field" step="any" inputmode="decimal" value="${this.escAttr(item.value||'')}" placeholder="0" data-input="item-value" data-idx="${idx}">
                     ${unit ? `<span class="checklist-unit">${this.esc(unit)}</span>` : ''}
                 </div>`;
             }
             case 'text': {
                 return `<div class="checklist-text-input">
-                    <input type="text" value="${this.esc(item.value||'')}" placeholder="..." oninput="app.updateChecklistValue(${idx},this.value)">
+                    <input type="text" class="oa-field" value="${this.escAttr(item.value||'')}" placeholder="..." data-input="item-value" data-idx="${idx}">
                 </div>`;
             }
             case 'photo':
@@ -1877,12 +2185,12 @@ class OpenFieldStudio {
         return `<div class="checklist-photo-input">
             <div class="checklist-photo-thumbs">${photos.map((p, pi) => `
                 <div class="checklist-photo-thumb">
-                    <img src="${p.data}" alt="${this.esc(p.name)}" onclick="app.viewItemPhoto(${idx},${pi})">
-                    <button class="remove-photo" onclick="event.stopPropagation();app.removeItemPhoto(${idx},${pi})">&times;</button>
+                    <img src="${p.data}" alt="${this.escAttr(p.name)}" data-click="item-photo-view" data-idx="${idx}" data-pi="${pi}">
+                    <button type="button" class="remove-photo" data-click="item-photo-remove" data-idx="${idx}" data-pi="${pi}"><span aria-hidden="true">&times;</span> ${this.t('btn_remove')}</button>
                 </div>`).join('')}</div>
             <div class="checklist-photo-actions">
-                <button type="button" class="btn btn-sm btn-secondary" onclick="app.openItemCamera(${idx})">&#128247; Foto</button>
-                <label class="btn btn-sm btn-secondary" style="cursor:pointer">&#128206; Upload<input type="file" accept="image/*" multiple hidden onchange="app.uploadItemPhotos(${idx},this.files);this.value='';"></label>
+                <button type="button" class="oa-button" data-click="item-camera" data-idx="${idx}">${this.icon('camera.capture')} ${this.t('act_photo')}</button>
+                <label class="oa-button">${this.icon('file.open')} ${this.t('btn_upload')}<input type="file" accept="image/*" multiple hidden data-change="item-upload" data-idx="${idx}"></label>
             </div>
         </div>`;
     }
@@ -2053,6 +2361,7 @@ class OpenFieldStudio {
         c.innerHTML = this.inspections.map(insp => {
             const done = this.countDoneItems(insp.items);
             const fail = insp.items.filter(i => i.result === 'fail').length;
+            const isNEN = insp.scoring === 'nen2767';
             let extra = '';
             if (isNEN && done > 0) {
                 const avg = (insp.items.filter(i => i.score).map(i => i.score).reduce((a,b)=>a+b,0) / done).toFixed(1);
@@ -2061,7 +2370,7 @@ class OpenFieldStudio {
                 extra = ` · ${fail} ${this.t('insp_rejected')}`;
             }
             const catLabel = insp.scoring === 'nen2767' ? ' · NEN 2767' : '';
-            return `<div class="inspection-card" onclick="app.viewInspection('${insp.id}')">
+            return `<div class="inspection-card" role="button" tabindex="0" data-click="inspection-open" data-id="${this.escAttr(insp.id)}">
                 <div class="inspection-card-info"><h4>${this.esc(insp.name)}</h4><p>${insp.date} · ${insp.inspector||''}${catLabel} · ${done}/${insp.items.length} items${extra}</p></div>
                 <span class="status-badge status-${insp.status==='signed'?'verified':'assigned'}">${insp.status==='signed'?this.t('insp_signed'):this.t('insp_in_progress')}</span>
             </div>`;
@@ -2123,7 +2432,7 @@ class OpenFieldStudio {
         const c = document.getElementById('ho-participants');
         const div = document.createElement('div');
         div.className = 'ho-participant-row';
-        div.innerHTML = `<input type="text" placeholder="${this.t('ph_contact_name')}"><select><option value="Opdrachtgever">${this.t('role_opdrachtgever')}</option><option value="Aannemer">${this.t('role_aannemer')}</option><option value="Projectleider">${this.t('role_projectleider')}</option><option value="Inspecteur">${this.t('role_inspecteur')}</option><option value="Overig">${this.t('role_overig')}</option></select><input type="text" placeholder="${this.t('ph_contact_company')}"><button class="remove-btn" onclick="(window.app?window.app.asyncConfirm(window.app.t('msg_confirm_delete')):Promise.resolve(true)).then(ok=>{if(ok)this.parentElement.remove()})">&times;</button>`;
+        div.innerHTML = `<input type="text" class="oa-field" placeholder="${this.escAttr(this.t('ph_contact_name'))}"><select class="oa-field"><option value="Opdrachtgever">${this.t('role_opdrachtgever')}</option><option value="Aannemer">${this.t('role_aannemer')}</option><option value="Projectleider">${this.t('role_projectleider')}</option><option value="Inspecteur">${this.t('role_inspecteur')}</option><option value="Overig">${this.t('role_overig')}</option></select><input type="text" class="oa-field" placeholder="${this.escAttr(this.t('ph_contact_company'))}"><button type="button" class="oa-button oa-button--danger remove-btn" data-click="participant-remove"><span aria-hidden="true">&times;</span> ${this.t('btn_remove')}</button>`;
         c.appendChild(div);
     }
 
@@ -2164,9 +2473,9 @@ class OpenFieldStudio {
             return `<div class="ho-item">
                 <div class="ho-item-info"><h4>${this.esc(t.label)}</h4><p>${t.category||''} · ${this.priorityLabel(t.priority)} · ${this.severityLabel(t.severity)}</p></div>
                 <div class="ho-item-verdict">
-                    <button class="verdict-btn approved ${item.verdict==='approved'?'selected':''}" onclick="app.setHandoverVerdict(${idx},'approved')">&#10003;</button>
-                    <button class="verdict-btn conditional ${item.verdict==='conditional'?'selected':''}" onclick="app.setHandoverVerdict(${idx},'conditional')">&#9888;</button>
-                    <button class="verdict-btn rejected ${item.verdict==='rejected'?'selected':''}" onclick="app.setHandoverVerdict(${idx},'rejected')">&#10007;</button>
+                    <button type="button" class="verdict-btn approved ${item.verdict==='approved'?'selected':''}" aria-pressed="${item.verdict==='approved'}" data-click="verdict" data-idx="${idx}" data-value="approved"><span aria-hidden="true">&#10003;</span> ${this.t('verdict_approved')}</button>
+                    <button type="button" class="verdict-btn conditional ${item.verdict==='conditional'?'selected':''}" aria-pressed="${item.verdict==='conditional'}" data-click="verdict" data-idx="${idx}" data-value="conditional"><span aria-hidden="true">&#9888;</span> ${this.t('verdict_conditional_short')}</button>
+                    <button type="button" class="verdict-btn rejected ${item.verdict==='rejected'?'selected':''}" aria-pressed="${item.verdict==='rejected'}" data-click="verdict" data-idx="${idx}" data-value="rejected"><span aria-hidden="true">&#10007;</span> ${this.t('verdict_rejected')}</button>
                 </div>
             </div>`;
         }).join('');
@@ -2207,7 +2516,7 @@ class OpenFieldStudio {
         const ho = this.handovers.find(h => h.id === this.currentHandoverId);
         if (!ho) return;
         document.getElementById('ho-documents-list').innerHTML = ho.documents.map(d => `
-            <div class="ho-doc-item"><span>${this.esc(d.name)}</span><button onclick="app.removeHandoverDoc('${d.id}')">&times;</button></div>
+            <div class="ho-doc-item"><span>${this.esc(d.name)}</span><button type="button" class="oa-button oa-button--danger" data-click="ho-doc-remove" data-id="${this.escAttr(d.id)}"><span aria-hidden="true">&times;</span> ${this.t('btn_remove')}</button></div>
         `).join('');
     }
 
@@ -2221,10 +2530,10 @@ class OpenFieldStudio {
         const idx = area.children.length;
         const div = document.createElement('div');
         div.className = 'ho-signature-block';
-        div.innerHTML = `<label>Naam</label><input type="text" class="ho-sig-name" value="${this.esc(name)}" placeholder="Volledige naam">
-            <label>Rol</label><input type="text" class="ho-sig-role" value="${this.esc(role)}" placeholder="Rol">
-            <label>Handtekening</label><canvas class="ho-sig-canvas" width="400" height="150"></canvas>
-            <button class="btn btn-secondary" onclick="this.previousElementSibling.getContext('2d').clearRect(0,0,400,150)" style="margin-top:0.5rem;padding:4px 12px;font-size:0.8rem;">Wissen</button>`;
+        div.innerHTML = `<label>${this.t('lbl_contact_name')}</label><input type="text" class="oa-field ho-sig-name" value="${this.escAttr(name)}" placeholder="${this.escAttr(this.t('ph_sign_name'))}">
+            <label>${this.t('lbl_role')}</label><input type="text" class="oa-field ho-sig-role" value="${this.escAttr(role)}" placeholder="${this.escAttr(this.t('lbl_role'))}">
+            <label>${this.t('lbl_signature')}</label><canvas class="ho-sig-canvas" width="400" height="150"></canvas>
+            <button type="button" class="oa-button gap-top" data-click="signature-clear">${this.t('btn_clear')}</button>`;
         area.appendChild(div);
         this.initSignatureCanvas2(div.querySelector('canvas'));
     }
@@ -2272,11 +2581,11 @@ class OpenFieldStudio {
             const approved = ho.items.filter(i => i.verdict === 'approved').length;
             const isDone = ho.status === 'completed';
             const publishBtn = isDone
-                ? `<button class="btn btn-sm btn-secondary" style="margin-left:0.5rem;" onclick="event.stopPropagation();app.openWoningborgModal('${ho.id}')" title="${this.t('wb_tooltip')}">🏛 ${this.t('wb_btn')}</button>`
+                ? `<button type="button" class="oa-button" data-click="publish-open" data-id="${this.escAttr(ho.id)}" title="${this.escAttr(this.t('wb_tooltip'))}">${this.icon('integration.platform-sync')} ${this.t('wb_btn')}</button>`
                 : '';
-            return `<div class="handover-card" onclick="app.viewHandover('${ho.id}')">
+            return `<div class="handover-card" role="button" tabindex="0" data-click="handover-open" data-id="${this.escAttr(ho.id)}">
                 <div class="handover-card-info"><h4>${this.hoTypeLabel(ho.type)}</h4><p>${ho.date} · ${ho.items.length} ${this.t('sum_tickets')} · ${approved} ${this.t('ho_approved')}</p></div>
-                <div style="display:flex;align-items:center;gap:0.5rem;">
+                <div class="card-actions">
                     <span class="status-badge status-${isDone?'verified':'assigned'}">${isDone?this.t('ho_completed'):this.t('ho_in_progress')}</span>
                     ${publishBtn}
                 </div>
@@ -2637,7 +2946,9 @@ class OpenFieldStudio {
         el.textContent = `${icon} ${label}: ${ref.id}`;
         el.title = this.tFormat('erp_link_title', label, ref.id)
             + (ref.lastSyncAt ? `\n${this.tFormat('erp_last_sync', new Date(ref.lastSyncAt).toLocaleString())}` : '');
-        el.style.color = state === 'fail' ? 'var(--danger, #dc2626)' : 'var(--success, #059669)';
+        el.dataset.state = state === 'fail' ? 'error' : state === 'busy' ? 'info' : 'success';
+        el.style.removeProperty('color');
+        this.updateFieldStatus();
     }
 
     _buildProjectExport() {
@@ -2657,21 +2968,29 @@ class OpenFieldStudio {
         const label = def.shortLabel || def.label || ref.connector;
         const cfg = this._pubConfig(ref.connector);
         if (this._erpSyncBusy) return;
+        // Offline: keep it on this device and send as soon as there is a connection (onNetworkChange).
+        if (navigator.onLine === false) { this._setErpPending(true); this.updateFieldStatus(); return; }
         this._erpSyncBusy = true;
         this.refreshErpLinkBadge('busy');
         try {
             await def.backSync(cfg, ref, this._buildProjectExport());
             this.project.erpRef.lastSyncAt = new Date().toISOString();
-            this.saveToLocalStorage();
+            this._erpSyncFailed = false;
+            this._setErpPending(false);
+            this._syncMetaSave = true;
+            try { this.saveToLocalStorage(); } finally { this._syncMetaSave = false; }
             this.refreshErpLinkBadge();
             if (manual) this.showNotification(this.tFormat('erp_sync_ok', label, ref.id), 'success');
             this.logActivity(this.tFormat('act_erp_sync', label, ref.id));
         } catch (err) {
             console.error('Back-sync failed', err);
+            this._erpSyncFailed = true;
+            this._setErpPending(true);
             this.refreshErpLinkBadge('fail');
             this.showNotification(this.tFormat('erp_sync_fail', label, err.message || err), 'error');
         } finally {
             this._erpSyncBusy = false;
+            this.updateFieldStatus();
         }
     }
 
@@ -2964,9 +3283,9 @@ class OpenFieldStudio {
         const el = document.getElementById('import-status');
         if (!el) return;
         el.textContent = msg || '';
-        el.style.color = kind === 'error' ? 'var(--danger, #dc2626)'
-                       : kind === 'success' ? 'var(--success, #059669)'
-                       : 'var(--text-muted, #6b7280)';
+        el.style.color = kind === 'error' ? 'var(--oa-error)'
+                       : kind === 'success' ? 'var(--oa-success)'
+                       : 'var(--oa-text-secondary)';
     }
 
     _awaitImportPicker(items, promptKey) {
@@ -2978,12 +3297,12 @@ class OpenFieldStudio {
             `<option value="${this.esc(it.id)}">${this.esc(it.label)}${it.hint ? ' — ' + this.esc(it.hint) : ''}</option>`).join('');
         picker.innerHTML = `
             <label for="import-pick-select" style="display:block;margin-bottom:0.35rem;font-size:0.85rem;">${this.t(promptKey || 'import_pick_prompt')}</label>
-            ${many ? `<input type="text" id="import-pick-search" placeholder="${this.esc(this.t('import_pick_search'))}" autocomplete="off" style="width:100%;padding:0.5rem;margin-bottom:0.5rem;">` : ''}
-            <select id="import-pick-select" ${many ? 'size="10"' : ''} style="width:100%;padding:0.5rem;">
+            ${many ? `<input type="text" class="oa-field full" id="import-pick-search" placeholder="${this.escAttr(this.t('import_pick_search'))}" autocomplete="off">` : ''}
+            <select class="oa-field full" id="import-pick-select" ${many ? 'size="10"' : ''}>
                 ${optionHtml(items)}
             </select>
-            ${many ? `<div id="import-pick-count" style="margin-top:0.35rem;font-size:0.75rem;color:var(--text-muted,#6b7280);">${this.tFormat('import_pick_count', items.length, items.length)}</div>` : ''}
-            <button type="button" class="btn btn-primary" id="import-pick-ok" style="margin-top:0.5rem;">${this.t('import_pick_continue')}</button>
+            ${many ? `<div id="import-pick-count" style="margin-top:0.35rem;font-size:0.75rem;color:var(--oa-text-secondary);">${this.tFormat('import_pick_count', items.length, items.length)}</div>` : ''}
+            <button type="button" class="oa-button oa-button--primary gap-top" id="import-pick-ok">${this.t('import_pick_continue')}</button>
         `;
         picker.style.display = 'block';
         this._setImportStatus(this.t('import_pick_status'));
@@ -3171,17 +3490,17 @@ class OpenFieldStudio {
                 ? `<span class="status-badge status-verified">${this.t('connector_configured')}</span>`
                 : `<span class="status-badge status-open">${this.t('connector_unconfigured')}</span>`;
             const importBtn = (def.canImport && configured)
-                ? `<button class="btn btn-sm btn-secondary" onclick="app.openConnectorImport('${def.id}')" title="${this.t('import_btn_title')}">${this.t('import_btn')}</button>`
+                ? `<button type="button" class="oa-button" data-click="connector-import" data-id="${this.escAttr(def.id)}" title="${this.escAttr(this.t('import_btn_title'))}">${this.t('import_btn')}</button>`
                 : '';
             return `<div class="handover-card">
                 <div class="handover-card-info">
-                    <h4>${this.esc(def.label)} <span style="font-weight:400;font-size:0.75rem;color:var(--text-muted,#6b7280);">· ${scopeTxt}${def.canImport ? ' · ' + this.t('connector_bidirectional') : ''}</span></h4>
-                    <p style="font-family:monospace;font-size:0.75rem;">${this.esc(cfg.endpoint || def.endpointDefault)}</p>
+                    <h4>${this.esc(def.label)} <span class="card-meta">· ${scopeTxt}${def.canImport ? ' · ' + this.t('connector_bidirectional') : ''}</span></h4>
+                    <p class="oa-meta">${this.esc(cfg.endpoint || def.endpointDefault)}</p>
                 </div>
-                <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                <div class="card-actions">
                     ${badge}
                     ${importBtn}
-                    <button class="btn btn-sm btn-secondary" onclick="app.openConnectorConfig('${def.id}')">${this.t('connector_configure')}</button>
+                    <button type="button" class="oa-button" data-click="connector-config" data-id="${this.escAttr(def.id)}">${this.t('connector_configure')}</button>
                 </div>
             </div>`;
         }).join('');
@@ -3287,13 +3606,13 @@ class OpenFieldStudio {
                 // Saved, but the connector is not active yet — tell the user what's missing
                 // instead of a green "opgeslagen" that leaves everything on "Niet ingesteld".
                 status.textContent = this.t('connector_saved_incomplete');
-                status.style.color = 'var(--danger, #dc2626)';
+                status.style.color = 'var(--oa-error)';
             } else if (def.canImport) {
                 status.textContent = this.t('connector_saved_import_hint');
-                status.style.color = 'var(--success, #059669)';
+                status.style.color = 'var(--oa-success)';
             } else {
                 status.textContent = this.t('connector_saved');
-                status.style.color = 'var(--success, #059669)';
+                status.style.color = 'var(--oa-success)';
             }
             this.refreshProjectImportBtn();
             return;
@@ -3304,30 +3623,30 @@ class OpenFieldStudio {
         const status = document.getElementById('wb-status');
         if (cfg.testMode) {
             status.textContent = this.tFormat('pub_test_ok', def.label);
-            status.style.color = 'var(--success, #059669)';
+            status.style.color = 'var(--oa-success)';
             this.logActivity(this.tFormat('act_pub_test', def.label, ho ? this.hoTypeLabel(ho.type) : (this.project.name || 'project')));
             return;
         }
         if (!cfg.endpoint || !cfg.apiKey) {
             status.textContent = this.t('wb_missing_creds');
-            status.style.color = 'var(--danger, #dc2626)';
+            status.style.color = 'var(--oa-error)';
             return;
         }
         status.textContent = this.tFormat('pub_sending', def.label);
-        status.style.color = 'var(--text-muted, #6b7280)';
+        status.style.color = 'var(--oa-text-secondary)';
         try {
             const res = await def.send(cfg, payload, ho);
             if (res.ok) {
                 status.textContent = this.tFormat('pub_ok', def.label, res.ref || 'OK');
-                status.style.color = 'var(--success, #059669)';
+                status.style.color = 'var(--oa-success)';
                 this.logActivity(this.tFormat('act_pub_ok', def.label, ho ? this.hoTypeLabel(ho.type) : (this.project.name || 'project'), res.ref || ''));
             } else {
                 status.textContent = this.tFormat('pub_http_error', def.label, res.status);
-                status.style.color = 'var(--danger, #dc2626)';
+                status.style.color = 'var(--oa-error)';
             }
         } catch (err) {
             status.textContent = this.tFormat('wb_network_error', err.message || err);
-            status.style.color = 'var(--danger, #dc2626)';
+            status.style.color = 'var(--oa-error)';
         }
     }
 
@@ -3451,35 +3770,37 @@ class OpenFieldStudio {
         } else {
             html = this.generateFullReport();
         }
-        // Inject an auto-print snippet that fires once fonts and images are ready.
-        // Uses window.print() so the user picks "Save as PDF" from the native dialog.
-        const autoPrint = `<script>(function(){
-            function ready(){ try { window.focus(); window.print(); } catch(e){} }
-            function whenImages(cb){
-                var imgs = Array.from(document.images);
-                if (!imgs.length) return cb();
-                var left = imgs.length;
-                var done = function(){ if (--left <= 0) cb(); };
-                imgs.forEach(function(img){
-                    if (img.complete) done();
-                    else { img.addEventListener('load', done); img.addEventListener('error', done); }
-                });
+        // A real PDF file, saved as a download (Blob) — no pop-up window, so it also works in an
+        // embedded workplace where window.open is blocked. The report HTML is rendered to A4 pages
+        // by src/pdf-export.ts (lazy-loaded); without that module the browser's print dialog is used.
+        const base = `${this.project.name || 'rapport'}_${type}`;
+        if (typeof window.__ofsHtmlToPdf === 'function') {
+            this.showNotification(this.t('msg_pdf_building'), 'info');
+            try {
+                const blob = await window.__ofsHtmlToPdf(html);
+                await this.saveWithPicker(blob, `${base}.pdf`, [{ description: 'PDF', accept: { 'application/pdf': ['.pdf'] } }]);
+                return;
+            } catch (e) {
+                console.error('PDF export failed, falling back to print', e);
             }
-            if (document.fonts && document.fonts.ready) {
-                document.fonts.ready.then(function(){ whenImages(function(){ setTimeout(ready, 100); }); });
-            } else {
-                window.addEventListener('load', function(){ whenImages(function(){ setTimeout(ready, 100); }); });
-            }
-        })();<\/script></body>`;
-        const printable = html.replace('</body>', autoPrint);
-        const w = window.open('', '_blank');
-        if (!w) {
-            this.showNotification(this.t('msg_popup_blocked'), 'error');
-            return;
         }
-        w.document.open();
-        w.document.write(printable);
-        w.document.close();
+        this._printHtml(html);
+    }
+
+    // Fallback: print the report from a hidden same-page frame (no window.open).
+    _printHtml(html) {
+        const frame = document.createElement('iframe');
+        frame.className = 'print-frame';
+        frame.setAttribute('aria-hidden', 'true');
+        frame.srcdoc = html;
+        frame.addEventListener('load', () => {
+            setTimeout(() => {
+                try { frame.contentWindow.focus(); frame.contentWindow.print(); }
+                catch (e) { console.error(e); this.showNotification(this.t('msg_popup_blocked'), 'error'); }
+                setTimeout(() => frame.remove(), 60000);
+            }, 300);
+        }, { once: true });
+        document.body.appendChild(frame);
     }
 
     // =====================================================
@@ -3642,7 +3963,10 @@ class OpenFieldStudio {
         const incPhotos = document.getElementById('include-photos').checked;
         const incMap = document.getElementById('include-map').checked;
         const byFloor = {};
-        this.tickets.forEach(t => { if (!byFloor[t.floorPlanId]) byFloor[t.floorPlanId] = []; byFloor[t.floorPlanId].push(t); });
+        const planIds = new Set(this.floorPlans.map(fp => fp.id));
+        this.tickets.forEach(t => { const k = planIds.has(t.floorPlanId) ? t.floorPlanId : '_none'; if (!byFloor[k]) byFloor[k] = []; byFloor[k].push(t); });
+        // Tickets taken with the Foto/Notitie actions may have no floor plan: they get their own section.
+        const sections = byFloor._none ? [...this.floorPlans, { id: '_none', name: this.t('report_no_plan'), data: null }] : this.floorPlans;
 
         return `<!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>${this.esc(this.project.name||'Rapport')} - Open Field Studio</title>
@@ -3657,11 +3981,12 @@ ${this.project.client?`<div class="meta-item"><label>Opdrachtgever</label><span>
 ${this.project.surveyDate?`<div class="meta-item"><label>Opnamedatum</label><span>${this.esc(this.project.surveyDate)}</span></div>`:''}
 ${this.project.surveyor?`<div class="meta-item"><label>Opgenomen door</label><span>${this.esc(this.project.surveyor)}</span></div>`:''}
 </div>${this.project.description?`<p style="margin-top:1rem;color:var(--gray);">${this.esc(this.project.description)}</p>`:''}</div>
-${this.floorPlans.map(fp => {
+${sections.map(fp => {
     const pts = byFloor[fp.id] || [];
+    const pinned = pts.filter(p => Number.isFinite(p.x) && Number.isFinite(p.y));
     return `<div class="section"><h3>${this.esc(fp.name)}</h3>
-    ${incMap?`<div style="position:relative;display:inline-block;max-width:100%;margin-bottom:1rem;"><img src="${fp.data}" style="max-width:100%;border-radius:8px;border:1px solid var(--border);">
-    ${pts.map((p,i)=>`<div style="position:absolute;left:${p.x}%;top:${p.y}%;width:24px;height:24px;transform:translate(-50%,-100%);"><svg viewBox="0 0 24 24" fill="${{open:'#D97706',assigned:'#2563EB',completed:'#16A34A',verified:'#71717A'}[p.status]||'#D97706'}"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg></div>`).join('')}
+    ${incMap&&fp.data?`<div style="position:relative;display:inline-block;max-width:100%;margin-bottom:1rem;"><img src="${fp.data}" style="max-width:100%;border-radius:8px;border:1px solid var(--border);">
+    ${pinned.map((p,i)=>`<div style="position:absolute;left:${p.x}%;top:${p.y}%;width:24px;height:24px;transform:translate(-50%,-100%);"><svg viewBox="0 0 24 24" fill="${{open:'#D97706',assigned:'#2563EB',completed:'#16A34A',verified:'#71717A'}[p.status]||'#D97706'}"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg></div>`).join('')}
     </div>`:''}
     ${pts.length?pts.map((p,i)=>`<div class="ticket-card"><div class="ticket-header"><strong>${i+1}. ${this.esc(p.label)}</strong><span class="ticket-badge tb-${p.status}">${this.statusLabel(p.status)}</span></div>
     <p style="font-size:0.8rem;color:var(--gray);">${p.category||''} · ${this.priorityLabel(p.priority)} · ${this.severityLabel(p.severity)}${p.assignedTo?' · '+this.esc(p.assignedTo):''}${p.deadline?' · Deadline: '+p.deadline:''}</p>
@@ -3777,7 +4102,7 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
         const container = document.getElementById('ifc-canvas-container');
         if (!status || !container) return;
         status.textContent = this.tFormat('ifc_loading', file.name);
-        status.style.color = 'var(--text-muted, #6b7280)';
+        status.style.color = 'var(--oa-text-secondary)';
         try {
             if (!window.__ofsIfcViewer) {
                 if (typeof window.__ofsLoadIfcViewer !== 'function') throw new Error('IFC-loader ontbreekt');
@@ -3786,12 +4111,12 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
             const buf = await file.arrayBuffer();
             const { meshCount } = await window.__ofsIfcViewer.loadIfcArrayBuffer(container, buf);
             status.textContent = this.tFormat('ifc_ok', file.name, meshCount);
-            status.style.color = 'var(--success, #059669)';
+            status.style.color = 'var(--oa-success)';
             this.logActivity(this.tFormat('act_ifc_loaded', file.name, meshCount));
         } catch (err) {
             console.error('IFC load error', err);
             status.textContent = this.tFormat('ifc_error', err.message || err);
-            status.style.color = 'var(--danger, #dc2626)';
+            status.style.color = 'var(--oa-error)';
         }
     }
 
@@ -3888,6 +4213,9 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
         // Blob writes to IDB proceed in the background — safe to fire-and-forget for auto-save.
         if (pending.length) Promise.all(pending).catch(err => console.warn('blob write failed', err));
         this._lastSaved = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+        this._dirty = false;
+        // A local change means the linked ERP project is behind until the next send.
+        if (this.project?.erpRef?.id && !this._syncMetaSave) this._setErpPending(true);
         this.updateStatusBar();
     }
 
@@ -3932,7 +4260,7 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
     validateAndCleanData() {
         let dirty = false;
         const valid = this.floorPlans.filter(fp => { if (!fp.data || typeof fp.data !== 'string' || !fp.data.startsWith('data:image/')) { dirty = true; return false; } const b = fp.data.split(',')[1]; if (!b || b.length < 100) { dirty = true; return false; } return true; });
-        if (dirty) { this.floorPlans = valid; const ids = valid.map(fp => fp.id); this.tickets = this.tickets.filter(t => ids.includes(t.floorPlanId)); this.renderFloorPlansList(); this.updateFloorPlanSelector(); this.saveToLocalStorage(); setTimeout(() => this.showNotification(this.t('msg_corrupt'), 'error'), 500); }
+        if (dirty) { this.floorPlans = valid; const ids = valid.map(fp => fp.id); this.tickets = this.tickets.filter(t => !t.floorPlanId || ids.includes(t.floorPlanId)); this.renderFloorPlansList(); this.updateFloorPlanSelector(); this.saveToLocalStorage(); setTimeout(() => this.showNotification(this.t('msg_corrupt'), 'error'), 500); }
     }
 
     // =====================================================
@@ -3941,32 +4269,35 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
     genId() { return 'id_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now(); }
     esc(text) { if (!text) return ''; const d = document.createElement('div'); d.textContent = text; return d.innerHTML; }
 
-    // Async confirm dialog — uses Tauri native dialog or custom HTML modal
+    // Async confirm dialog — uses Tauri native dialog or the OpenAEC dialog
     asyncConfirm(message) {
-        // Try Tauri native dialog
         if (window.__tauriDialog && window.__tauriDialog.ask) {
             return window.__tauriDialog.ask(message, { title: 'Open Field Studio', kind: 'warning' });
         }
-        // Custom HTML modal confirm
+        return this.askChoice(message, this.t('btn_remove'), this.t('btn_cancel'), true);
+    }
+
+    // Two-button question in an oa-dialog. Resolves true for yes, false for no / Escape / outside.
+    askChoice(message, yesLabel, noLabel, danger = false) {
         return new Promise((resolve) => {
             const overlay = document.createElement('div');
-            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;animation:modalFadeIn 0.15s ease;';
-            const box = document.createElement('div');
-            box.style.cssText = 'background:var(--surface,#fff);border-radius:12px;padding:24px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);font-family:Inter,sans-serif;';
-            box.innerHTML = `<p style="margin:0 0 20px;font-size:0.95rem;color:var(--text-primary,#333);line-height:1.5;">${this.esc(message)}</p>
-                <div style="display:flex;gap:12px;justify-content:flex-end;">
-                    <button id="_confirm_no" style="padding:8px 20px;border:2px solid var(--deep-forge,#36363E);background:transparent;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.9rem;font-family:inherit;color:var(--text-primary,#333);">${this.t('btn_cancel')}</button>
-                    <button id="_confirm_yes" style="padding:8px 20px;border:none;background:#DC2626;color:#fff;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.9rem;font-family:inherit;">${this.t('btn_remove')}</button>
-                </div>`;
-            overlay.appendChild(box);
-            document.body.appendChild(overlay);
-            box.querySelector('#_confirm_yes').focus();
-            box.querySelector('#_confirm_yes').onclick = () => { overlay.remove(); resolve(true); };
-            box.querySelector('#_confirm_no').onclick = () => { overlay.remove(); resolve(false); };
-            overlay.addEventListener('click', (e) => { if (e.target === overlay) { overlay.remove(); resolve(false); } });
-            document.addEventListener('keydown', function handler(e) {
-                if (e.key === 'Escape') { overlay.remove(); resolve(false); document.removeEventListener('keydown', handler); }
+            overlay.className = 'oa-overlay ofs-ask';
+            overlay.innerHTML = `<div class="oa-dialog" role="alertdialog" aria-modal="true" aria-labelledby="_ask_msg">
+                <p id="_ask_msg" class="ask-message">${this.esc(message)}</p>
+                <div class="oa-dialog-actions">
+                    <button type="button" class="oa-button" data-answer="no">${this.esc(noLabel)}</button>
+                    <button type="button" class="oa-button ${danger ? 'oa-button--danger' : 'oa-button--primary'}" data-answer="yes">${this.esc(yesLabel)}</button>
+                </div></div>`;
+            const done = (val) => { overlay.remove(); document.removeEventListener('keydown', onKey, true); resolve(val); };
+            const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
+            overlay.addEventListener('click', (e) => {
+                const btn = e.target.closest('[data-answer]');
+                if (btn) done(btn.dataset.answer === 'yes');
+                else if (e.target === overlay) done(false);
             });
+            document.addEventListener('keydown', onKey, true);
+            document.body.appendChild(overlay);
+            overlay.querySelector('[data-answer="yes"]').focus();
         });
     }
 
@@ -3981,8 +4312,9 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
                 }));
                 const path = await window.__tauriDialog.save({ defaultPath: filename, filters });
                 if (!path) return; // User cancelled
-                const text = await blob.text();
-                await window.__tauriFs.writeTextFile(path, text);
+                const isText = /^(text\/|application\/json)/.test(blob.type || '');
+                if (isText || !window.__tauriFs.writeFile) await window.__tauriFs.writeTextFile(path, await blob.text());
+                else await window.__tauriFs.writeFile(path, new Uint8Array(await blob.arrayBuffer()));
                 this.showNotification(this.t('msg_json_saved'), 'success');
                 return;
             } catch (e) {
@@ -4005,23 +4337,42 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
         }
         // Fallback: direct download
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = filename;
-        a.click(); URL.revokeObjectURL(url);
+        const a = document.createElement('a'); a.href = url; a.download = filename; a.hidden = true;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
         this.showNotification(this.t('msg_json_downloaded'), 'success');
     }
 
     showNotification(msg, type = 'info') {
+        let host = document.getElementById('toast-host');
+        if (!host) {
+            host = document.createElement('div');
+            host.id = 'toast-host';
+            host.className = 'toast-host';
+            host.setAttribute('role', 'status');
+            host.setAttribute('aria-live', 'polite');
+            document.body.appendChild(host);
+        }
+        const tone = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+        const icon = { success: 'status.success', error: 'status.error', info: 'status.info' }[tone];
         const n = document.createElement('div');
-        n.style.cssText = `position:fixed;bottom:2rem;right:2rem;padding:1rem 1.5rem;background:${type==='success'?'#16A34A':type==='error'?'#DC2626':'#D97706'};color:#fff;border-radius:8px;font-family:'Inter',sans-serif;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:9999;animation:slideIn 0.3s ease;`;
-        n.textContent = msg; document.body.appendChild(n);
-        setTimeout(() => { n.style.animation = 'fadeOut 0.3s ease'; setTimeout(() => n.remove(), 300); }, 3000);
+        n.className = `oa-toast ofs-toast ofs-toast--${tone}`;
+        n.innerHTML = `${this.icon(icon, 24)}<div><b></b></div>`;
+        n.querySelector('b').textContent = msg;
+        host.appendChild(n);
+        setTimeout(() => { n.classList.add('is-leaving'); setTimeout(() => n.remove(), 300); }, type === 'error' ? 6000 : 3500);
+    }
+
+    // B2 icon from the Field Studio sprite (OpenAEC Blueprint).
+    icon(id, size = 16) {
+        return `<svg class="oa-icon${size === 24 ? ' oa-icon--24' : ''}" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i${size}-${id}"/></svg>`;
+    }
+
+    // Escape for attribute values (esc() only covers text content, not quotes).
+    escAttr(text) {
+        return String(text ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 }
-
-// Animations
-const style = document.createElement('style');
-style.textContent = `@keyframes slideIn{from{transform:translateX(100px);opacity:0}to{transform:translateX(0);opacity:1}}@keyframes fadeOut{from{opacity:1}to{opacity:0}}`;
-document.head.appendChild(style);
 
 // Expose class globally — initialization is handled by main.tsx after i18next is ready
 window.OpenFieldStudio = OpenFieldStudio;

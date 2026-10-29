@@ -1,0 +1,340 @@
+/* =====================================================
+   Open Field Studio - shell: title bar, app bar, navigation, field action bar,
+   status, density (desktop / touch) and the outdoor mode.
+
+   Layout follows the Blueprint "werkstroom-app" (design/ontwerp-0.4/05-layouts.md):
+   app bar, navigation as a sidebar (wide) or a tab strip (narrow), content,
+   a 52 px action bar with the primary button on the right, and the status bar.
+
+   The touch density and outdoor mode are Field Studio's extension for use on site
+   (Blueprint issue #20: Field on tablet or phone uses the web package). They only
+   change sizes and borders; every colour is a Blueprint token. The outdoor mode is
+   the Blueprint theme "high-contrast-light" plus large text and touch targets.
+   ===================================================== */
+
+/* ---------- Density variables ---------- */
+:root {
+    /* Desktop: the Blueprint sizes (besluit 1: 28 px controls, 24 px compact). */
+    --ofs-text: var(--oa-size-body);
+    --ofs-label: var(--oa-size-label);
+    --ofs-h1: var(--oa-size-page-heading);
+    --ofs-h2: var(--oa-size-dialog-heading);
+    --ofs-h3: var(--oa-size-panel-heading);
+    --ofs-control: 28px;
+    --ofs-control-small: 24px;
+    --ofs-row: 36px;
+    --ofs-check: 16px;
+    --ofs-pin: 28px;
+    --ofs-thumb: 88px;
+    --ofs-pad: var(--oa-space-xl);
+    --ofs-gap: var(--oa-space-lg);
+    --ofs-border: 1px;
+    --ofs-sidebar: 220px;
+    --ofs-actionbar: 52px;
+    --ofs-action-btn: 36px;
+    --ofs-status-row: 0px;
+}
+[data-ofs-density="touch"] {
+    /* Touch: 48 px targets (gloves), 16 px text (no zoom on focus in mobile browsers). */
+    --ofs-text: 16px;
+    --ofs-label: 14px;
+    --ofs-h1: 26px;
+    --ofs-h2: 20px;
+    --ofs-h3: 17px;
+    --ofs-control: 48px;
+    --ofs-control-small: 48px;
+    --ofs-row: 56px;
+    --ofs-check: 26px;
+    --ofs-pin: 40px;
+    --ofs-thumb: 120px;
+    --ofs-pad: var(--oa-space-lg);
+    --ofs-gap: var(--oa-space-lg);
+    --ofs-sidebar: 240px;
+    --ofs-actionbar: 76px;
+    --ofs-action-btn: 60px;
+}
+[data-ofs-outdoor] {
+    /* Outdoor: bright sunlight. Larger again, 2 px borders. */
+    --ofs-text: 18px;
+    --ofs-label: 16px;
+    --ofs-h1: 28px;
+    --ofs-h2: 22px;
+    --ofs-h3: 19px;
+    --ofs-control: 56px;
+    --ofs-control-small: 52px;
+    --ofs-row: 64px;
+    --ofs-check: 30px;
+    --ofs-pin: 44px;
+    --ofs-border: 2px;
+    --ofs-actionbar: 84px;
+    --ofs-action-btn: 68px;
+}
+
+html { background: var(--oa-frame); -webkit-text-size-adjust: 100%; }
+body.oa-app { font-size: var(--ofs-text); }
+
+/* ---------- Blueprint components at touch size ---------- */
+[data-ofs-density="touch"] .oa-button {
+    height: auto; min-height: var(--ofs-control); padding: 0 var(--oa-space-lg); gap: var(--oa-space-sm);
+    font-size: var(--ofs-text); line-height: 1.2; border-width: var(--ofs-border);
+}
+[data-ofs-density="touch"] .oa-button--compact { min-height: var(--ofs-control-small); padding: 0 var(--oa-space-md); }
+[data-ofs-density="touch"] .oa-field {
+    height: var(--ofs-control); padding: 0 12px; font-size: var(--ofs-text); line-height: 1.3; border-width: var(--ofs-border);
+}
+[data-ofs-density="touch"] .oa-field:focus { border-width: calc(var(--ofs-border) + 1px); padding: 0 calc(12px - var(--ofs-border)); }
+[data-ofs-density="touch"] textarea.oa-field { height: auto; min-height: calc(var(--ofs-control) * 2); padding: 10px 12px; }
+[data-ofs-density="touch"] textarea.oa-field:focus { padding: calc(10px - var(--ofs-border)) calc(12px - var(--ofs-border)); }
+[data-ofs-density="touch"] select.oa-field { padding-right: 40px; background-position: calc(100% - 20px) 50%, calc(100% - 15px) 50%; background-size: 6px 6px; }
+[data-ofs-density="touch"] select.oa-field[size] { height: auto; padding: 4px; background-image: none; }
+[data-ofs-density="touch"] .oa-switch { min-height: var(--ofs-control); gap: var(--oa-space-md); }
+[data-ofs-density="touch"] .oa-switch input { width: 56px; height: 32px; border-radius: 16px; flex: none; }
+[data-ofs-density="touch"] .oa-switch input::before { top: 3px; left: 3px; width: 24px; height: 24px; }
+[data-ofs-density="touch"] .oa-switch input:checked::before { transform: translateX(24px); }
+[data-ofs-density="touch"] .oa-status { font-size: var(--ofs-label); padding: 2px 10px; }
+[data-ofs-density="touch"] .oa-menu button { height: auto; min-height: var(--ofs-control); padding: 0 var(--oa-space-md); }
+[data-ofs-density="touch"] .oa-icon { width: 20px; height: 20px; }
+[data-ofs-density="touch"] .oa-icon--24 { width: 26px; height: 26px; }
+[data-ofs-outdoor] .oa-app :focus-visible, [data-ofs-outdoor] :focus-visible { outline-width: 3px; outline-offset: 3px; }
+[data-ofs-outdoor] :is(.panel, .floor-selector, .canvas-wrapper, .points-panel, .inspection-card, .handover-card, .contact-card, .checklist-item, .ho-item, .stat-card, .summary-item, .floor-plan-card, .modal-content) { border-width: 2px; border-color: var(--oa-border-strong); }
+[data-ofs-outdoor] .point-item-info p, [data-ofs-outdoor] .field-help { font-weight: var(--oa-weight-medium); }
+
+/* ---------- Custom title bar (Tauri desktop only) ---------- */
+.title-bar { display: none; }
+body.tauri-desktop .title-bar {
+    display: flex; align-items: center; height: var(--oa-shell-titlebar); flex: none;
+    background: var(--oa-frame); color: var(--oa-text); border-bottom: 1px solid var(--oa-border);
+    user-select: none; -webkit-user-select: none;
+}
+.title-bar-left { display: flex; align-items: center; gap: var(--oa-space-sm); padding-left: var(--oa-space-md); flex: 1; min-width: 0; }
+.title-bar-icon { display: grid; place-items: center; width: 18px; height: 18px; }
+.title-bar-icon svg { width: 18px; height: 18px; }
+.title-bar-center { display: flex; align-items: center; gap: var(--oa-space-sm); pointer-events: none; }
+.title-bar-center a { pointer-events: auto; }
+.title-bar-app-name { font: var(--oa-weight-semibold) var(--oa-size-body) var(--oa-font-body); }
+.title-bar-version { font: var(--oa-size-label) var(--oa-font-mono); color: var(--oa-text-secondary); }
+.update-badge { margin-left: var(--oa-space-sm); text-decoration: none; cursor: pointer; }
+.window-controls { display: flex; flex: 1; justify-content: flex-end; height: 100%; }
+.window-btn { display: grid; place-items: center; width: 46px; height: 100%; border: 0; background: transparent; color: var(--oa-text); cursor: pointer; }
+.window-btn:hover { background: var(--oa-hover); }
+.window-btn-close:hover { background: var(--oa-error); color: var(--oa-panel); }
+
+/* ---------- App bar ---------- */
+.app-toolbar {
+    grid-area: bar;
+    display: flex; align-items: center; flex-wrap: wrap; gap: var(--oa-space-sm) var(--oa-space-lg);
+    padding: var(--oa-space-sm) var(--oa-space-lg);
+    background: var(--oa-panel); border-bottom: var(--ofs-border) solid var(--oa-border);
+}
+.logo { display: flex; align-items: center; gap: var(--oa-space-sm); min-width: 0; color: var(--oa-accent-text); }
+.logo svg { flex: none; }
+.logo-text { display: flex; align-items: baseline; gap: var(--oa-space-sm); min-width: 0; flex-wrap: wrap; }
+.logo h1 { font: var(--oa-weight-medium) var(--ofs-h3) / 1.2 var(--oa-font-heading); letter-spacing: var(--oa-letter-spacing-heading); color: var(--oa-text); white-space: nowrap; }
+.logo-project { color: var(--oa-text-secondary); font-weight: var(--oa-weight-semibold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }
+.toolbar-right { display: flex; align-items: center; gap: var(--oa-space-sm); margin-left: auto; }
+.outdoor-toggle[aria-pressed="true"] { background: var(--oa-accent); border-color: var(--oa-accent); color: var(--oa-text-on-accent); }
+.outdoor-toggle[aria-pressed="true"] .oa-icon { --icon-accent: currentColor; }
+
+/* Language menu */
+.tb-lang-dropdown { position: relative; }
+.tb-lang-menu { display: none; position: absolute; right: 0; top: calc(100% + 4px); z-index: 300; }
+.tb-lang-menu.open { display: block; animation: ofs-fade-in 0.12s ease; }
+.tb-lang-option.active { background: var(--oa-selected); color: var(--oa-accent-text); font-weight: var(--oa-weight-semibold); }
+.tb-lang-code { min-width: 24px; font: var(--oa-size-label) var(--oa-font-mono); color: var(--oa-text-secondary); }
+
+/* ---------- Status chips: saved, connection, linked ERP project ---------- */
+.field-status { display: flex; align-items: center; gap: var(--oa-space-xs); min-width: 0; }
+.status-chip {
+    display: inline-flex; align-items: center; gap: 6px; flex: none;
+    min-height: var(--ofs-control-small); padding: 0 10px;
+    border: var(--ofs-border) solid var(--oa-border-strong); border-radius: var(--oa-radius-full);
+    background: var(--oa-raised); color: var(--oa-text);
+    font: var(--oa-weight-semibold) var(--ofs-label) / 1.2 var(--oa-font-body); white-space: nowrap; cursor: pointer;
+}
+.status-chip:hover { box-shadow: inset 0 0 0 1px currentColor; }
+.status-chip .oa-icon { --icon-accent: currentColor; }
+.status-chip[data-state="success"] { background: var(--oa-success-tint); border-color: var(--oa-success); color: var(--oa-success); }
+.status-chip[data-state="warning"] { background: var(--oa-warning-tint); border-color: var(--oa-warning); color: var(--oa-warning); }
+.status-chip[data-state="error"] { background: var(--oa-error-tint); border-color: var(--oa-error); color: var(--oa-error); }
+.status-chip[data-state="info"] { background: var(--oa-info-tint); border-color: var(--oa-info); color: var(--oa-info); }
+.status-chip[data-state="neutral"] { color: var(--oa-text-secondary); }
+.status-chip-short { display: none; }
+/* In high contrast the tint is plain; the icon, the word and a heavier border carry the state. */
+[data-oa-theme^="high-contrast"] .status-chip { background: var(--oa-panel); border-width: 2px; }
+
+.status-heading { margin: var(--oa-space-lg) 0 var(--oa-space-xs); font: var(--oa-weight-regular) var(--ofs-label) var(--oa-font-mono); letter-spacing: var(--oa-letter-spacing-mono-label); text-transform: uppercase; color: var(--oa-text-secondary); }
+.status-heading:first-child { margin-top: 0; }
+.status-row { align-items: flex-start; padding: var(--oa-space-sm) var(--oa-space-md); }
+.status-row > div { flex: 1; min-width: 0; }
+.status-row p { margin-top: 2px; overflow-wrap: anywhere; }
+/* The tone colour on the banner icon (the generic .oa-banner > .oa-icon rule in the web package comes last and would make every icon blue). */
+.oa-banner.oa-banner--success > .oa-icon { color: var(--oa-success); }
+.oa-banner.oa-banner--warning > .oa-icon { color: var(--oa-warning); }
+.oa-banner.oa-banner--error > .oa-icon { color: var(--oa-error); }
+[data-oa-theme^="high-contrast"] .status-row { border: 2px solid var(--oa-info); border-left-width: 6px; }
+[data-oa-theme^="high-contrast"] .status-row.oa-banner--success { border-color: var(--oa-success); }
+[data-oa-theme^="high-contrast"] .status-row.oa-banner--warning { border-color: var(--oa-warning); }
+[data-oa-theme^="high-contrast"] .status-row.oa-banner--error { border-color: var(--oa-error); }
+
+/* ---------- Navigation ---------- */
+.tab-strip {
+    grid-area: nav;
+    display: flex; flex-direction: column; gap: 2px;
+    padding: var(--oa-space-md) var(--oa-space-sm);
+    background: var(--oa-panel); border-right: var(--ofs-border) solid var(--oa-border);
+    overflow-y: auto;
+}
+.nav-btn {
+    display: flex; align-items: center; gap: var(--oa-space-sm); width: 100%;
+    min-height: var(--ofs-row); padding: 0 var(--oa-space-md);
+    border: 0; border-radius: var(--oa-radius-medium); background: transparent; color: var(--oa-text);
+    font: var(--oa-weight-medium) var(--ofs-text) var(--oa-font-body); text-align: left; cursor: pointer; white-space: nowrap;
+}
+.nav-btn:hover { background: var(--oa-hover); }
+.nav-btn.active, .nav-btn[aria-current="page"] { background: var(--oa-selected); color: var(--oa-accent-text); font-weight: var(--oa-weight-semibold); box-shadow: inset 3px 0 var(--oa-selected-bar); }
+[data-oa-theme^="high-contrast"] .nav-btn[aria-current="page"] { box-shadow: inset 0 0 0 2px var(--oa-selected-bar), inset 6px 0 var(--oa-selected-bar); }
+@media (forced-colors: active) { .nav-btn[aria-current="page"] { forced-color-adjust: none; background: Highlight; color: HighlightText; } }
+
+/* ---------- Content ---------- */
+.main-content { grid-area: main; min-width: 0; padding: var(--ofs-pad); }
+
+/* ---------- Field action bar ---------- */
+.field-actionbar {
+    grid-area: actions;
+    display: flex; align-items: center; justify-content: flex-end; gap: var(--oa-space-sm);
+    min-height: var(--ofs-actionbar); padding: var(--oa-space-sm) var(--oa-space-lg);
+    background: var(--oa-panel); border-top: var(--ofs-border) solid var(--oa-border);
+}
+.field-actionbar .field-action { min-height: var(--ofs-action-btn); }
+.field-action[aria-pressed="true"] { background: var(--oa-selected); border-color: var(--oa-selected-bar); color: var(--oa-accent-text); box-shadow: inset 0 0 0 1px var(--oa-selected-bar); }
+
+/* ---------- Desktop status bar (oa-statusbar) ---------- */
+.status-bar { flex: none; }
+/* On touch screens the chips in the app bar carry the status; the 22 px desktop status bar is left out. */
+[data-ofs-density="touch"] .status-bar { display: none; }
+.status-bar-item { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#sb-project { max-width: 30vw; font-weight: var(--oa-weight-semibold); }
+
+/* ---------- Toasts and questions ---------- */
+.toast-host {
+    position: fixed; z-index: 9999; right: var(--oa-space-lg);
+    bottom: calc(var(--ofs-actionbar) + var(--oa-shell-statusbar) + var(--oa-space-md));
+    display: flex; flex-direction: column; gap: var(--oa-space-sm); pointer-events: none;
+}
+.ofs-toast { width: min(380px, calc(100vw - 32px)); align-items: center; border-left: 4px solid var(--oa-info); pointer-events: none; animation: ofs-slide-in 0.2s ease; font-size: var(--ofs-text); }
+.ofs-toast b { font-weight: var(--oa-weight-semibold); }
+.ofs-toast .oa-icon { color: var(--oa-info); --icon-accent: currentColor; flex: none; }
+.ofs-toast--success { border-left-color: var(--oa-success); }
+.ofs-toast--success .oa-icon { color: var(--oa-success); }
+.ofs-toast--error { border-left-color: var(--oa-error); }
+.ofs-toast--error .oa-icon { color: var(--oa-error); }
+.ofs-toast.is-leaving { opacity: 0; transition: opacity 0.3s; }
+[data-oa-theme^="high-contrast"] .ofs-toast { border: 2px solid currentColor; border-left-width: 6px; }
+.ofs-ask { z-index: 10000; }
+.ofs-ask .ask-message { font-size: var(--ofs-text); line-height: 1.5; }
+.ofs-ask .oa-dialog-actions { flex-wrap: wrap; }
+
+/* =====================================================
+   Wide screens (desktop, tablet landscape): sidebar, fixed app frame
+   ===================================================== */
+@media (min-width: 1100px) {
+    html, body.oa-app { height: 100%; }
+    body.oa-app { display: flex; flex-direction: column; overflow: hidden; }
+    .app-container {
+        flex: 1; min-height: 0;
+        display: grid;
+        grid-template-columns: var(--ofs-sidebar) minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr) auto;
+        grid-template-areas: "bar bar" "nav main" "nav actions";
+    }
+    .main-content { overflow-y: auto; }
+    .field-actionbar::before { content: attr(aria-label); margin-right: auto; color: var(--oa-text-secondary); font: var(--oa-size-label) var(--oa-font-mono); text-transform: uppercase; letter-spacing: var(--oa-letter-spacing-mono-label); }
+    .opname-container { height: calc(100% - 4px); min-height: 520px; }
+    [data-ofs-density="touch"] .opname-container { grid-template-columns: minmax(0, 1fr) clamp(320px, 32vw, 440px); }
+}
+
+/* =====================================================
+   Narrow screens (tablet portrait, phone): tab strip on top, action bar and status at
+   the bottom within thumb reach, page scroll
+   ===================================================== */
+@media (max-width: 1099.98px) {
+    :root { --ofs-status-row: calc(var(--ofs-control-small) + 12px); }
+    .app-container { display: block; }
+    /* A too-wide element must never widen the page: the fixed bars would slide out of view. */
+    body.oa-app { overflow-x: clip; }
+    .app-toolbar { padding: var(--oa-space-sm) var(--oa-space-md); }
+    .tab-strip {
+        position: sticky; top: 0; z-index: 90;
+        flex-direction: row; gap: var(--oa-space-xs);
+        padding: var(--oa-space-xs) var(--oa-space-sm);
+        border-right: 0; border-bottom: var(--ofs-border) solid var(--oa-border);
+        overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x proximity;
+    }
+    .tab-strip::-webkit-scrollbar { display: none; }
+    .nav-btn { width: auto; flex: none; scroll-snap-align: start; min-height: var(--ofs-control); padding: 0 var(--oa-space-md); }
+    .nav-btn.active, .nav-btn[aria-current="page"] { box-shadow: inset 0 -3px var(--oa-selected-bar); }
+    [data-oa-theme^="high-contrast"] .nav-btn[aria-current="page"] { box-shadow: inset 0 0 0 2px var(--oa-selected-bar), inset 0 -6px var(--oa-selected-bar); }
+
+    .main-content { padding: var(--oa-space-md); padding-bottom: calc(var(--ofs-actionbar) + var(--ofs-status-row) + env(safe-area-inset-bottom, 0px) + var(--oa-space-lg)); }
+
+    /* Status row just above the action bar: always visible. */
+    .field-status {
+        position: fixed; left: 0; right: 0; z-index: 101;
+        bottom: calc(var(--ofs-actionbar) + env(safe-area-inset-bottom, 0px));
+        padding: 6px var(--oa-space-sm);
+        background: var(--oa-panel); border-top: var(--ofs-border) solid var(--oa-border);
+        overflow-x: auto; scrollbar-width: none;
+    }
+    .field-status::-webkit-scrollbar { display: none; }
+    .status-chip { flex: 1 0 auto; justify-content: center; }
+
+    .field-actionbar {
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 100;
+        display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--oa-space-xs);
+        padding: 6px var(--oa-space-sm) calc(6px + env(safe-area-inset-bottom, 0px));
+        box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
+    }
+    .field-actionbar .field-action {
+        flex-direction: column; justify-content: center; gap: 2px;
+        min-height: var(--ofs-action-btn); height: auto; padding: 4px 2px;
+        font-size: var(--ofs-label); font-weight: var(--oa-weight-semibold); white-space: normal; text-align: center; line-height: 1.1;
+    }
+    .status-bar { display: none; }
+    .toast-host { left: var(--oa-space-md); right: var(--oa-space-md); align-items: center; bottom: calc(var(--ofs-actionbar) + var(--ofs-status-row) + env(safe-area-inset-bottom, 0px) + var(--oa-space-sm)); }
+    #ifc-canvas-container { height: 60vh !important; min-height: 320px !important; }
+}
+
+/* Phones: the app bar wraps, the dialogs become full-width sheets from the bottom. */
+@media (max-width: 760px) {
+    .status-chip { flex: 1 1 auto; min-width: 0; padding: 0 8px; gap: 4px; font-size: min(var(--ofs-label), 15px); }
+    .status-chip .status-chip-text { display: none; }
+    .status-chip .status-chip-short { display: inline; overflow: hidden; text-overflow: ellipsis; }
+    .status-chip .oa-icon { width: 18px; height: 18px; }
+    .logo h1 { display: none; }
+    .logo-project { max-width: none; color: var(--oa-text); font-size: var(--ofs-h3); }
+    .toolbar-right { width: 100%; margin-left: 0; }
+    .toolbar-right > .oa-button, .tb-lang-dropdown { flex: 1 1 0; }
+    .toolbar-right .oa-button { width: 100%; justify-content: center; padding: 0 var(--oa-space-sm); }
+
+    .modal.active { align-items: flex-end; }
+    .modal-content, .modal-wide { width: 100%; max-height: 94vh; max-height: 94dvh; border-radius: var(--oa-radius-large) var(--oa-radius-large) 0 0; }
+    .modal-body { padding: var(--oa-space-md); }
+    .modal-footer { padding: var(--oa-space-sm) var(--oa-space-md) calc(var(--oa-space-sm) + env(safe-area-inset-bottom, 0px)); }
+    .modal-footer .oa-button { flex: 1 1 40%; justify-content: center; }
+    .panel { padding: var(--oa-space-md); }
+    .photo-viewer-nav { top: auto; bottom: calc(var(--oa-space-2xl) + 64px); transform: none; }
+}
+
+/* Very small phones (≤ 360 px): action labels stay, icons get smaller. */
+@media (max-width: 360px) {
+    .field-actionbar .field-action .oa-icon { width: 22px; height: 22px; }
+    .status-chip { padding: 0 8px; }
+}
+
+/* Tauri mobile: no title bar, respect the notch */
+body.tauri-mobile .app-toolbar { padding-top: max(var(--oa-space-sm), env(safe-area-inset-top, 0px)); }
+
+@media print {
+    .title-bar, .app-toolbar, .tab-strip, .field-actionbar, .field-status, .status-bar, .toast-host { display: none !important; }
+}

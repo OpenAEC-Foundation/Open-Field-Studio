@@ -1,32 +1,30 @@
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="nl" data-oa-theme="light" data-ofs-density="compact">
 <head>
-  <script id="openaec-analytics-loader" src="https://open-aec.com/shared/analytics.js?v=20261026" defer></script>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Open Field Studio</title>
-    <!-- Fonts: system-first stack (Segoe UI / San Francisco / Roboto). If Inter or Space Grotesk are installed locally, they are used. No CDN — app stays fully offline. -->
-    <style>
-        :root {
-            --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            --font-display: 'Space Grotesk', 'Segoe UI Variable Display', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
-            --font-mono: 'JetBrains Mono', 'Cascadia Mono', 'Consolas', 'Menlo', 'Courier New', monospace;
-        }
-    </style>
-    <link rel="stylesheet" href="/styles.css">
-    <link rel="stylesheet" href="/titlebar.css">
-    <link rel="stylesheet" href="/themes.css">
-    <link rel="icon" href="/icon_256.png" type="image/png">
+    <!-- Theme, density and outdoor mode are set before the first paint (no inline script: CSP without 'unsafe-inline'). -->
+    <script src="display.js"></script>
+    <script id="openaec-analytics-loader" src="https://open-aec.com/shared/analytics.js?v=20261026" defer></script>
+    <!-- OpenAEC Blueprint web package (design 0.4), copied by scripts/sync-openaec.mjs. Fonts are bundled: works offline. -->
+    <link rel="stylesheet" href="openaec/openaec-fonts.css">
+    <link rel="stylesheet" href="openaec/openaec-tokens.css">
+    <link rel="stylesheet" href="openaec/openaec-components.css">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="shell.css">
+    <link rel="icon" href="icon_256.png" type="image/png">
     <meta name="theme-color" content="#2A2A32">
-    <script src="/pdf.min.js"></script>
+    <script src="pdf.min.js"></script>
+    <script src="openaec/openaec-components.js" defer></script>
     <!-- i18next translations loaded via main.tsx module -->
 </head>
-<body>
-    <!-- Custom Title Bar -->
+<body class="oa-app">
+    <!-- Custom Title Bar (Tauri desktop only) -->
     <div class="title-bar" data-tauri-drag-region>
         <div class="title-bar-left">
             <div class="title-bar-icon">
-                <svg viewBox="0 0 32 32" fill="none">
+                <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
                     <path d="M16 2L4 9v14l12 7 12-7V9L16 2z" fill="rgba(217,119,6,0.15)" stroke="#D97706" stroke-width="2"/>
                     <path d="M4 9l12 7v14" stroke="#D97706" stroke-width="2"/>
                     <path d="M28 9l-12 7" stroke="#D97706" stroke-width="2"/>
@@ -41,90 +39,114 @@
         </div>
 
         <div class="window-controls">
-            <button class="window-btn" id="tb-minimize" title="Minimaliseren">
-                <svg width="10" height="1" viewBox="0 0 10 1"><rect width="10" height="1" fill="currentColor"/></svg>
+            <button class="window-btn" id="tb-minimize" title="Minimaliseren" aria-label="Minimaliseren">
+                <svg class="oa-icon" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i16-window.minimize"/></svg>
             </button>
-            <button class="window-btn" id="tb-maximize" title="Maximaliseren">
-                <svg width="10" height="10" viewBox="0 0 10 10"><rect x="0.5" y="0.5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+            <button class="window-btn" id="tb-maximize" title="Maximaliseren" aria-label="Maximaliseren">
+                <svg class="oa-icon" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i16-window.maximize"/></svg>
             </button>
-            <button class="window-btn window-btn-close" id="tb-close" title="Sluiten">
-                <svg width="10" height="10" viewBox="0 0 10 10"><line x1="0" y1="0" x2="10" y2="10" stroke="currentColor" stroke-width="1.2"/><line x1="10" y1="0" x2="0" y2="10" stroke="currentColor" stroke-width="1.2"/></svg>
+            <button class="window-btn window-btn-close" id="tb-close" title="Sluiten" aria-label="Sluiten">
+                <svg class="oa-icon" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i16-window.close"/></svg>
             </button>
         </div>
     </div>
 
     <div class="app-container">
-        <!-- App header with logo and name -->
-        <div class="app-toolbar">
+        <!-- App bar: name, project, status and the outdoor switch -->
+        <header class="app-toolbar">
             <div class="logo">
-                <svg viewBox="0 0 32 32" width="28" height="28" fill="none">
+                <svg viewBox="0 0 32 32" width="28" height="28" fill="none" aria-hidden="true">
                     <path d="M16 2L4 9v14l12 7 12-7V9L16 2z" fill="none" stroke="currentColor" stroke-width="2"/>
                     <path d="M4 9l12 7v14" stroke="currentColor" stroke-width="2"/>
                     <path d="M28 9l-12 7" stroke="currentColor" stroke-width="2"/>
                     <path d="M16 2l-6 3.5L16 9l6-3.5L16 2z" fill="currentColor" opacity="0.3"/>
                 </svg>
-                <h1>Open Field Studio</h1>
+                <div class="logo-text">
+                    <h1>Open Field Studio</h1>
+                    <span class="logo-project" id="appbar-project">—</span>
+                </div>
             </div>
+
+            <!-- What is saved, whether there is a connection, and what goes to the linked ERP project -->
+            <div class="field-status" id="field-status" role="status" aria-live="polite">
+                <button type="button" class="status-chip" id="st-save" data-click="status-open" data-state="saved">
+                    <svg class="oa-icon" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i16-status.success"/></svg>
+                    <span class="status-chip-text">Opgeslagen</span><span class="status-chip-short">Opgeslagen</span>
+                </button>
+                <button type="button" class="status-chip" id="st-net" data-click="status-open" data-state="online">
+                    <svg class="oa-icon" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i16-status.bridge-live"/></svg>
+                    <span class="status-chip-text">Online</span><span class="status-chip-short">Online</span>
+                </button>
+                <button type="button" class="status-chip" id="st-erp" data-click="status-open" data-state="none">
+                    <svg class="oa-icon" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i16-integration.platform-sync"/></svg>
+                    <span class="status-chip-text">ERP niet gekoppeld</span><span class="status-chip-short">Geen ERP</span>
+                </button>
+            </div>
+
             <div class="toolbar-right">
-              <button class="theme-toggle-btn" id="theme-toggle" title="Thema wisselen / Toggle theme">
-                <svg id="theme-icon-light" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg>
-                <svg id="theme-icon-dark" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="display:none"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+              <button type="button" class="oa-button outdoor-toggle" id="outdoor-toggle" aria-pressed="false" title="Buiten: hoog contrast, grote tekst en knoppen">
+                <svg class="oa-icon oa-icon--24" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-theme.light"/></svg>
+                <span data-i18n="outdoor_btn">Buiten</span>
+              </button>
+              <button type="button" class="oa-button" id="view-settings-btn" data-click="view-settings">
+                <svg class="oa-icon oa-icon--24" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-ui.settings"/></svg>
+                <span data-i18n="view_btn">Weergave</span>
               </button>
               <div class="tb-lang-dropdown" id="tb-lang-dropdown">
-                <button class="tb-lang-toggle" id="tb-lang-toggle" title="Taal / Language">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                <button type="button" class="oa-button tb-lang-toggle" id="tb-lang-toggle" title="Taal / Language" aria-haspopup="menu" aria-expanded="false">
+                    <svg class="oa-icon oa-icon--24" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-ui.language"/></svg>
                     <span id="tb-lang-current">NL</span>
-                    <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor" style="opacity:0.6"><path d="M1 2.5L4 5.5L7 2.5"/></svg>
                 </button>
-                <div class="tb-lang-menu" id="tb-lang-menu">
-                    <button class="tb-lang-option active" data-lang="nl"><span class="tb-lang-code">NL</span> Nederlands</button>
-                    <button class="tb-lang-option" data-lang="en"><span class="tb-lang-code">EN</span> English</button>
-                    <button class="tb-lang-option" data-lang="de"><span class="tb-lang-code">DE</span> Deutsch</button>
-                    <button class="tb-lang-option" data-lang="fr"><span class="tb-lang-code">FR</span> Français</button>
+                <div class="tb-lang-menu oa-menu" id="tb-lang-menu" role="menu">
+                    <button type="button" class="tb-lang-option active" data-lang="nl" role="menuitemradio"><span class="tb-lang-code">NL</span> Nederlands</button>
+                    <button type="button" class="tb-lang-option" data-lang="en" role="menuitemradio"><span class="tb-lang-code">EN</span> English</button>
+                    <button type="button" class="tb-lang-option" data-lang="de" role="menuitemradio"><span class="tb-lang-code">DE</span> Deutsch</button>
+                    <button type="button" class="tb-lang-option" data-lang="fr" role="menuitemradio"><span class="tb-lang-code">FR</span> Français</button>
                 </div>
               </div>
             </div>
-        </div>
-        <!-- Tab strip attached to content -->
-        <nav class="tab-strip">
-                <button class="nav-btn active" data-tab="project">
-                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" fill="currentColor"/></svg>
+        </header>
+
+        <!-- Sections: a sidebar on wide screens, a scrolling tab strip on tablets and phones -->
+        <nav class="tab-strip" aria-label="Onderdelen">
+                <button type="button" class="nav-btn active" data-tab="project" aria-current="page">
+                    <svg class="oa-icon oa-icon--24" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-field.project"/></svg>
                     <span data-i18n="nav_project">Project</span>
                 </button>
-                <button class="nav-btn" data-tab="plattegrond">
-                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z" fill="currentColor"/></svg>
+                <button type="button" class="nav-btn" data-tab="plattegrond">
+                    <svg class="oa-icon oa-icon--24" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-field.floorplans"/></svg>
                     <span data-i18n="nav_plans">Plattegronden</span>
                 </button>
-                <button class="nav-btn" data-tab="ifc">
-                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/></svg>
+                <button type="button" class="nav-btn" data-tab="ifc">
+                    <svg class="oa-icon oa-icon--24" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-bim.workspace"/></svg>
                     <span data-i18n="nav_ifc">3D BIM</span>
                 </button>
-                <button class="nav-btn" data-tab="opname">
-                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="currentColor"/></svg>
+                <button type="button" class="nav-btn" data-tab="opname">
+                    <svg class="oa-icon oa-icon--24" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-field.survey"/></svg>
                     <span data-i18n="nav_opname">Opname</span>
                 </button>
-                <button class="nav-btn" data-tab="inspectie">
-                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M19.5 3.5L18 2l-1.5 1.5L15 2l-1.5 1.5L12 2l-1.5 1.5L9 2 7.5 3.5 6 2 4.5 3.5 3 2v20l1.5-1.5L6 22l1.5-1.5L9 22l1.5-1.5L12 22l1.5-1.5L15 22l1.5-1.5L18 22l1.5-1.5L21 22V2l-1.5 1.5zM19 19H5V5h14v14zM6 15h12v2H6zm0-4h12v2H6zm0-4h12v2H6z" fill="currentColor"/></svg>
+                <button type="button" class="nav-btn" data-tab="inspectie">
+                    <svg class="oa-icon oa-icon--24" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-field.inspections"/></svg>
                     <span data-i18n="nav_inspectie">Inspectie</span>
                 </button>
-                <button class="nav-btn" data-tab="oplevering">
-                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm4.24-1.41L11.66 16.17 7.48 12l-1.41 1.41L11.66 19l12-12-1.42-1.41zM.41 13.41L6 19l1.41-1.41L1.83 12 .41 13.41z" fill="currentColor"/></svg>
+                <button type="button" class="nav-btn" data-tab="oplevering">
+                    <svg class="oa-icon oa-icon--24" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-field.handovers"/></svg>
                     <span data-i18n="nav_oplevering">Oplevering</span>
                 </button>
-                <button class="nav-btn" data-tab="dashboard">
-                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" fill="currentColor"/></svg>
+                <button type="button" class="nav-btn" data-tab="dashboard">
+                    <svg class="oa-icon oa-icon--24" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-field.dashboard"/></svg>
                     <span data-i18n="nav_dashboard">Dashboard</span>
                 </button>
-                <button class="nav-btn" data-tab="export">
-                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" fill="currentColor"/></svg>
+                <button type="button" class="nav-btn" data-tab="export">
+                    <svg class="oa-icon oa-icon--24" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-file.export"/></svg>
                     <span data-i18n="nav_export">Export</span>
                 </button>
-                <button class="nav-btn" data-tab="koppelingen">
-                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z" fill="currentColor"/></svg>
+                <button type="button" class="nav-btn" data-tab="koppelingen">
+                    <svg class="oa-icon oa-icon--24" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-integration.manage"/></svg>
                     <span data-i18n="nav_koppelingen">Koppelingen</span>
                 </button>
-                <button class="nav-btn" data-tab="handleiding">
-                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z" fill="currentColor"/></svg>
+                <button type="button" class="nav-btn" data-tab="handleiding">
+                    <svg class="oa-icon oa-icon--24" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-ui.help"/></svg>
                     <span data-i18n="nav_handleiding">Handleiding</span>
                 </button>
         </nav>
@@ -137,78 +159,74 @@
                     <form id="project-form" class="form-grid">
                         <div class="form-group">
                             <label for="project-name">Projectnaam *</label>
-                            <input type="text" id="project-name" required placeholder="Bijv. Renovatie Kantoorpand">
+                            <input class="oa-field" type="text" id="project-name" required placeholder="Bijv. Renovatie Kantoorpand">
                         </div>
                         <div class="form-group">
                             <label for="project-number">Projectnummer</label>
-                            <input type="text" id="project-number" placeholder="Bijv. 2024-001">
+                            <input class="oa-field" type="text" id="project-number" placeholder="Bijv. 2024-001">
                         </div>
                         <div class="form-group">
                             <label for="client-name">Opdrachtgever</label>
-                            <input type="text" id="client-name" placeholder="Naam opdrachtgever">
+                            <input class="oa-field" type="text" id="client-name" placeholder="Naam opdrachtgever">
                         </div>
                         <div class="form-group">
                             <label for="contact-person">Contactpersoon</label>
-                            <input type="text" id="contact-person" placeholder="Naam contactpersoon">
+                            <input class="oa-field" type="text" id="contact-person" placeholder="Naam contactpersoon">
                         </div>
                         <div class="form-group full-width">
                             <label for="street-address">Straat en huisnummer *</label>
-                            <input type="text" id="street-address" required placeholder="Bijv. Hoofdstraat 123">
+                            <input class="oa-field" type="text" id="street-address" required placeholder="Bijv. Hoofdstraat 123">
                         </div>
                         <div class="form-group">
                             <label for="postal-code">Postcode *</label>
-                            <input type="text" id="postal-code" required placeholder="1234 AB">
+                            <input class="oa-field" type="text" id="postal-code" required placeholder="1234 AB">
                         </div>
                         <div class="form-group">
                             <label for="city">Plaats *</label>
-                            <input type="text" id="city" required placeholder="Amsterdam">
+                            <input class="oa-field" type="text" id="city" required placeholder="Amsterdam">
                         </div>
-                        <div class="form-group full-width" style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
-                            <button type="button" class="btn btn-secondary" id="bag-lookup-btn" style="padding:0.4rem 0.8rem;font-size:0.85rem;">
-                                <svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align:middle;"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="currentColor"/></svg>
+                        <div class="form-group full-width project-tools">
+                            <button type="button" class="oa-button" id="bag-lookup-btn"><svg class="oa-icon" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i16-location.select"/></svg>
                                 Zoek adres (BAG)
                             </button>
-                            <span id="bag-verified-badge" style="display:none;font-size:0.8rem;color:var(--success,#059669);">
-                                <svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align:middle;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" fill="currentColor"/></svg>
+                            <span id="bag-verified-badge" class="oa-status oa-status--success" style="display:none;"><svg class="oa-icon" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i16-status.success"/></svg>
                                 <span id="bag-verified-text">BAG-geverifieerd</span>
                             </span>
-                            <button type="button" class="btn btn-secondary" id="epol-lookup-btn" style="display:none;padding:0.4rem 0.8rem;font-size:0.85rem;">
-                                <svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align:middle;"><path d="M7 2v11h3v9l7-12h-4l3-8H7z" fill="currentColor"/></svg>
+                            <button type="button" class="oa-button" id="epol-lookup-btn" style="display:none;"><svg class="oa-icon" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i16-energy.fetch-label"/></svg>
                                 Energielabel ophalen
                             </button>
-                            <span id="epol-badge" style="display:none;font-weight:600;font-size:0.85rem;padding:0.15rem 0.5rem;border-radius:4px;color:#fff;"></span>
-                            <button type="button" class="btn btn-secondary" id="project-import-btn" style="display:none;padding:0.4rem 0.8rem;font-size:0.85rem;">
-                                <svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align:middle;"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z" fill="currentColor"/></svg>
+                            <span id="epol-badge" class="epol-badge" style="display:none;"></span>
+                            <button type="button" class="oa-button" id="project-import-btn" style="display:none;"><svg class="oa-icon" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i16-integration.platform-sync"/></svg>
                                 Importeer uit koppeling
                             </button>
-                            <span id="erp-link-badge" style="display:none;font-size:0.8rem;font-weight:600;cursor:pointer;align-items:center;" title=""></span>
+                            <button type="button" id="erp-link-badge" class="oa-status erp-link-badge" style="display:none;" title=""></button>
                         </div>
                         <div class="form-group">
                             <label for="survey-date">Opnamedatum</label>
-                            <input type="date" id="survey-date">
+                            <input class="oa-field" type="date" id="survey-date">
                         </div>
                         <div class="form-group">
                             <label for="surveyor">Opgenomen door</label>
-                            <input type="text" id="surveyor" placeholder="Uw naam">
+                            <input class="oa-field" type="text" id="surveyor" placeholder="Uw naam">
                         </div>
                         <div class="form-group full-width">
                             <label for="project-description">Projectomschrijving</label>
-                            <textarea id="project-description" rows="4" placeholder="Korte beschrijving van het project..."></textarea>
+                            <textarea class="oa-field" id="project-description" rows="4" placeholder="Korte beschrijving van het project..."></textarea>
                         </div>
                         <div class="form-group full-width">
                             <label for="project-notes">Opmerkingen</label>
-                            <textarea id="project-notes" rows="3" placeholder="Aanvullende opmerkingen..."></textarea>
+                            <textarea class="oa-field" id="project-notes" rows="3" placeholder="Aanvullende opmerkingen..."></textarea>
                         </div>
                     </form>
 
                     <!-- Contacten sectie -->
-                    <h2 style="margin-top:2rem;">Contacten</h2>
+                    <h2 class="section-gap">Contacten</h2>
                     <div id="contacts-list" class="contacts-list"></div>
-                    <button type="button" class="btn btn-secondary" id="add-contact-btn" style="margin-top:1rem;">+ Contact toevoegen</button>
+                    <button type="button" class="oa-button gap-top" id="add-contact-btn">+ Contact toevoegen</button>
 
                     <div class="form-actions">
-                        <button type="button" class="btn btn-primary" id="save-project">
-                            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z" fill="currentColor"/></svg>
+                        <button type="button" class="oa-button oa-button--primary" id="save-project">
+                            <svg class="oa-icon" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i16-file.save"/></svg>
                             Project Opslaan
                         </button>
                     </div>
@@ -220,7 +238,7 @@
                 <div class="panel">
                     <h2>Plattegronden</h2>
                     <div class="upload-zone" id="floor-plan-upload">
-                        <svg viewBox="0 0 24 24" width="48" height="48"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" fill="currentColor"/></svg>
+                        <svg class="oa-icon oa-icon--24 upload-icon" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-field.floorplans"/></svg>
                         <p>Sleep plattegronden hierheen of klik om te uploaden</p>
                         <span class="upload-hint">JPG, PNG, PDF</span>
                         <input type="file" id="floor-plan-input" accept="image/*,application/pdf,.pdf" multiple hidden>
@@ -234,14 +252,14 @@
                 <div class="panel">
                     <h2 id="ifc-h2">3D BIM (IFC-viewer)</h2>
                     <div class="upload-zone" id="ifc-upload" style="margin-bottom:1rem;">
-                        <svg viewBox="0 0 24 24" width="48" height="48"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z" fill="currentColor"/></svg>
+                        <svg class="oa-icon oa-icon--24 upload-icon" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-bim.workspace"/></svg>
                         <p id="ifc-upload-text">Sleep een .ifc-bestand hierheen of klik om te uploaden</p>
                         <span class="upload-hint">IFC 2x3 / IFC4</span>
                         <input type="file" id="ifc-input" accept=".ifc,application/ifc" hidden>
                     </div>
-                    <div id="ifc-status" style="font-size:0.85rem;color:var(--text-muted, #6b7280);margin-bottom:0.5rem;"></div>
+                    <div id="ifc-status" style="font-size:0.85rem;color:var(--oa-text-secondary);margin-bottom:0.5rem;"></div>
                     <div id="ifc-canvas-container" style="width:100%;height:calc(100vh - 260px);min-height:400px;border-radius:8px;overflow:hidden;background:#1a1a20;"></div>
-                    <p style="margin-top:0.75rem;font-size:0.8rem;color:var(--text-muted, #6b7280);" id="ifc-info-txt">
+                    <p style="margin-top:0.75rem;font-size:0.8rem;color:var(--oa-text-secondary);" id="ifc-info-txt">
                         Muis: linksklik+sleep = draaien · scroll = zoomen · rechtsklik+sleep = pannen. Ticket-koppeling op 3D-model volgt in een latere fase.
                     </p>
                 </div>
@@ -252,32 +270,35 @@
                 <div class="opname-container">
                     <div class="floor-selector">
                         <label for="active-floor">Plattegrond:</label>
-                        <select id="active-floor">
+                        <select class="oa-field" id="active-floor">
                             <option value="">-- Kies een plattegrond --</option>
                         </select>
-                        <div class="ticket-filters">
-                            <select id="filter-status">
+                        <details class="ticket-filter-box" id="ticket-filter-box">
+                            <summary class="oa-button" data-i18n="filters">Filters</summary>
+                            <div class="ticket-filters">
+                            <select class="oa-field" id="filter-status">
                                 <option value="">Alle statussen</option>
                                 <option value="open">Open</option>
                                 <option value="assigned">Toegewezen</option>
                                 <option value="completed">Afgerond</option>
                                 <option value="verified">Geverifieerd</option>
                             </select>
-                            <select id="filter-category">
+                            <select class="oa-field" id="filter-category">
                                 <option value="">Alle categorieën</option>
                             </select>
-                            <select id="filter-priority">
+                            <select class="oa-field" id="filter-priority">
                                 <option value="">Alle prioriteiten</option>
                                 <option value="high">Hoog</option>
                                 <option value="medium">Midden</option>
                                 <option value="low">Laag</option>
                             </select>
                         </div>
+                        </details>
                     </div>
                     <div class="canvas-wrapper">
                         <div class="canvas-container" id="canvas-container">
                             <div class="canvas-placeholder" id="canvas-placeholder">
-                                <svg viewBox="0 0 24 24" width="64" height="64"><path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z" fill="currentColor"/></svg>
+                                <svg class="oa-icon oa-icon--24 upload-icon" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-field.floorplans"/></svg>
                                 <p>Selecteer een plattegrond om tickets toe te voegen</p>
                             </div>
                             <div class="floor-plan-wrapper" id="floor-plan-wrapper" style="display: none;">
@@ -286,18 +307,21 @@
                             </div>
                         </div>
                         <div class="canvas-toolbar">
-                            <button class="tool-btn" id="add-point-btn" title="Ticket toevoegen">
-                                <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="currentColor"/></svg>
+                            <button type="button" class="oa-button tool-btn" id="add-point-btn" title="Ticket toevoegen" aria-pressed="false">
+                                <svg class="oa-icon oa-icon--24" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-field.ticket-add"/></svg>
                                 <span data-i18n="btn_add_ticket">Ticket toevoegen</span>
                             </button>
-                            <button class="tool-btn" id="zoom-in-btn" title="Inzoomen">
-                                <svg viewBox="0 0 24 24" width="20" height="20"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14zm.5-7H9v2H7v1h2v2h1v-2h2V9h-2V7z" fill="currentColor"/></svg>
+                            <button type="button" class="oa-button tool-btn" id="zoom-in-btn" title="Inzoomen">
+                                <svg class="oa-icon oa-icon--24" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-view.zoom-in"/></svg>
+                                <span data-i18n="tb_zoom_in">Inzoomen</span>
                             </button>
-                            <button class="tool-btn" id="zoom-out-btn" title="Uitzoomen">
-                                <svg viewBox="0 0 24 24" width="20" height="20"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14zM7 9h5v1H7V9z" fill="currentColor"/></svg>
+                            <button type="button" class="oa-button tool-btn" id="zoom-out-btn" title="Uitzoomen">
+                                <svg class="oa-icon oa-icon--24" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-view.zoom-out"/></svg>
+                                <span data-i18n="tb_zoom_out">Uitzoomen</span>
                             </button>
-                            <button class="tool-btn" id="zoom-fit-btn" title="Passend maken">
-                                <svg viewBox="0 0 24 24" width="20" height="20"><path d="M3 5v4h2V5h4V3H5c-1.1 0-2 .9-2 2zm2 10H3v4c0 1.1.9 2 2 2h4v-2H5v-4zm14 4h-4v2h4c1.1 0 2-.9 2-2v-4h-2v4zm0-16h-4v2h4v4h2V5c0-1.1-.9-2-2-2z" fill="currentColor"/></svg>
+                            <button type="button" class="oa-button tool-btn" id="zoom-fit-btn" title="Passend maken">
+                                <svg class="oa-icon oa-icon--24" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-view.fit"/></svg>
+                                <span data-i18n="tb_zoom_fit">Passend maken</span>
                             </button>
                         </div>
                     </div>
@@ -315,7 +339,7 @@
                 <div class="panel" id="inspectie-overview" style="display:block;">
                     <h2>Inspecties</h2>
                     <div class="form-actions" style="margin-top:0;margin-bottom:1.5rem;">
-                        <button type="button" class="btn btn-primary" id="new-inspection-btn">+ Nieuwe inspectie</button>
+                        <button type="button" class="oa-button oa-button--primary" id="new-inspection-btn">+ Nieuwe inspectie</button>
                     </div>
                     <div id="inspections-list" class="inspections-list">
                         <p class="empty-state">Nog geen inspecties uitgevoerd</p>
@@ -328,70 +352,70 @@
                     <div class="form-grid">
                         <div class="form-group">
                             <label for="insp-name">Naam inspectie *</label>
-                            <input type="text" id="insp-name" placeholder="Bijv. Vooroplevering BG">
+                            <input class="oa-field" type="text" id="insp-name" placeholder="Bijv. Vooroplevering BG">
                         </div>
                         <div class="form-group">
                             <label for="insp-type">Type</label>
-                            <select id="insp-type">
+                            <select class="oa-field" id="insp-type">
                                 <option value="general">Vrije inspectie</option>
                                 <option value="checklist">Checklist-inspectie</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label for="insp-template">Checklist template</label>
-                            <select id="insp-template">
+                            <select class="oa-field" id="insp-template">
                                 <option value="">-- Kies template --</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label for="insp-floor">Plattegrond</label>
-                            <select id="insp-floor">
+                            <select class="oa-field" id="insp-floor">
                                 <option value="">-- Optioneel --</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label for="insp-inspector">Inspecteur</label>
-                            <input type="text" id="insp-inspector" placeholder="Uw naam">
+                            <input class="oa-field" type="text" id="insp-inspector" placeholder="Uw naam">
                         </div>
                         <div class="form-group">
                             <label for="insp-date">Datum</label>
-                            <input type="date" id="insp-date">
+                            <input class="oa-field" type="date" id="insp-date">
                         </div>
                     </div>
                     <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" id="cancel-inspection-setup">Annuleren</button>
-                        <button type="button" class="btn btn-primary" id="start-inspection-btn">Inspectie Starten</button>
+                        <button type="button" class="oa-button" id="cancel-inspection-setup">Annuleren</button>
+                        <button type="button" class="oa-button oa-button--primary" id="start-inspection-btn">Inspectie Starten</button>
                     </div>
                 </div>
 
                 <!-- Inspectie uitvoeren -->
                 <div class="panel" id="inspectie-execute" style="display:none;">
-                    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;">
-                        <button type="button" class="btn btn-secondary btn-sm" id="back-to-inspections" style="flex-shrink:0;">&larr; Terug</button>
-                        <h2 id="insp-exec-title" style="flex:1;margin:0;">Inspectie</h2>
-                        <button type="button" class="btn btn-secondary btn-sm" id="edit-insp-info-btn" title="Bewerk basisinfo">&#9998; Bewerken</button>
+                    <div class="insp-exec-head">
+                        <button type="button" class="oa-button oa-button--compact" id="back-to-inspections">&larr; Terug</button>
+                        <h2 id="insp-exec-title">Inspectie</h2>
+                        <button type="button" class="oa-button oa-button--compact" id="edit-insp-info-btn" title="Bewerk basisinfo">&#9998; Bewerken</button>
                     </div>
-                    <div id="insp-edit-info" class="form-grid" style="display:none;margin-bottom:1rem;padding:1rem;background:var(--concrete);border-radius:var(--radius);border:1px solid var(--border-color);">
+                    <div id="insp-edit-info" class="form-grid" style="display:none;margin-bottom:1rem;padding:1rem;background:var(--oa-frame);border-radius:var(--oa-radius-medium);border:1px solid var(--oa-border);">
                         <div class="form-group">
                             <label for="insp-edit-name">Naam inspectie</label>
-                            <input type="text" id="insp-edit-name">
+                            <input class="oa-field" type="text" id="insp-edit-name">
                         </div>
                         <div class="form-group">
                             <label for="insp-edit-inspector">Inspecteur</label>
-                            <input type="text" id="insp-edit-inspector">
+                            <input class="oa-field" type="text" id="insp-edit-inspector">
                         </div>
                         <div class="form-group">
                             <label for="insp-edit-date">Datum</label>
-                            <input type="date" id="insp-edit-date">
+                            <input class="oa-field" type="date" id="insp-edit-date">
                         </div>
                         <div class="form-group">
                             <label for="insp-edit-floor">Plattegrond</label>
-                            <select id="insp-edit-floor">
+                            <select class="oa-field" id="insp-edit-floor">
                                 <option value="">-- Optioneel --</option>
                             </select>
                         </div>
                         <div class="form-actions" style="grid-column:1/-1;">
-                            <button type="button" class="btn btn-primary btn-sm" id="save-insp-info-btn">Opslaan</button>
+                            <button type="button" class="oa-button oa-button--primary oa-button--compact" id="save-insp-info-btn">Opslaan</button>
                         </div>
                     </div>
                     <div class="inspectie-progress" style="margin-bottom:1rem;">
@@ -401,11 +425,11 @@
                     <div id="checklist-items" class="checklist-items"></div>
                     <div class="form-group full-width" style="margin-top:1.5rem;">
                         <label for="insp-notes">Algemene opmerkingen</label>
-                        <textarea id="insp-notes" rows="3" placeholder="Opmerkingen bij deze inspectie..."></textarea>
+                        <textarea class="oa-field" id="insp-notes" rows="3" placeholder="Opmerkingen bij deze inspectie..."></textarea>
                     </div>
                     <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" id="back-to-inspections-bottom">&larr; Terug naar overzicht</button>
-                        <button type="button" class="btn btn-primary" id="finish-inspection-btn">Inspectie Afronden</button>
+                        <button type="button" class="oa-button" id="back-to-inspections-bottom">&larr; Terug naar overzicht</button>
+                        <button type="button" class="oa-button oa-button--primary" id="finish-inspection-btn">Inspectie Afronden</button>
                     </div>
                 </div>
 
@@ -414,16 +438,16 @@
                     <h2>Inspectie Ondertekenen</h2>
                     <div class="form-group">
                         <label for="sign-name">Naam ondertekenaar</label>
-                        <input type="text" id="sign-name" placeholder="Uw volledige naam">
+                        <input class="oa-field" type="text" id="sign-name" placeholder="Uw volledige naam">
                     </div>
                     <div class="form-group">
                         <label>Handtekening</label>
                         <canvas id="signature-canvas" width="500" height="200"></canvas>
-                        <button type="button" class="btn btn-secondary" id="clear-signature" style="margin-top:0.5rem;">Wissen</button>
+                        <button type="button" class="oa-button gap-top" id="clear-signature">Wissen</button>
                     </div>
                     <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" id="cancel-sign">Annuleren</button>
-                        <button type="button" class="btn btn-primary" id="confirm-sign">Ondertekenen & Afronden</button>
+                        <button type="button" class="oa-button" id="cancel-sign">Annuleren</button>
+                        <button type="button" class="oa-button oa-button--primary" id="confirm-sign">Ondertekenen & Afronden</button>
                     </div>
                 </div>
             </section>
@@ -433,7 +457,7 @@
                 <div class="panel" id="oplevering-overview" style="display:block;">
                     <h2>Opleveringen</h2>
                     <div class="form-actions" style="margin-top:0;margin-bottom:1.5rem;">
-                        <button type="button" class="btn btn-primary" id="new-handover-btn">+ Nieuwe oplevering</button>
+                        <button type="button" class="oa-button oa-button--primary" id="new-handover-btn">+ Nieuwe oplevering</button>
                     </div>
                     <div id="handovers-list" class="handovers-list">
                         <p class="empty-state">Nog geen opleveringen aangemaakt</p>
@@ -446,7 +470,7 @@
                     <div class="form-grid">
                         <div class="form-group">
                             <label for="ho-type">Type oplevering</label>
-                            <select id="ho-type">
+                            <select class="oa-field" id="ho-type">
                                 <option value="pre">Vooroplevering</option>
                                 <option value="first">Eerste oplevering</option>
                                 <option value="second">Tweede oplevering / Naschouw</option>
@@ -454,19 +478,19 @@
                         </div>
                         <div class="form-group">
                             <label for="ho-date">Datum</label>
-                            <input type="date" id="ho-date">
+                            <input class="oa-field" type="date" id="ho-date">
                         </div>
                         <div class="form-group full-width">
                             <label for="ho-notes">Opmerkingen</label>
-                            <textarea id="ho-notes" rows="2" placeholder="Opmerkingen..."></textarea>
+                            <textarea class="oa-field" id="ho-notes" rows="2" placeholder="Opmerkingen..."></textarea>
                         </div>
                     </div>
                     <h3 style="margin:1.5rem 0 1rem;" data-i18n="h_participants">Deelnemers</h3>
                     <div id="ho-participants" class="ho-participants"></div>
-                    <button type="button" class="btn btn-secondary" id="add-ho-participant" style="margin-top:0.5rem;">+ Deelnemer</button>
+                    <button type="button" class="oa-button gap-top" id="add-ho-participant">+ Deelnemer</button>
                     <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" id="cancel-handover-setup">Annuleren</button>
-                        <button type="button" class="btn btn-primary" id="start-handover-btn">Oplevering Starten</button>
+                        <button type="button" class="oa-button" id="cancel-handover-setup">Annuleren</button>
+                        <button type="button" class="oa-button oa-button--primary" id="start-handover-btn">Oplevering Starten</button>
                     </div>
                 </div>
 
@@ -489,8 +513,8 @@
                     <div id="ho-documents-list" class="ho-documents-list"></div>
 
                     <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" id="back-to-handovers">Terug</button>
-                        <button type="button" class="btn btn-primary" id="finish-handover-btn">Oplevering Afronden & Ondertekenen</button>
+                        <button type="button" class="oa-button" id="back-to-handovers">Terug</button>
+                        <button type="button" class="oa-button oa-button--primary" id="finish-handover-btn">Oplevering Afronden & Ondertekenen</button>
                     </div>
                 </div>
 
@@ -499,17 +523,17 @@
                     <h2>Proces-Verbaal Ondertekenen</h2>
                     <div class="form-group">
                         <label for="ho-verdict">Eindoordeel</label>
-                        <select id="ho-verdict">
+                        <select class="oa-field" id="ho-verdict">
                             <option value="approved">Goedgekeurd</option>
                             <option value="conditional">Goedgekeurd onder voorbehoud</option>
                             <option value="rejected">Afgekeurd</option>
                         </select>
                     </div>
                     <div id="ho-signatures-area" class="ho-signatures-area"></div>
-                    <button type="button" class="btn btn-secondary" id="add-ho-signature">+ Handtekening toevoegen</button>
+                    <button type="button" class="oa-button" id="add-ho-signature">+ Handtekening toevoegen</button>
                     <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" id="cancel-ho-sign">Terug</button>
-                        <button type="button" class="btn btn-primary" id="confirm-ho-sign">Ondertekenen & Afronden</button>
+                        <button type="button" class="oa-button" id="cancel-ho-sign">Terug</button>
+                        <button type="button" class="oa-button oa-button--primary" id="confirm-ho-sign">Ondertekenen & Afronden</button>
                     </div>
                 </div>
             </section>
@@ -585,11 +609,11 @@
                         </div>
                         <div id="export-inspection-select" style="display:none;margin-top:1rem;">
                             <label for="export-inspection-id">Selecteer inspectie:</label>
-                            <select id="export-inspection-id"></select>
+                            <select class="oa-field" id="export-inspection-id"></select>
                         </div>
                         <div id="export-handover-select" style="display:none;margin-top:1rem;">
                             <label for="export-handover-id">Selecteer oplevering:</label>
-                            <select id="export-handover-id"></select>
+                            <select class="oa-field" id="export-handover-id"></select>
                         </div>
                         <h3 style="margin-top:1.5rem;">Opties</h3>
                         <div class="option-group">
@@ -604,26 +628,26 @@
                         </div>
                     </div>
                     <div class="form-actions">
-                        <button type="button" class="btn btn-primary btn-large" id="export-pdf">
-                            <svg viewBox="0 0 24 24" width="20" height="20"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9.5 11.5c0 .83-.67 1.5-1.5 1.5H7v2H5.5V9H8c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5H11V9h2c.83 0 1.5.67 1.5 1.5v3zm4-3H17v1h1.5V13H17v2h-1.5V9h3v1.5zM7 10.5h1v1H7zm5.5 0H14v3h-1.5z" fill="currentColor"/></svg>
+                        <button type="button" class="oa-button oa-button--primary" id="export-pdf">
+                            <svg class="oa-icon" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i16-file.export"/></svg>
                             Exporteer als PDF
                         </button>
-                        <button type="button" class="btn btn-secondary btn-large" id="export-html">
-                            <svg viewBox="0 0 24 24" width="20" height="20"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" fill="currentColor"/></svg>
+                        <button type="button" class="oa-button" id="export-html">
+                            <svg class="oa-icon" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i16-file.export"/></svg>
                             Exporteer als HTML
                         </button>
-                        <button type="button" class="btn btn-secondary btn-large" id="export-bcf" title="BIM Collaboration Format 2.1 — voor BIMcollab, Revit, Solibri">
-                            <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/></svg>
+                        <button type="button" class="oa-button" id="export-bcf" title="BIM Collaboration Format 2.1 — uitwisselbaar met andere BIM-software">
+                            <svg class="oa-icon" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i16-bim.workspace"/></svg>
                             Exporteer als BCF (BIM)
                         </button>
-                        <button type="button" class="btn btn-secondary btn-large" id="sync-kyp" title="Sync open tickets als taken naar KYP Project (planning)">
-                            <svg viewBox="0 0 24 24" width="20" height="20"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z" fill="currentColor"/></svg>
+                        <button type="button" class="oa-button" id="sync-kyp" title="Sync open tickets als taken naar KYP Project (planning)">
+                            <svg class="oa-icon" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i16-planning.sync"/></svg>
                             Sync met KYP Project
                         </button>
-                        <button type="button" class="btn btn-secondary" id="save-json">Project Opslaan (JSON)</button>
-                        <button type="button" class="btn btn-secondary" id="load-json">Project Laden</button>
+                        <button type="button" class="oa-button" id="save-json">Project Opslaan (JSON)</button>
+                        <button type="button" class="oa-button" id="load-json">Project Laden</button>
                         <input type="file" id="load-json-input" accept=".json" hidden>
-                        <button type="button" class="btn btn-danger" id="clear-data">Alles Wissen</button>
+                        <button type="button" class="oa-button oa-button--danger" id="clear-data">Alles Wissen</button>
                     </div>
                 </div>
             </section>
@@ -632,7 +656,7 @@
             <section id="koppelingen-tab" class="tab-content">
                 <div class="panel">
                     <h2 id="connectors-h2">Koppelingen</h2>
-                    <p id="connectors-intro" style="font-size:0.9rem;color:var(--text-muted,#6b7280);margin-bottom:1rem;">
+                    <p id="connectors-intro" style="font-size:0.9rem;color:var(--oa-text-secondary);margin-bottom:1rem;">
                         Configureer hier de externe systemen waar OFS opleveringen, dossiers of taken naartoe kan sturen — of waaruit klantgegevens en tekeningen opgehaald kunnen worden. Sleutels blijven lokaal op deze computer.
                     </p>
                     <div id="connectors-list" class="handovers-list"></div>
@@ -646,18 +670,38 @@
                 </div>
             </section>
         </main>
+
+        <!-- Field actions: always at the bottom, within thumb reach on phones and tablets -->
+        <div class="field-actionbar" role="toolbar" aria-label="Veldacties" id="field-actionbar">
+            <button type="button" class="oa-button field-action" data-click="field-photo">
+                <svg class="oa-icon oa-icon--24" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-camera.capture"/></svg>
+                <span data-i18n="act_photo">Foto</span>
+            </button>
+            <button type="button" class="oa-button field-action" data-click="field-note">
+                <svg class="oa-icon oa-icon--24" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-draw.note"/></svg>
+                <span data-i18n="act_note">Notitie</span>
+            </button>
+            <button type="button" class="oa-button field-action" data-click="field-marker" id="field-marker-btn" aria-pressed="false">
+                <svg class="oa-icon oa-icon--24" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-field.ticket-add"/></svg>
+                <span data-i18n="act_marker">Markering</span>
+            </button>
+            <button type="button" class="oa-button oa-button--primary field-action" data-click="field-save">
+                <svg class="oa-icon oa-icon--24" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-file.save"/></svg>
+                <span data-i18n="act_save">Opslaan</span>
+            </button>
+            <input type="file" id="quick-photo-input" accept="image/*" capture="environment" hidden>
+        </div>
     </div>
 
-    <!-- Status Bar -->
-    <div class="status-bar" id="status-bar">
+    <!-- Status Bar (desktop) -->
+    <div class="status-bar oa-statusbar" id="status-bar">
         <span class="status-bar-item" id="sb-project">—</span>
-        <span class="status-bar-sep">|</span>
         <span class="status-bar-item" id="sb-tickets">0 tickets</span>
-        <span class="status-bar-sep">|</span>
         <span class="status-bar-item" id="sb-plans">0 plans</span>
-        <span class="status-bar-right">
-            <span class="status-bar-item" id="sb-saved">—</span>
-        </span>
+        <span class="oa-spacer"></span>
+        <span class="status-bar-item" id="sb-erp"></span>
+        <span class="status-bar-item" id="sb-net"></span>
+        <span class="status-bar-item" id="sb-saved">—</span>
     </div>
 
     <!-- ==================== TICKET MODAL ==================== -->
@@ -666,18 +710,18 @@
         <div class="modal-content modal-wide">
             <div class="modal-header">
                 <h3 id="modal-title">Ticket Toevoegen</h3>
-                <button class="modal-close" id="modal-close">&times;</button>
+                <button type="button" class="modal-close" id="modal-close"><span aria-hidden="true">&times;</span> <span data-i18n="btn_close">Sluiten</span></button>
             </div>
             <div class="modal-body">
                 <form id="point-form">
                     <div class="form-grid">
                         <div class="form-group">
                             <label for="point-label">Label *</label>
-                            <input type="text" id="point-label" required placeholder="Bijv. Scheur in wand">
+                            <input class="oa-field" type="text" id="point-label" required placeholder="Bijv. Scheur in wand">
                         </div>
                         <div class="form-group">
                             <label for="point-category">Categorie</label>
-                            <select id="point-category">
+                            <select class="oa-field" id="point-category">
                                 <option value="Bouwkundig">Bouwkundig</option>
                                 <option value="Schilderwerk">Schilderwerk & afwerking</option>
                                 <option value="Sanitair">Sanitair & leidingwerk</option>
@@ -693,7 +737,7 @@
                         </div>
                         <div class="form-group">
                             <label for="point-priority">Prioriteit</label>
-                            <select id="point-priority">
+                            <select class="oa-field" id="point-priority">
                                 <option value="medium">Midden</option>
                                 <option value="high">Hoog</option>
                                 <option value="low">Laag</option>
@@ -701,7 +745,7 @@
                         </div>
                         <div class="form-group">
                             <label for="point-severity">Ernst</label>
-                            <select id="point-severity">
+                            <select class="oa-field" id="point-severity">
                                 <option value="cosmetic">Cosmetisch</option>
                                 <option value="functional">Functioneel</option>
                                 <option value="safety">Veiligheid</option>
@@ -710,7 +754,7 @@
                         </div>
                         <div class="form-group">
                             <label for="point-status">Status</label>
-                            <select id="point-status">
+                            <select class="oa-field" id="point-status">
                                 <option value="open">Open</option>
                                 <option value="assigned">Toegewezen</option>
                                 <option value="completed">Afgerond</option>
@@ -719,28 +763,29 @@
                         </div>
                         <div class="form-group">
                             <label for="point-assigned">Toegewezen aan</label>
-                            <select id="point-assigned">
+                            <select class="oa-field" id="point-assigned">
                                 <option value="">-- Niemand --</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label for="point-deadline">Deadline</label>
-                            <input type="date" id="point-deadline">
+                            <input class="oa-field" type="date" id="point-deadline">
                         </div>
                     </div>
                     <div class="form-group full-width">
                         <label for="point-description">Beschrijving</label>
-                        <textarea id="point-description" rows="3" placeholder="Beschrijving van het gebrek..."></textarea>
+                        <textarea class="oa-field" id="point-description" rows="4" autocapitalize="sentences" spellcheck="true" enterkeyhint="done" placeholder="Beschrijving van het gebrek..."></textarea>
+                        <p class="field-help" data-i18n="dictate_hint">Inspreken: tik op de microfoon op het toetsenbord.</p>
                     </div>
                     <div class="form-group">
                         <label>Foto's</label>
                         <div class="photo-upload-zone" id="photo-upload">
-                            <svg viewBox="0 0 24 24" width="32" height="32"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" fill="currentColor"/></svg>
+                            <svg class="oa-icon oa-icon--24 upload-icon" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-evidence.photo"/></svg>
                             <p>Sleep foto's hierheen of klik om te uploaden</p>
                             <input type="file" id="photo-input" accept="image/*" capture="environment" multiple hidden>
                         </div>
-                        <button type="button" class="btn btn-secondary" id="camera-btn" style="margin-top:0.5rem;width:100%;">
-                            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 15.2c1.77 0 3.2-1.43 3.2-3.2S13.77 8.8 12 8.8 8.8 10.23 8.8 12s1.43 3.2 3.2 3.2zM9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9z" fill="currentColor"/></svg>
+                        <button type="button" class="oa-button gap-top full" id="camera-btn">
+                            <svg class="oa-icon" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i16-camera.capture"/></svg>
                             Maak foto met camera
                         </button>
                         <div class="photo-preview" id="photo-preview"></div>
@@ -750,8 +795,8 @@
                         <label>Commentaar</label>
                         <div id="comments-list" class="comments-list"></div>
                         <div class="comment-input">
-                            <input type="text" id="new-comment" placeholder="Commentaar toevoegen...">
-                            <button type="button" class="btn btn-secondary" id="add-comment-btn">Verstuur</button>
+                            <input class="oa-field" type="text" id="new-comment" placeholder="Commentaar toevoegen...">
+                            <button type="button" class="oa-button" id="add-comment-btn">Verstuur</button>
                         </div>
                     </div>
                     <input type="hidden" id="point-id">
@@ -760,9 +805,9 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" id="cancel-point">Annuleren</button>
-                <button type="button" class="btn btn-danger" id="delete-point" style="display:none;">Verwijderen</button>
-                <button type="button" class="btn btn-primary" id="save-point">Opslaan</button>
+                <button type="button" class="oa-button" id="cancel-point">Annuleren</button>
+                <button type="button" class="oa-button oa-button--danger" id="delete-point" style="display:none;">Verwijderen</button>
+                <button type="button" class="oa-button oa-button--primary" id="save-point">Opslaan</button>
             </div>
         </div>
     </div>
@@ -771,10 +816,10 @@
     <div class="modal" id="photo-viewer-modal">
         <div class="modal-overlay"></div>
         <div class="photo-viewer-content">
-            <button class="photo-viewer-close" id="photo-viewer-close">&times;</button>
-            <button class="photo-viewer-nav prev" id="photo-prev">&lt;</button>
+            <button type="button" class="oa-button photo-viewer-close" id="photo-viewer-close"><span aria-hidden="true">&times;</span> <span data-i18n="btn_close">Sluiten</span></button>
+            <button type="button" class="oa-button photo-viewer-nav prev" id="photo-prev"><span aria-hidden="true">&lsaquo;</span> <span data-i18n="btn_prev">Vorige</span></button>
             <img id="photo-viewer-image" src="" alt="Foto">
-            <button class="photo-viewer-nav next" id="photo-next">&gt;</button>
+            <button type="button" class="oa-button photo-viewer-nav next" id="photo-next"><span data-i18n="btn_next">Volgende</span> <span aria-hidden="true">&rsaquo;</span></button>
             <div class="photo-viewer-caption" id="photo-viewer-caption"></div>
             <div class="photo-viewer-meta" id="photo-viewer-meta" style="text-align:center;font-size:0.8rem;color:#e5e7eb;padding:0.5rem 1rem;font-family:monospace;"></div>
         </div>
@@ -786,17 +831,17 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3 id="contact-modal-title">Contact Toevoegen</h3>
-                <button class="modal-close" id="contact-modal-close">&times;</button>
+                <button type="button" class="modal-close" id="contact-modal-close"><span aria-hidden="true">&times;</span> <span data-i18n="btn_close">Sluiten</span></button>
             </div>
             <div class="modal-body">
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="contact-name-input">Naam *</label>
-                        <input type="text" id="contact-name-input" placeholder="Volledige naam">
+                        <input class="oa-field" type="text" id="contact-name-input" placeholder="Volledige naam">
                     </div>
                     <div class="form-group">
                         <label for="contact-role-input">Rol</label>
-                        <select id="contact-role-input">
+                        <select class="oa-field" id="contact-role-input">
                             <option value="Projectleider">Projectleider</option>
                             <option value="Inspecteur">Inspecteur</option>
                             <option value="Uitvoerder">Uitvoerder</option>
@@ -808,23 +853,23 @@
                     </div>
                     <div class="form-group">
                         <label for="contact-company-input">Bedrijf</label>
-                        <input type="text" id="contact-company-input" placeholder="Bedrijfsnaam">
+                        <input class="oa-field" type="text" id="contact-company-input" placeholder="Bedrijfsnaam">
                     </div>
                     <div class="form-group">
                         <label for="contact-email-input">E-mail</label>
-                        <input type="email" id="contact-email-input" placeholder="email@voorbeeld.nl">
+                        <input class="oa-field" type="email" id="contact-email-input" placeholder="email@voorbeeld.nl">
                     </div>
                     <div class="form-group">
                         <label for="contact-phone-input">Telefoon</label>
-                        <input type="tel" id="contact-phone-input" placeholder="06-12345678">
+                        <input class="oa-field" type="tel" id="contact-phone-input" placeholder="06-12345678">
                     </div>
                 </div>
                 <input type="hidden" id="contact-id-input">
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" id="cancel-contact">Annuleren</button>
-                <button type="button" class="btn btn-danger" id="delete-contact" style="display:none;">Verwijderen</button>
-                <button type="button" class="btn btn-primary" id="save-contact">Opslaan</button>
+                <button type="button" class="oa-button" id="cancel-contact">Annuleren</button>
+                <button type="button" class="oa-button oa-button--danger" id="delete-contact" style="display:none;">Verwijderen</button>
+                <button type="button" class="oa-button oa-button--primary" id="save-contact">Opslaan</button>
             </div>
         </div>
     </div>
@@ -835,16 +880,16 @@
         <div class="modal-content modal-wide">
             <div class="modal-header">
                 <h3 id="import-modal-title">Importeren uit koppeling</h3>
-                <button class="modal-close" id="import-modal-close">&times;</button>
+                <button type="button" class="modal-close" id="import-modal-close"><span aria-hidden="true">&times;</span> <span data-i18n="btn_close">Sluiten</span></button>
             </div>
             <div class="modal-body">
-                <div id="import-status" style="font-size:0.9rem;color:var(--text-muted,#6b7280);margin-bottom:0.75rem;"></div>
+                <div id="import-status" style="font-size:0.9rem;color:var(--oa-text-secondary);margin-bottom:0.75rem;"></div>
                 <div id="import-picker" style="display:none;"></div>
                 <div id="import-preview" style="display:none;"></div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" id="import-cancel">Sluiten</button>
-                <button type="button" class="btn btn-primary" id="import-confirm" style="display:none;">Importeer geselecteerde</button>
+                <button type="button" class="oa-button" id="import-cancel">Sluiten</button>
+                <button type="button" class="oa-button oa-button--primary" id="import-confirm" style="display:none;">Importeer geselecteerde</button>
             </div>
         </div>
     </div>
@@ -855,21 +900,21 @@
         <div class="modal-content modal-wide">
             <div class="modal-header">
                 <h3 id="wb-modal-title">Publiceer naar Woningborg</h3>
-                <button class="modal-close" id="wb-modal-close">&times;</button>
+                <button type="button" class="modal-close" id="wb-modal-close"><span aria-hidden="true">&times;</span> <span data-i18n="btn_close">Sluiten</span></button>
             </div>
             <div class="modal-body">
                 <div class="form-grid">
                     <div class="form-group full-width">
                         <label for="wb-connector">Bestemming</label>
-                        <select id="wb-connector"></select>
+                        <select class="oa-field" id="wb-connector"></select>
                     </div>
                     <div class="form-group full-width">
                         <label for="wb-endpoint">API-endpoint</label>
-                        <input type="url" id="wb-endpoint" placeholder="https://…" style="font-family:monospace;">
+                        <input class="oa-field" type="url" id="wb-endpoint" placeholder="https://…" style="font-family:monospace;">
                     </div>
                     <div class="form-group full-width">
                         <label for="wb-apikey">API-sleutel</label>
-                        <input type="text" id="wb-apikey" placeholder="Bearer-token van Woningborg partner-portal" style="font-family:monospace;">
+                        <input class="oa-field" type="text" id="wb-apikey" placeholder="Bearer-token van Woningborg partner-portal" style="font-family:monospace;">
                     </div>
                     <div class="form-group full-width">
                         <label class="checkbox-label">
@@ -879,17 +924,17 @@
                     </div>
                     <div class="form-group full-width">
                         <label for="wb-payload">Voorbeeld payload</label>
-                        <textarea id="wb-payload" rows="14" readonly style="font-family:monospace;font-size:0.75rem;"></textarea>
+                        <textarea class="oa-field" id="wb-payload" rows="14" readonly style="font-family:monospace;font-size:0.75rem;"></textarea>
                     </div>
                 </div>
                 <div id="wb-status" style="margin-top:0.5rem;font-size:0.85rem;"></div>
-                <p style="margin-top:0.75rem;font-size:0.8rem;color:var(--text-muted, #6b7280);">
+                <p style="margin-top:0.75rem;font-size:0.8rem;color:var(--oa-text-secondary);">
                     <span id="wb-info-txt">API-sleutel op aanvraag bij Woningborg (partner-portal). Payload-schema is voorlopig; sync met Woningborg's officiële spec bij livegang.</span>
                 </p>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" id="wb-cancel">Annuleren</button>
-                <button type="button" class="btn btn-primary" id="wb-send">Verstuur</button>
+                <button type="button" class="oa-button" id="wb-cancel">Annuleren</button>
+                <button type="button" class="oa-button oa-button--primary" id="wb-send">Verstuur</button>
             </div>
         </div>
     </div>
@@ -900,41 +945,41 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3 id="bag-modal-title">Adres zoeken (BAG Kadaster)</h3>
-                <button class="modal-close" id="bag-modal-close">&times;</button>
+                <button type="button" class="modal-close" id="bag-modal-close"><span aria-hidden="true">&times;</span> <span data-i18n="btn_close">Sluiten</span></button>
             </div>
             <div class="modal-body">
                 <div class="form-grid">
                     <div class="form-group">
                         <label for="bag-postcode-input">Postcode *</label>
-                        <input type="text" id="bag-postcode-input" placeholder="1234AB" autocomplete="off">
+                        <input class="oa-field" type="text" id="bag-postcode-input" placeholder="1234AB" autocomplete="off">
                     </div>
                     <div class="form-group">
                         <label for="bag-huisnr-input">Huisnummer *</label>
-                        <input type="number" id="bag-huisnr-input" placeholder="123" autocomplete="off">
+                        <input class="oa-field" type="number" id="bag-huisnr-input" placeholder="123" autocomplete="off">
                     </div>
                     <div class="form-group">
                         <label for="bag-toev-input">Huisletter / toevoeging</label>
-                        <input type="text" id="bag-toev-input" placeholder="A of bis" autocomplete="off">
+                        <input class="oa-field" type="text" id="bag-toev-input" placeholder="A of bis" autocomplete="off">
                     </div>
                 </div>
-                <div id="bag-status" style="margin-top:0.5rem;font-size:0.85rem;color:var(--text-muted,#6b7280);"></div>
+                <div id="bag-status" style="margin-top:0.5rem;font-size:0.85rem;color:var(--oa-text-secondary);"></div>
                 <div id="bag-results" style="margin-top:1rem;"></div>
                 <details style="margin-top:1rem;font-size:0.85rem;">
-                    <summary style="cursor:pointer;color:var(--text-muted,#6b7280);" id="bag-key-summary">API-sleutel instellen / wijzigen</summary>
+                    <summary style="cursor:pointer;color:var(--oa-text-secondary);" id="bag-key-summary">API-sleutel instellen / wijzigen</summary>
                     <div style="margin-top:0.5rem;">
-                        <p id="bag-key-help" style="margin:0.25rem 0;color:var(--text-muted,#6b7280);">
+                        <p id="bag-key-help" style="margin:0.25rem 0;color:var(--oa-text-secondary);">
                             Vraag een gratis sleutel aan bij
                             <a href="https://www.kadaster.nl/zakelijk/producten/adressen-en-gebouwen/bag-api-individuele-bevragingen" target="_blank" rel="noopener">Kadaster</a>.
                             De sleutel wordt lokaal opgeslagen.
                         </p>
-                        <input type="text" id="bag-apikey-input" placeholder="Plak hier je BAG API-key" style="width:100%;font-family:monospace;">
-                        <button type="button" class="btn btn-secondary" id="bag-apikey-save" style="margin-top:0.5rem;padding:0.35rem 0.7rem;font-size:0.85rem;">Sleutel opslaan</button>
+                        <input class="oa-field" type="text" id="bag-apikey-input" placeholder="Plak hier je BAG API-key" style="width:100%;font-family:monospace;">
+                        <button type="button" class="oa-button gap-top" id="bag-apikey-save">Sleutel opslaan</button>
                     </div>
                 </details>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" id="bag-cancel">Annuleren</button>
-                <button type="button" class="btn btn-primary" id="bag-search">Zoeken</button>
+                <button type="button" class="oa-button" id="bag-cancel">Annuleren</button>
+                <button type="button" class="oa-button oa-button--primary" id="bag-search">Zoeken</button>
             </div>
         </div>
     </div>
@@ -945,130 +990,88 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Foto maken</h3>
-                <button class="modal-close" id="camera-modal-close">&times;</button>
+                <button type="button" class="modal-close" id="camera-modal-close"><span aria-hidden="true">&times;</span> <span data-i18n="btn_close">Sluiten</span></button>
             </div>
             <div class="modal-body" style="padding:0;text-align:center;background:#000;">
                 <video id="camera-video" autoplay playsinline style="width:100%;max-height:60vh;display:block;"></video>
                 <canvas id="camera-canvas" style="display:none;"></canvas>
             </div>
             <div class="modal-footer" style="justify-content:center;">
-                <button type="button" class="btn btn-secondary" id="camera-switch" title="Wissel camera">
-                    <svg viewBox="0 0 24 24" width="20" height="20"><path d="M20 5h-3.17L15 3H9L7.17 5H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-5 11V9l4 3.5L15 16zm-1 0H6V8h8v8z" fill="currentColor"/></svg>
-                </button>
-                <button type="button" class="btn btn-primary" id="camera-capture" style="width:64px;height:64px;border-radius:50%;font-size:1.5rem;padding:0;">
-                    <svg viewBox="0 0 24 24" width="32" height="32"><circle cx="12" cy="12" r="8" fill="currentColor"/></svg>
-                </button>
-                <button type="button" class="btn btn-secondary" id="camera-cancel">Sluiten</button>
+                <button type="button" class="oa-button" id="camera-switch" title="Wissel camera"><svg class="oa-icon oa-icon--24" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-camera.switch"/></svg> <span data-i18n="btn_camera_switch">Wissel camera</span></button>
+                <button type="button" class="oa-button oa-button--primary camera-shutter" id="camera-capture"><svg class="oa-icon oa-icon--24" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-camera.capture"/></svg> <span data-i18n="act_photo">Foto</span></button>
+                <button type="button" class="oa-button" id="camera-cancel">Sluiten</button>
             </div>
         </div>
     </div>
 
-    <script src="/app.js"></script>
-    <script src="/titlebar.js"></script>
-    <script>
-      document.addEventListener('DOMContentLoaded', function() {
-        // =====================================================
-        // THEME TOGGLE
-        // =====================================================
-        var savedTheme = localStorage.getItem('ofs_theme') || 'light';
-        document.documentElement.setAttribute('data-theme', savedTheme);
-        updateThemeIcon(savedTheme);
+    <!-- ==================== WEERGAVE (VIEW) MODAL ==================== -->
+    <div class="modal" id="view-modal">
+        <div class="modal-overlay" data-click="view-close"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 data-i18n="view_title">Weergave</h3>
+                <button type="button" class="modal-close" data-click="view-close"><span aria-hidden="true">&times;</span> <span data-i18n="btn_close">Sluiten</span></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label class="oa-switch view-outdoor">
+                            <input type="checkbox" role="switch" id="view-outdoor" data-change="view-outdoor">
+                            <span><b data-i18n="outdoor_btn">Buiten</b> &middot; <span data-i18n="view_outdoor_help">hoog contrast, grote tekst en knoppen voor fel zonlicht en handschoenen</span></span>
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label for="view-theme" data-i18n="view_theme">Thema</label>
+                        <select id="view-theme" class="oa-field" data-change="view-theme">
+                            <option value="light" data-i18n="theme_light">Licht</option>
+                            <option value="dark" data-i18n="theme_dark">Donker</option>
+                            <option value="blueprint" data-i18n="theme_blueprint">Blueprint</option>
+                            <option value="high-contrast-light" data-i18n="theme_hc_light">Hoog contrast licht</option>
+                            <option value="high-contrast-dark" data-i18n="theme_hc_dark">Hoog contrast donker</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="view-density" data-i18n="view_density">Knoppen en tekst</label>
+                        <select id="view-density" class="oa-field" data-change="view-density">
+                            <option value="auto" data-i18n="density_auto">Automatisch</option>
+                            <option value="touch" data-i18n="density_touch">Groot (aanraken)</option>
+                            <option value="compact" data-i18n="density_compact">Compact (muis)</option>
+                        </select>
+                    </div>
+                    <div class="form-group full-width">
+                        <label class="oa-switch">
+                            <input type="checkbox" role="switch" id="view-geo" data-change="view-geo">
+                            <span data-i18n="geo_switch">Locatie (GPS) vastleggen bij foto's</span>
+                        </label>
+                        <p class="field-help" data-i18n="geo_help">Alleen als u dit aanzet en het apparaat toestemming geeft. De locatie staat bij de foto in het rapport en in het projectbestand.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="oa-button oa-button--primary" data-click="view-close" data-i18n="btn_close">Sluiten</button>
+            </div>
+        </div>
+    </div>
 
-        document.getElementById('theme-toggle').addEventListener('click', function() {
-          var current = document.documentElement.getAttribute('data-theme') || 'light';
-          var next = current === 'dark' ? 'light' : 'dark';
-          document.documentElement.setAttribute('data-theme', next);
-          localStorage.setItem('ofs_theme', next);
-          updateThemeIcon(next);
-        });
+    <!-- ==================== STATUS MODAL ==================== -->
+    <div class="modal" id="status-modal">
+        <div class="modal-overlay" data-click="status-close"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 data-i18n="status_title">Status</h3>
+                <button type="button" class="modal-close" data-click="status-close"><span aria-hidden="true">&times;</span> <span data-i18n="btn_close">Sluiten</span></button>
+            </div>
+            <div class="modal-body" id="status-modal-body"></div>
+            <div class="modal-footer">
+                <button type="button" class="oa-button" data-click="status-close" data-i18n="btn_close">Sluiten</button>
+                <button type="button" class="oa-button oa-button--primary" data-click="field-save" id="status-save-btn" data-i18n="act_save_now">Nu opslaan</button>
+            </div>
+        </div>
+    </div>
 
-        function updateThemeIcon(theme) {
-          document.getElementById('theme-icon-light').style.display = theme === 'light' ? 'block' : 'none';
-          document.getElementById('theme-icon-dark').style.display = theme === 'dark' ? 'block' : 'none';
-        }
-
-        // =====================================================
-        // LANGUAGE DROPDOWN
-        // =====================================================
-        var langToggle = document.getElementById('tb-lang-toggle');
-        var langMenu = document.getElementById('tb-lang-menu');
-        var langCurrent = document.getElementById('tb-lang-current');
-        var savedLang = localStorage.getItem('ofs_lang') || 'nl';
-
-        window._setActiveLang = function(lang) {
-          langCurrent.textContent = lang.toUpperCase();
-          document.querySelectorAll('.tb-lang-option').forEach(function(btn) {
-            btn.classList.toggle('active', btn.dataset.lang === lang);
-          });
-        };
-        window._setActiveLang(savedLang);
-
-        langToggle.addEventListener('click', function(e) {
-          e.stopPropagation();
-          var isOpen = langMenu.classList.toggle('open');
-          langToggle.classList.toggle('open', isOpen);
-        });
-
-        document.querySelectorAll('.tb-lang-option').forEach(function(btn) {
-          btn.addEventListener('click', function() {
-            var lang = this.dataset.lang;
-            if (window.app) window.app.setLanguage(lang);
-            window._setActiveLang(lang);
-            langMenu.classList.remove('open');
-            langToggle.classList.remove('open');
-          });
-        });
-
-        document.addEventListener('click', function() {
-          langMenu.classList.remove('open');
-          langToggle.classList.remove('open');
-        });
-
-        // =====================================================
-        // KEYBOARD SHORTCUTS
-        // =====================================================
-        document.addEventListener('keydown', function(e) {
-          // Don't fire shortcuts when typing in inputs
-          var tag = document.activeElement && document.activeElement.tagName;
-          var isInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
-
-          if (e.ctrlKey || e.metaKey) {
-            switch (e.key.toLowerCase()) {
-              case 's':
-                e.preventDefault();
-                if (window.app) window.app.saveProject();
-                break;
-              case 'e':
-                if (!isInput) {
-                  e.preventDefault();
-                  if (window.app) window.app.exportHTML();
-                }
-                break;
-              case 'o':
-                e.preventDefault();
-                document.getElementById('load-json-input').click();
-                break;
-              case 'd':
-                if (!isInput) {
-                  e.preventDefault();
-                  // Toggle theme
-                  document.getElementById('theme-toggle').click();
-                }
-                break;
-            }
-          }
-
-          // Number keys 1-8 for tab switching (no modifier, not in input)
-          if (!isInput && !e.ctrlKey && !e.altKey && !e.metaKey) {
-            var tabs = ['project','plattegrond','opname','inspectie','oplevering','dashboard','export','handleiding'];
-            var num = parseInt(e.key);
-            if (num >= 1 && num <= 8 && window.app) {
-              window.app.switchTab(tabs[num - 1]);
-            }
-          }
-        });
-      });
-    </script>
+    <script src="app.js"></script>
+    <script src="titlebar.js"></script>
+    <script src="shell.js"></script>
     <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>

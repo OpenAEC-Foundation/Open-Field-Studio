@@ -96,7 +96,7 @@ export function renderUpdateBadge(status: UpdateStatus, tGet?: (key: string, ...
         badge.id = 'title-bar-update-badge';
         badge.target = '_blank';
         badge.rel = 'noopener';
-        badge.style.cssText = 'margin-left:0.75rem;padding:0.15rem 0.5rem;background:#d97706;color:#fff;font-size:0.7rem;font-weight:600;border-radius:4px;text-decoration:none;cursor:pointer;';
+        badge.className = 'oa-chip oa-chip--warning update-badge';
         host.appendChild(badge);
     }
     badge.href = status.htmlUrl;

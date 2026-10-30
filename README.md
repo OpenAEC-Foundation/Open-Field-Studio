@@ -10,6 +10,16 @@ Free, open-source tool for performing construction inspections, energy label sur
 
 ## Screenshots
 
+### Op de bouwplaats (buiten-modus)
+
+Leesbaar in fel zonlicht en te bedienen met handschoenen: het Blueprint-thema *Hoog contrast licht* met grote tekst en knoppen van minimaal 48 px, de veldacties **Foto, Notitie, Markering en Opslaan** onderaan binnen duimbereik, en altijd zichtbaar wat er is opgeslagen, of er verbinding is en wat er naar het gekoppelde ERP-project gaat. Alle schermen staan in [`docs/schermen/`](docs/schermen/).
+
+| Telefoon, buiten | Telefoon, notitie | Tablet, buiten | Desktop |
+|---|---|---|---|
+| ![Telefoon buiten](docs/schermen/telefoon-buiten-opname.png) | ![Notitie](docs/schermen/telefoon-buiten-notitie.png) | ![Tablet buiten](docs/schermen/tablet-buiten-opname.png) | ![Desktop](docs/schermen/desktop-normaal-opname.png) |
+
+### Overzicht
+
 | | |
 |---|---|
 | ![Project](docs/screenshots/01-project.png) | ![Koppelingen](docs/screenshots/02-koppelingen.png) |
@@ -42,7 +52,7 @@ Free, open-source tool for performing construction inspections, energy label sur
 - **EP-Online energy label** — one-click fetch from RVO's public register, colored badge in project and PDF
 
 ### Reports
-- **PDF export** via native browser print with A4-optimized styles, print-color-adjust, page-break rules, photo captions with GPS/timestamp
+- **PDF export** as a real PDF file (download, no pop-up window): the report is rendered to A4 pages without cutting through photos or ticket cards, photo captions with GPS/timestamp
 - **HTML report** with save location picker
 - **BCF 2.1 export** (buildingSMART) — interop with BIMcollab, Revit, Solibri; per-topic markup.bcf + photo snapshots
 
@@ -56,9 +66,15 @@ Send a completed handover dossier to your existing back-office with one click. S
 - **KYP Project** (planning) — separate project-scope flow that pushes open tickets as planning tasks
 
 ### UX & tech
-- **Mobile responsive** — optimized layout for 6-inch phones (360–412px)
-- **4 languages** — Dutch, English, German, French (i18next, ~350 keys)
-- **Dark/Light theme** with system preference detection
+- **OpenAEC Blueprint design system (0.4)** — tokens, components, fonts and B2 icons from the Blueprint web package (`public/openaec/`, copied by `scripts/sync-openaec.mjs`)
+- **Outdoor mode ("Buiten")** — high contrast, large text and 48 px+ touch targets; default on phones and tablets, one button in the app bar
+- **Field action bar** — Foto (one tap opens the camera), Notitie (dictate with the keyboard microphone), Markering (place a marker on the plan) and Opslaan, at the bottom within thumb reach
+- **Status** — saved / not saved, online / offline, and what is sent to the linked ERP project (and when); a save while offline is sent as soon as there is a connection
+- **Location only with consent** — photos always carry the time; GPS only after the user agreed (asked once, switch under Weergave)
+- **Responsive** — phone, tablet portrait and landscape (sidebar), desktop
+- **4 languages** — Dutch, English, German, French (i18next, ~430 keys)
+- **Five Blueprint themes** — Light, Dark, Blueprint, High contrast light and dark
+- **CSP-ready** — no inline scripts or inline event handlers (event delegation); relative asset paths, so the app also runs below a sub-path
 - **Keyboard shortcuts** — Ctrl+S save, Ctrl+E export, Ctrl+O load, 1-8 tab switch
 - **Native file dialogs** — save/open via OS dialogs (Tauri desktop)
 - **Fully offline** — PDF.js, web-ifc WASM and fonts bundled locally, zero CDN calls
@@ -107,6 +123,16 @@ npm run dev
 
 Opens the web version at http://localhost:3042.
 
+### Design system and screenshots
+
+```bash
+# Update the OpenAEC Blueprint web package (tokens, components, fonts, icons)
+node scripts/sync-openaec.mjs ../OpenAEC-Blueprint
+
+# Screenshots for docs/schermen/ (needs `npm run dev` and an installed Edge or Chrome)
+node scripts/schermen.mjs
+```
+
 ## Building
 
 ### Desktop (Windows/Linux)
@@ -135,21 +161,27 @@ Open-Field-Studio/
 ├── vite.config.ts          # Vite bundler config
 ├── public/
 │   ├── app.js              # Application logic (OpenFieldStudio class)
-│   ├── styles.css          # Main stylesheet (OpenAEC design system)
-│   ├── titlebar.css        # Custom titlebar & theme styles
-│   ├── themes.css          # Dark/light theme CSS variables
+│   ├── display.js          # Theme, density and outdoor mode (runs before first paint)
+│   ├── shell.js            # Language menu, outdoor switch, shortcuts, online/offline
+│   ├── styles.css          # Content styles on the Blueprint tokens
+│   ├── shell.css           # App bar, navigation, action bar, status, touch and outdoor sizes
+│   ├── openaec/            # OpenAEC Blueprint web package: tokens, components, fonts, B2 icon sprite
 │   ├── titlebar.js         # Window controls & platform detection
 │   ├── pdf.min.js          # PDF.js (bundled offline)
 │   ├── pdf.worker.min.js   # PDF.js worker (bundled offline)
 │   └── icon_256.png        # Application icon
 ├── src/
 │   ├── main.tsx            # Vite entry: i18next init, Tauri plugin setup
+│   ├── pdf-export.ts       # Report HTML → A4 PDF file (lazy-loaded)
 │   ├── i18n.ts             # i18next configuration
 │   └── locales/
 │       ├── nl.json         # Dutch translations (277 keys)
 │       ├── en.json         # English translations
 │       ├── de.json         # German translations
 │       └── fr.json         # French translations
+├── scripts/
+│   ├── sync-openaec.mjs    # Copy the Blueprint web package into public/openaec/
+│   └── schermen.mjs        # Screenshots for docs/schermen/ (phone, tablet, desktop; normal and outdoor)
 ├── src-tauri/
 │   ├── tauri.conf.json     # Tauri window, build, plugin config
 │   ├── Cargo.toml          # Rust dependencies
@@ -191,7 +223,7 @@ Open-Field-Studio/
 | `Ctrl+S` | Save project |
 | `Ctrl+E` | Export as HTML |
 | `Ctrl+O` | Load project (JSON) |
-| `Ctrl+D` | Toggle dark/light theme |
+| `Ctrl+D` | Toggle dark/light theme (switches outdoor mode off) |
 | `1` - `8` | Switch tab |
 | `Escape` | Close modals |
 

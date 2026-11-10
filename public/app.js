@@ -3451,35 +3451,44 @@ class OpenFieldStudio {
         } else {
             html = this.generateFullReport();
         }
-        // Inject an auto-print snippet that fires once fonts and images are ready.
-        // Uses window.print() so the user picks "Save as PDF" from the native dialog.
-        const autoPrint = `<script>(function(){
-            function ready(){ try { window.focus(); window.print(); } catch(e){} }
-            function whenImages(cb){
-                var imgs = Array.from(document.images);
-                if (!imgs.length) return cb();
-                var left = imgs.length;
-                var done = function(){ if (--left <= 0) cb(); };
-                imgs.forEach(function(img){
-                    if (img.complete) done();
-                    else { img.addEventListener('load', done); img.addEventListener('error', done); }
-                });
-            }
-            if (document.fonts && document.fonts.ready) {
-                document.fonts.ready.then(function(){ whenImages(function(){ setTimeout(ready, 100); }); });
-            } else {
-                window.addEventListener('load', function(){ whenImages(function(){ setTimeout(ready, 100); }); });
-            }
-        })();<\/script></body>`;
-        const printable = html.replace('</body>', autoPrint);
-        const w = window.open('', '_blank');
-        if (!w) {
+        // Print via a hidden iframe instead of window.open(): popups are blocked in the
+        // Tauri desktop webview. The user picks "Save as PDF" in the native print dialog.
+        const old = document.getElementById('ofs-print-frame');
+        if (old) old.remove();
+        const iframe = document.createElement('iframe');
+        iframe.id = 'ofs-print-frame';
+        iframe.setAttribute('aria-hidden', 'true');
+        iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
+        document.body.appendChild(iframe);
+        const win = iframe.contentWindow;
+        const doc = win.document;
+        doc.open();
+        doc.write(html);
+        doc.close();
+
+        const waitImages = () => new Promise(resolve => {
+            const imgs = Array.from(doc.images);
+            if (!imgs.length) return resolve();
+            let left = imgs.length;
+            const done = () => { if (--left <= 0) resolve(); };
+            imgs.forEach(img => {
+                if (img.complete) done();
+                else { img.addEventListener('load', done); img.addEventListener('error', done); }
+            });
+            setTimeout(resolve, 8000); // never hang on a broken image
+        });
+        try {
+            await waitImages();
+            if (doc.fonts && doc.fonts.ready) await doc.fonts.ready;
+            await new Promise(r => setTimeout(r, 150));
+            win.focus();
+            win.print();
+        } catch (e) {
+            console.error('PDF print failed', e);
             this.showNotification(this.t('msg_popup_blocked'), 'error');
-            return;
         }
-        w.document.open();
-        w.document.write(printable);
-        w.document.close();
+        // Remove the frame after printing so it doesn't linger.
+        setTimeout(() => iframe.remove(), 60000);
     }
 
     // =====================================================

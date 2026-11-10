@@ -227,6 +227,10 @@ Language preference is auto-detected from the browser/OS and persisted in localS
 
 ## Changelog
 
+### v0.3.9
+
+- **Fix PDF-export in de desktop-app** — "Popup geblokkeerd" is opgelost: het rapport wordt nu via een verborgen iframe geprint. Kies in het printvenster "Opslaan als PDF".
+
 ### v0.3.6
 
 - **Terug-sync is nu connector-generiek** — de automatische opslag bij het gekoppelde bronproject is een registry-capability (`backSync`) geworden in plaats van ERPNext-specifiek. Nu ondersteund:

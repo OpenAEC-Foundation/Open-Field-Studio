@@ -53,6 +53,11 @@ function exposeTauriPlugins() {
   }
 }
 
+// The assistant of OpenAEC SuperCloud operates the app through window.__OPDS_APP__: browser build only, not under Tauri.
+if (!('__TAURI_INTERNALS__' in window)) {
+  import('./site-app-tools.ts').then(m => m.installSiteAppTools()).catch(() => {});
+}
+
 // Initialize the app
 function initApp() {
   const OFS = (window as any).OpenFieldStudio;

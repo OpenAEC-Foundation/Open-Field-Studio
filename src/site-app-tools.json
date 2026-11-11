@@ -1,0 +1,180 @@
+{
+  "tools": [
+    {
+      "name": "field_stand",
+      "description": "Stand van Open Field Studio: het project (ook zonder ERPNext), aantallen bevindingen per status, inspecties, opleveringen, plattegronden en contacten, het open scherm en de open plattegrond en inspectie.",
+      "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
+      "name": "field_project_bijwerken",
+      "description": "Projectgegevens invullen of wijzigen (lokaal project, zonder ERPNext). Alleen de meegegeven velden veranderen.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "description": "Projectnaam" },
+          "number": { "type": "string", "description": "Projectnummer" },
+          "client": { "type": "string", "description": "Opdrachtgever" },
+          "contactPerson": { "type": "string", "description": "Contactpersoon" },
+          "address": { "type": "string", "description": "Straat en huisnummer" },
+          "postalCode": { "type": "string" },
+          "city": { "type": "string" },
+          "surveyDate": { "type": "string", "description": "Datum opname, JJJJ-MM-DD" },
+          "surveyor": { "type": "string", "description": "Opnemer" },
+          "description": { "type": "string" },
+          "notes": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "field_bevindingen",
+      "description": "Bevindingen (tickets, punten op de plattegrond) met filters op status, categorie, prioriteit, plattegrond, verantwoordelijke en zoektekst; limit (standaard 50, hoogstens 200) en offset. Met id: één bevinding met opmerkingen en geschiedenis.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string", "enum": ["open", "assigned", "completed", "verified", "archived"] },
+          "category": { "type": "string" },
+          "priority": { "type": "string", "enum": ["high", "medium", "low"] },
+          "floorPlan": { "type": "string", "description": "Id of naam van de plattegrond" },
+          "assignedTo": { "type": "string" },
+          "search": { "type": "string", "description": "Zoekt in label en omschrijving" },
+          "overdue": { "type": "boolean", "description": "Alleen met verlopen deadline" },
+          "limit": { "type": "integer" },
+          "offset": { "type": "integer" }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "field_bevinding_toevoegen",
+      "description": "Nieuwe bevinding (ticket). Locatie: plattegrond (id of naam, standaard de open) en x/y in procenten van de plattegrond (standaard het midden).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "label": { "type": "string", "description": "Korte titel" },
+          "description": { "type": "string", "description": "Omschrijving" },
+          "category": { "type": "string", "enum": ["Bouwkundig", "Schilderwerk", "Sanitair", "Elektra", "HVAC", "Dakwerk", "Kozijnen", "Vloeren", "Buitenruimte", "Veiligheid", "Overig"] },
+          "priority": { "type": "string", "enum": ["high", "medium", "low"] },
+          "severity": { "type": "string", "enum": ["cosmetic", "functional", "safety", "structural"] },
+          "status": { "type": "string", "enum": ["open", "assigned", "completed", "verified", "archived"] },
+          "assignedTo": { "type": "string", "description": "Verantwoordelijke (naam van een contact)" },
+          "deadline": { "type": "string", "description": "JJJJ-MM-DD" },
+          "floorPlan": { "type": "string", "description": "Id of naam van de plattegrond" },
+          "x": { "type": "number", "minimum": 0, "maximum": 100 },
+          "y": { "type": "number", "minimum": 0, "maximum": 100 }
+        },
+        "required": ["label"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "field_bevinding_wijzigen",
+      "description": "Een bevinding wijzigen: alleen de meegegeven velden (status, omschrijving, verantwoordelijke, locatie, ...). Met comment komt er een opmerking bij.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "label": { "type": "string" },
+          "description": { "type": "string" },
+          "category": { "type": "string", "enum": ["Bouwkundig", "Schilderwerk", "Sanitair", "Elektra", "HVAC", "Dakwerk", "Kozijnen", "Vloeren", "Buitenruimte", "Veiligheid", "Overig"] },
+          "priority": { "type": "string", "enum": ["high", "medium", "low"] },
+          "severity": { "type": "string", "enum": ["cosmetic", "functional", "safety", "structural"] },
+          "status": { "type": "string", "enum": ["open", "assigned", "completed", "verified", "archived"] },
+          "assignedTo": { "type": "string" },
+          "deadline": { "type": "string" },
+          "floorPlan": { "type": "string" },
+          "x": { "type": "number", "minimum": 0, "maximum": 100 },
+          "y": { "type": "number", "minimum": 0, "maximum": 100 },
+          "comment": { "type": "string", "description": "Opmerking die erbij komt" }
+        },
+        "required": ["id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "field_inspecties",
+      "description": "Inspecties met voortgang en de beschikbare checklist-sjablonen. Met id: de checklist-items van die inspectie (index, vraag, soort, uitkomst).",
+      "inputSchema": {
+        "type": "object",
+        "properties": { "id": { "type": "string" } },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "field_inspectie_starten",
+      "description": "Nieuwe inspectie vanuit een checklist-sjabloon (templateId uit field_inspecties) of zonder sjabloon met één vrije observatie. Ondertekenen doet de gebruiker.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "templateId": { "type": "string" },
+          "date": { "type": "string", "description": "JJJJ-MM-DD, standaard vandaag" },
+          "inspector": { "type": "string", "description": "Standaard de opnemer van het project" },
+          "floorPlan": { "type": "string", "description": "Id of naam van de plattegrond" }
+        },
+        "required": ["name"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "field_checklist_invullen",
+      "description": "Checklist-items van een inspectie afvinken of invullen. Per item: index (of id) en result (pass, fail, na, of leeg), score (NEN 2767, 1-6), value (getal, tekst of keuze) en/of notes. Niet bij een ondertekende inspectie.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "inspectionId": { "type": "string" },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "properties": {
+                "index": { "type": "integer", "minimum": 0 },
+                "id": { "type": "string" },
+                "result": { "type": "string", "enum": ["pass", "fail", "na", ""] },
+                "score": { "type": ["integer", "null"], "minimum": 1, "maximum": 6 },
+                "value": { "type": "string" },
+                "notes": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["inspectionId", "items"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "field_samenvatting",
+      "description": "Projectsamenvatting zoals het dashboard: bevindingen per status, categorie, prioriteit en verantwoordelijke, verlopen deadlines, inspecties en opleveringen, en de laatste activiteiten.",
+      "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false }
+    },
+    {
+      "name": "field_export",
+      "description": "Een export starten als download: rapport (volledig HTML-rapport), oplevering (proces-verbaal, handoverId nodig) of bcf (alle bevindingen als .bcfzip). PDF kan alleen via de gebruiker.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "enum": ["rapport", "oplevering", "bcf"] },
+          "handoverId": { "type": "string" }
+        },
+        "required": ["type"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "field_scherm",
+      "description": "Naar een scherm van de app gaan: project, plattegrond, ifc, opname, inspectie, oplevering, dashboard, export, koppelingen of handleiding. Optioneel een plattegrond openen in opname.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tab": { "type": "string", "enum": ["project", "plattegrond", "ifc", "opname", "inspectie", "oplevering", "dashboard", "export", "koppelingen", "handleiding"] },
+          "floorPlan": { "type": "string", "description": "Id of naam van de plattegrond" }
+        },
+        "required": ["tab"],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

@@ -1746,8 +1746,17 @@ class OpenFieldStudio {
     startInspection() {
         const name = document.getElementById('insp-name').value.trim();
         if (!name) { this.showNotification(this.t('msg_fill_name'), 'error'); return; }
-        const type = document.getElementById('insp-type').value;
-        const templateId = document.getElementById('insp-template').value;
+        this.createInspection({
+            name, type: document.getElementById('insp-type').value, templateId: document.getElementById('insp-template').value,
+            date: document.getElementById('insp-date').value, inspector: document.getElementById('insp-inspector').value,
+            floorPlanId: document.getElementById('insp-floor').value
+        });
+        this.renderChecklistExecution();
+        this.showInspectionExecution();
+    }
+
+    // A new inspection from a template (or one free observation), as the current one. Also used by the assistant.
+    createInspection({ name, type = 'checklist', templateId = '', date = '', inspector = '', floorPlanId = '' }) {
         const template = this.checklistTemplates.find(t => t.id === templateId);
         const isNEN = template && template.scoring === 'nen2767';
         const items = type === 'checklist' && template ? template.items.map((item, i) => {
@@ -1766,16 +1775,15 @@ class OpenFieldStudio {
         const insp = {
             id: this.genId(), name, type, templateId: templateId || null,
             scoring: isNEN ? 'nen2767' : null,
-            date: document.getElementById('insp-date').value, inspector: document.getElementById('insp-inspector').value,
-            floorPlanId: document.getElementById('insp-floor').value || null,
+            date, inspector,
+            floorPlanId: floorPlanId || null,
             status: 'in_progress', items, signature: null, notes: ''
         };
         this.inspections.push(insp);
         this.currentInspectionId = insp.id;
         this.logActivity(this.tFormat('log_insp_started', name));
         this.saveToLocalStorage();
-        this.renderChecklistExecution();
-        this.showInspectionExecution();
+        return insp;
     }
 
     renderChecklistExecution() {
@@ -2055,6 +2063,7 @@ class OpenFieldStudio {
         const c = document.getElementById('inspections-list');
         if (!this.inspections.length) { c.innerHTML = `<p class="empty-state">${this.t('empty_inspections')}</p>`; return; }
         c.innerHTML = this.inspections.map(insp => {
+            const isNEN = insp.scoring === 'nen2767';
             const done = this.countDoneItems(insp.items);
             const fail = insp.items.filter(i => i.result === 'fail').length;
             let extra = '';
@@ -3499,6 +3508,13 @@ class OpenFieldStudio {
     // =====================================================
     async exportBCF() {
         if (!this.tickets.length) { this.showNotification(this.t('bcf_no_tickets'), 'error'); return; }
+        const { blob, filename } = this.buildBCF();
+        await this.saveWithPicker(blob, filename, [{ description: 'BCF ZIP', accept: { 'application/zip': ['.bcfzip', '.zip'] } }]);
+        this.logActivity(this.tFormat('act_bcf_exported', this.tickets.length));
+    }
+
+    // The .bcfzip of all tickets. Also used by the assistant.
+    buildBCF() {
         const files = [];
         const enc = new TextEncoder();
 
@@ -3555,10 +3571,8 @@ class OpenFieldStudio {
             data: enc.encode(`<?xml version="1.0" encoding="UTF-8"?>\n<ProjectExtension>\n  <Project ProjectId="${projGuid}">\n    <Name>${xmlEsc(projectName)}</Name>\n  </Project>\n  <ExtensionSchema>extensions.xsd</ExtensionSchema>\n</ProjectExtension>\n`)
         });
 
-        const zipBlob = this._makeZip(files);
         const filename = `${(projectName || 'project').replace(/[^\w-]+/g, '_')}.bcfzip`;
-        await this.saveWithPicker(zipBlob, filename, [{ description: 'BCF ZIP', accept: { 'application/zip': ['.bcfzip', '.zip'] } }]);
-        this.logActivity(this.tFormat('act_bcf_exported', this.tickets.length));
+        return { blob: this._makeZip(files), filename };
     }
 
     // Minimal ZIP writer (STORE / no compression). Handles small BCF payloads fine.

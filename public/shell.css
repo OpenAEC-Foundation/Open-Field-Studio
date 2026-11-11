@@ -258,7 +258,8 @@ body.tauri-desktop .title-bar {
    the bottom within thumb reach, page scroll
    ===================================================== */
 @media (max-width: 1099.98px) {
-    :root { --ofs-status-row: calc(var(--ofs-control-small) + 12px); }
+    :root { --ofs-status-row: 40px; }
+    [data-ofs-outdoor] { --ofs-status-row: 44px; }
     .app-container { display: block; }
     /* A too-wide element must never widen the page: the fixed bars would slide out of view. */
     body.oa-app { overflow-x: clip; }
@@ -278,27 +279,48 @@ body.tauri-desktop .title-bar {
 
     .main-content { padding: var(--oa-space-md); padding-bottom: calc(var(--ofs-actionbar) + var(--ofs-status-row) + env(safe-area-inset-bottom, 0px) + var(--oa-space-lg)); }
 
-    /* Status row just above the action bar: always visible. */
+    /* Bottom dock: one sheet, a quiet status line on top of the field actions. The status line is
+       always visible; it only takes colour when something needs attention. */
     .field-status {
         position: fixed; left: 0; right: 0; z-index: 101;
         bottom: calc(var(--ofs-actionbar) + env(safe-area-inset-bottom, 0px));
-        padding: 6px var(--oa-space-sm);
+        height: var(--ofs-status-row); gap: 0; padding: 0; align-items: stretch;
         background: var(--oa-panel); border-top: var(--ofs-border) solid var(--oa-border);
-        overflow-x: auto; scrollbar-width: none;
+        box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.06);
+        overflow: hidden;
     }
-    .field-status::-webkit-scrollbar { display: none; }
-    .status-chip { flex: 1 0 auto; justify-content: center; }
+    .status-chip, [data-oa-theme^="high-contrast"] .status-chip {
+        flex: 1 1 auto; min-width: 0; min-height: 0; justify-content: center; padding: 0 var(--oa-space-sm);
+        border: 0; border-radius: 0; background: transparent;
+    }
+    .status-chip + .status-chip { box-shadow: inset 1px 0 var(--oa-border); }
+    .status-chip:hover { box-shadow: none; background: var(--oa-hover); }
+    .status-chip + .status-chip:hover { box-shadow: inset 1px 0 var(--oa-border); }
+    .status-chip .status-chip-text, .status-chip .status-chip-short { overflow: hidden; text-overflow: ellipsis; }
+    /* All well: plain text, the icon carries the colour. */
+    .status-chip[data-state="success"] { background: transparent; color: var(--oa-text); }
+    .status-chip[data-state="success"] .oa-icon { color: var(--oa-success); }
+    .status-chip[data-state="neutral"] { color: var(--oa-text-secondary); }
+    /* Needs attention: the segment is tinted and gets a bar in the state colour. */
+    .status-chip:is([data-state="warning"], [data-state="error"], [data-state="info"]) { box-shadow: inset 0 3px currentColor; }
+    .status-chip[data-state="warning"] { background: var(--oa-warning-tint); }
+    .status-chip[data-state="error"] { background: var(--oa-error-tint); }
+    .status-chip[data-state="info"] { background: var(--oa-info-tint); }
+    [data-oa-theme^="high-contrast"] .status-chip:is([data-state="warning"], [data-state="error"], [data-state="info"]) { background: var(--oa-panel); box-shadow: inset 0 0 0 2px currentColor, inset 0 5px currentColor; }
 
     .field-actionbar {
         position: fixed; left: 0; right: 0; bottom: 0; z-index: 100;
-        display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--oa-space-xs);
-        padding: 6px var(--oa-space-sm) calc(6px + env(safe-area-inset-bottom, 0px));
-        box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
+        display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.2fr); gap: var(--oa-space-sm);
+        padding: var(--oa-space-sm) var(--oa-space-sm) calc(var(--oa-space-sm) + env(safe-area-inset-bottom, 0px));
+        border-top: var(--ofs-border) solid var(--oa-border);
     }
+    /* Photo, note and marker step back for Save; in high contrast they keep their strong border. */
+    :root:not([data-oa-theme^="high-contrast"]) .field-actionbar .field-action:not(.oa-button--primary) { border-color: var(--oa-border); background: var(--oa-raised); }
+    .field-actionbar .field-action { border-radius: var(--oa-radius-large); }
     .field-actionbar .field-action {
         flex-direction: column; justify-content: center; gap: 2px;
         min-height: var(--ofs-action-btn); height: auto; padding: 4px 2px;
-        font-size: var(--ofs-label); font-weight: var(--oa-weight-semibold); white-space: normal; text-align: center; line-height: 1.1;
+        font-size: min(var(--ofs-label), 15px); font-weight: var(--oa-weight-semibold); white-space: nowrap; text-align: center; line-height: 1.1;
     }
     .status-bar { display: none; }
     .toast-host { left: var(--oa-space-md); right: var(--oa-space-md); align-items: center; bottom: calc(var(--ofs-actionbar) + var(--ofs-status-row) + env(safe-area-inset-bottom, 0px) + var(--oa-space-sm)); }
@@ -307,7 +329,7 @@ body.tauri-desktop .title-bar {
 
 /* Phones: the app bar wraps, the dialogs become full-width sheets from the bottom. */
 @media (max-width: 760px) {
-    .status-chip { flex: 1 1 auto; min-width: 0; padding: 0 8px; gap: 4px; font-size: min(var(--ofs-label), 15px); }
+    .status-chip, [data-oa-theme^="high-contrast"] .status-chip { padding: 0 6px; gap: 4px; font-size: min(var(--ofs-label), 15px); }
     .status-chip .status-chip-text { display: none; }
     .status-chip .status-chip-short { display: inline; overflow: hidden; text-overflow: ellipsis; }
     .status-chip .oa-icon { width: 18px; height: 18px; }

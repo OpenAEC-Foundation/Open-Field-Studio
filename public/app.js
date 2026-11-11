@@ -38,6 +38,7 @@ class OpenFieldStudio {
         this.validateAndCleanData();
         this.populateCategoryFilter();
         this.applyLanguage();
+        this._hostStart();
     }
 
     // =====================================================
@@ -1046,6 +1047,8 @@ class OpenFieldStudio {
     async fieldSave() {
         clearTimeout(this._ast);
         this.saveProject(false);
+        // Hosted (OpenAEC SuperCloud): the project file goes to the project's folder, with versions.
+        if (this._host()) { await this.hostSave(); return; }
         if (this.project?.erpRef?.id) {
             if (navigator.onLine === false) this.showNotification(this.t('msg_saved_offline'), 'info');
             else await this.syncProjectToLinked(true);
@@ -1068,6 +1071,8 @@ class OpenFieldStudio {
 
     onNetworkChange() {
         this.updateFieldStatus();
+        // Hosted: what could not be saved while offline goes to the project folder now.
+        if (this._host()) { if (navigator.onLine && this._hostDirty && this._hostCanAutosave()) this.hostSave(); return; }
         if (navigator.onLine && this.project?.erpRef?.id && this._erpPending()) this.syncProjectToLinked(false);
     }
 
@@ -1106,15 +1111,18 @@ class OpenFieldStudio {
         const s = this._statusState();
         const appbarProject = document.getElementById('appbar-project');
         if (appbarProject) appbarProject.textContent = this.project?.name || this.t('appbar_no_project');
-        // Saved on this device?
-        if (s.dirty) this._setChip('st-save', 'warning', 'status.pending', this.t('st_unsaved'), this.t('st_unsaved_title'));
+        // Saved? Hosted: in the project's folder (the frame keeps nothing itself); otherwise on this device.
+        const h = this._hostState();
+        if (h) this._setChip('st-save', h.tone, h.icon, h.text, h.title, h.short);
+        else if (s.dirty) this._setChip('st-save', 'warning', 'status.pending', this.t('st_unsaved'), this.t('st_unsaved_title'));
         else this._setChip('st-save', 'success', 'status.success', s.savedAt ? this.tFormat('st_saved_at', s.savedAt) : this.t('st_saved'), this.t('st_saved_title'), this.t('st_saved'));
         // Connection
         if (s.online) this._setChip('st-net', 'success', 'status.bridge-live', this.t('st_online'), this.t('st_online_title'));
         else this._setChip('st-net', 'warning', 'status.bridge-off', this.t('st_offline'), this.t('st_offline_title'));
         // Linked ERP project: what is sent, and is it up to date?
         let erpText;
-        if (!s.linked) this._setChip('st-erp', 'neutral', 'integration.platform-sync', erpText = this.t('st_erp_none'), this.t('st_erp_none_title'), this.t('st_erp_none_short'));
+        if (h && s.linked) this._setChip('st-erp', 'success', 'integration.platform-sync', erpText = `${s.erpLabel}: ${s.erpId}`, this.t('st_host_erp_title'), s.erpLabel);
+        else if (!s.linked) this._setChip('st-erp', 'neutral', 'integration.platform-sync', erpText = this.t('st_erp_none'), this.t('st_erp_none_title'), this.t('st_erp_none_short'));
         else if (s.busy) this._setChip('st-erp', 'info', 'status.busy', erpText = this.tFormat('st_erp_busy', s.erpLabel), '', this.t('st_erp_busy_short'));
         else if (s.failed) this._setChip('st-erp', 'error', 'status.error', erpText = this.tFormat('st_erp_failed', s.erpLabel), '', this.t('st_erp_failed_short'));
         else if (s.pending || !s.lastSyncAt) this._setChip('st-erp', 'warning', 'status.pending', erpText = this.tFormat(s.online ? 'st_erp_pending' : 'st_erp_waiting', s.erpLabel), '', this.t('st_erp_wait_short'));
@@ -1123,7 +1131,7 @@ class OpenFieldStudio {
         const sbNet = document.getElementById('sb-net'); if (sbNet) sbNet.textContent = s.online ? this.t('st_online') : this.t('st_offline');
         const sbErp = document.getElementById('sb-erp'); if (sbErp) sbErp.textContent = erpText;
         const sbSaved = document.getElementById('sb-saved');
-        if (sbSaved) sbSaved.textContent = s.dirty ? this.t('st_unsaved') : (s.savedAt ? this.tFormat('st_saved_at', s.savedAt) : '—');
+        if (sbSaved) sbSaved.textContent = h ? h.text : s.dirty ? this.t('st_unsaved') : (s.savedAt ? this.tFormat('st_saved_at', s.savedAt) : '—');
         if (document.getElementById('status-modal')?.classList.contains('active')) this.renderStatusModal();
     }
 
@@ -1138,15 +1146,20 @@ class OpenFieldStudio {
         const row = (tone, icon, title, body) => `<div class="oa-banner oa-banner--${tone} status-row">
             <svg class="oa-icon oa-icon--24" aria-hidden="true"><use href="openaec/icons/field-studio.svg#i24-${icon}"/></svg>
             <div><b>${this.esc(title)}</b><p>${body}</p></div></div>`;
-        const device = s.dirty
+        const h = this._hostState();
+        const device = h
+            ? row(h.tone === 'neutral' ? 'info' : h.tone, h.icon, h.text, this.esc(h.body))
+            : s.dirty
             ? row('warning', 'status.pending', this.t('st_unsaved'), this.esc(this.t('status_device_dirty')))
             : row('success', 'status.success', s.savedAt ? this.tFormat('st_saved_at', s.savedAt) : this.t('st_saved'), this.esc(this.t('status_device_ok')));
         const net = s.online
-            ? row('success', 'status.bridge-live', this.t('st_online'), this.esc(this.t('status_net_online')))
-            : row('warning', 'status.bridge-off', this.t('st_offline'), this.esc(this.t('status_net_offline')));
+            ? row('success', 'status.bridge-live', this.t('st_online'), this.esc(this.t(h ? 'status_host_online' : 'status_net_online')))
+            : row('warning', 'status.bridge-off', this.t('st_offline'), this.esc(this.t(h ? 'status_host_offline' : 'status_net_offline')));
         let erp;
-        if (!s.linked) {
-            erp = row('info', 'integration.platform-sync', this.t('st_erp_none'), this.esc(this.t('status_erp_none')));
+        if (h && s.linked) {
+            erp = row('info', 'integration.platform-sync', `${s.erpLabel}: ${s.erpId}`, this.esc(this.tFormat('status_host_erp', this._hostFileName())));
+        } else if (!s.linked) {
+            erp = row('info', 'integration.platform-sync', this.t('st_erp_none'), this.esc(this.t(h ? 'status_host_erp_none' : 'status_erp_none')));
         } else {
             const what = this.tFormat('status_erp_what', `OFS_${s.erpId}.json`, s.erpLabel, s.erpId);
             const content = this.tFormat('status_erp_content', this.contacts.length, this.floorPlans.length, this.tickets.length, photos, this.inspections.length, this.handovers.length);
@@ -1157,7 +1170,7 @@ class OpenFieldStudio {
                 `${this.esc(what)}<br>${this.esc(content)}<br>${this.esc(when)} · <b>${this.esc(state)}</b><br><span class="oa-secondary">${this.esc(this.t('status_erp_handover'))}</span>`);
         }
         document.getElementById('status-modal-body').innerHTML = `
-            <h4 class="status-heading">${this.esc(this.t('status_h_device'))}</h4>${device}
+            <h4 class="status-heading">${this.esc(this.t(h ? 'status_h_host' : 'status_h_device'))}</h4>${device}
             <h4 class="status-heading">${this.esc(this.t('status_h_net'))}</h4>${net}
             <h4 class="status-heading">${this.esc(this.tFormat('status_h_erp', s.erpLabel))}</h4>${erp}`;
     }
@@ -4096,25 +4109,70 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
         return `OFS_${slug || 'project'}.json`;
     }
 
+    // Is there field work that would be lost if it is not saved?
+    _hostHasWork() {
+        return !!(this.project?.name || this.project?.erpRef?.id || this.contacts.length || this.floorPlans.length
+            || this.tickets.length || this.inspections.length || this.handovers.length);
+    }
+
+    // What the "saved" chip and the status dialog show when hosted; null without a host.
+    _hostState() {
+        if (!this._host()) return null;
+        const chip = (tone, icon, key, bodyKey, ...args) => ({
+            tone, icon, text: this.tFormat(key, ...args), title: this.t(bodyKey), body: this.t(bodyKey),
+            short: this.t(tone === 'success' ? 'st_saved' : tone === 'info' ? 'st_host_busy' : 'st_unsaved'),
+        });
+        if (this._hostSaving) return chip('info', 'status.busy', 'st_host_busy', 'status_host_busy');
+        if (this._hostFailed) return chip('error', 'status.error', 'st_host_failed', 'status_host_failed');
+        if (!this._hostFile) {
+            return this._hostHasWork()
+                ? chip('warning', 'status.pending', 'st_host_none', 'status_host_none')
+                : chip('neutral', 'status.pending', 'st_host_empty', 'status_host_empty');
+        }
+        if (this._hostDirty || this._dirty) return chip('warning', 'status.pending', 'st_host_dirty', 'status_host_dirty');
+        return chip('success', 'status.success', 'st_host_saved_at', 'status_host_ok', this._hostSavedAt || '');
+    }
+
+    // Save the project file (project, contacts, floor plans, tickets with photos, inspections,
+    // handovers) in the host. Returns true when the host has it.
     async hostSave() {
         const host = this._host();
-        if (!host || this._hostBusy) return;
+        if (!host) return false;
+        if (this._hostBusy) { this._hostAgain = true; return false; }
         this._hostBusy = true;
+        this._hostSaving = true;
+        this._hostAgain = false;
+        clearTimeout(this._hostTimer);
+        this.updateFieldStatus();
+        let ok = false;
         try {
+            this._hostDirty = false; // an edit while the save runs marks it dirty again
             const bytes = new TextEncoder().encode(JSON.stringify(this._buildProjectExport()));
             const name = this._hostFileName();
-            const same = this._hostFile && this._hostFile.name === name;
-            const ref = await host.save(bytes, same ? { id: this._hostFile.id } : { name });
-            this._hostFile = { id: ref.id, name: ref.name || name, version: ref.version };
-            this._hostDirty = false;
+            // Same project file: a new version of it. expectedVersion lets the host notice that someone
+            // else saved in between; it then keeps both and returns the name of the copy.
+            const same = this._hostFile && this._hostFile.wanted === name;
+            const options = same ? { id: this._hostFile.id } : { name };
+            if (same && this._hostFile.version != null) options.expectedVersion = this._hostFile.version;
+            const ref = await host.save(bytes, options);
+            this._hostFile = { id: ref.id, name: ref.name || name, version: ref.version, wanted: name };
+            this._hostFailed = false;
+            this._hostSavedAt = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             this.showNotification(this.tFormat('host_saved', this._hostFile.name, ref.version ?? ''), 'success');
             this.logActivity(this.tFormat('host_saved', this._hostFile.name, ref.version ?? ''));
+            ok = true;
         } catch (err) {
             console.error('Host save failed', err);
+            this._hostDirty = true;
+            this._hostFailed = true;
             this.showNotification(this.tFormat('host_save_fail', err?.message || err), 'error');
         } finally {
             this._hostBusy = false;
+            this._hostSaving = false;
+            this.updateFieldStatus();
         }
+        if (ok && (this._hostAgain || this._hostDirty)) this._hostAutosave();
+        return ok;
     }
 
     async _hostLoad(ref) {
@@ -4124,9 +4182,44 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
         // Loading is not an edit: no autosave of what was just opened.
         this._hostBusy = true;
         try { this.applyLoadedJSON(text, true); } finally { this._hostBusy = false; }
-        this._hostFile = file.readOnly ? null : { id: file.id, name: file.name, version: file.version };
+        // A read-only file (an older version, or someone else is editing) is not saved over.
+        this._hostFile = file.readOnly ? null : { id: file.id, name: file.name, version: file.version, wanted: this._hostFileName() };
+        this._hostDirty = false;
+        this._hostFailed = false;
+        this._dirty = false;
+        this._hostSavedAt = file.readOnly ? '' : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        this.updateFieldStatus();
         this.showNotification(this.tFormat('host_loaded', file.name, file.version ?? ''), 'success');
         return true;
+    }
+
+    // Start with a host: its language and theme, and the file the user opened the tool with.
+    // The host may also arrive after the app (event openaec-host-ready).
+    _hostStart() {
+        const prefs = () => {
+            const host = this._host();
+            if (!host) return;
+            if (['nl', 'en', 'de', 'fr'].includes(host.taal) && host.taal !== this.lang) this.setLanguage(host.taal);
+            if ((host.thema === 'light' || host.thema === 'dark') && window.ofsDisplay?.setTheme) window.ofsDisplay.setTheme(host.thema);
+        };
+        const begin = async () => {
+            const host = this._host();
+            if (!host || this._hostStarted) return;
+            this._hostStarted = true;
+            prefs();
+            this.updateFieldStatus();
+            if (host.initialFileId) {
+                try { await this._hostLoad({ id: host.initialFileId }); }
+                catch (err) { console.warn('Host open failed', err); this.showNotification(this.tFormat('host_open_fail', err?.message || err), 'error'); }
+            }
+        };
+        window.addEventListener('openaec-host-ready', begin);
+        window.addEventListener('openaec-host-preferences', prefs);
+        // Leaving the page or putting the app in the background: save what is still open.
+        const flush = () => { if (this._hostDirty && this._hostCanAutosave()) this.hostSave(); };
+        window.addEventListener('pagehide', flush);
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
+        begin();
     }
 
     // Saved work for an ERP project in the host, if any (the newest file named OFS_<id>.json).
@@ -4190,10 +4283,18 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
     }
 
     // Hosted: the frame has no storage, so changes are saved to the host a while after the
-    // last edit (only once the project file exists there, i.e. after a first explicit save).
+    // last edit. That needs a file to save to: one that exists in the host already, or the fixed
+    // file of a linked project (OFS_<project>.json). An unlinked project is saved by the user first.
+    _hostCanAutosave() {
+        return !!(this._host() && (this._hostFile || this.project?.erpRef?.id));
+    }
+
     _hostAutosave() {
-        if (!this._host() || !this._hostFile) return;
+        if (!this._host()) return;
+        const was = this._hostDirty;
         this._hostDirty = true;
+        if (!was) this.updateFieldStatus();
+        if (!this._hostCanAutosave()) return;
         clearTimeout(this._hostTimer);
         this._hostTimer = setTimeout(() => { if (this._hostDirty) this.hostSave(); }, 120000);
     }
@@ -4484,7 +4585,8 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
             }
         }
         // Browser: File System Access API
-        if (window.showSaveFilePicker) {
+        // Hosted: no file picker in the frame — a plain download, which the host picks up.
+        if (window.showSaveFilePicker && !this._host()) {
             try {
                 const handle = await window.showSaveFilePicker({ suggestedName: filename, types: fileTypes });
                 const writable = await handle.createWritable();

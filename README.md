@@ -285,6 +285,7 @@ Language preference is auto-detected from the browser/OS and persisted in localS
 ### v2026.46.0
 
 - **Versienummer volgt nu jaar.week** — `JJJJ.W.N`, zoals alle OpenAEC-tools; `scripts/versie.mjs` zet het nummer in alle bestanden en de release-workflow controleert het tegen de tag.
+- **Opslaan in de projectmap (OpenAEC SuperCloud)** — biedt de host `window.openaecHost` aan, dan gaat het projectbestand `OFS_<project>.json` (project, contacten, plattegronden, tickets met foto's, inspecties, opleveringen) met versies naar de projectmap: bij Opslaan, automatisch twee minuten na een wijziging, en bij het verlaten van de pagina. De tool opent het bestand waarmee hij gestart is, neemt taal en thema van de host over, en de statusbalk toont of het werk in de projectmap staat. Rapporten en BCF gaan als gewone download naar de host.
 - **Veld-UI op het Blueprint design system** — de interface voor gebruik op de bouwplaats is samengevoegd met v0.3.9; een rapport wordt als PDF-bestand opgeslagen, met het printvenster als terugval.
 - **Logo in de app-balk laadt ook onder een sub-pad** — relatief pad, zodat de webversie ook binnen een host-site werkt.
 - **Windows-installer bundelt WebView2** — de bootstrapper en de loader-DLL gaan mee, zodat de app ook start op een schone Windows-installatie.

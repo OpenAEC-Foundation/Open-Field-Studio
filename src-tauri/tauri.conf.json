@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Open Field Studio",
-  "version": "0.3.9",
+  "version": "2026.46.0",
   "identifier": "com.openaec.openfieldstudio",
   "build": {
     "frontendDist": "../dist",
@@ -37,6 +37,15 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper",
+        "silent": true
+      },
+      "wix": {
+        "version": "26.46.0"
+      }
+    }
   }
 }

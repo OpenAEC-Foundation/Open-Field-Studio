@@ -4,6 +4,8 @@ import pkg from './package.json' with { type: 'json' }
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Relative asset URLs: the build also works below a sub-path (SuperCloud workplace) and in Tauri.
+  base: './',
   plugins: [react()],
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),

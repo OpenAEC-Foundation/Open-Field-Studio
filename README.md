@@ -142,7 +142,7 @@ npm run tauri build
 ```
 
 Outputs:
-- **Windows**: `src-tauri/target/release/bundle/nsis/Open Field Studio_*_x64-setup.exe`
+- **Windows**: `src-tauri/target/release/bundle/nsis/Open Field Studio_*_x64-setup.exe` and `bundle/msi/*.msi`. The installer embeds the WebView2 bootstrapper and ships `WebView2Loader.dll`.
 - **Linux**: `src-tauri/target/release/bundle/deb/*.deb` and `*.AppImage`
 
 ### Android
@@ -151,6 +151,21 @@ Outputs:
 npx tauri android init
 npx tauri android build --apk --target aarch64
 ```
+
+### Version numbers and releases
+
+Open Field Studio follows the version scheme of all OpenAEC tools: **year.week**, `YYYY.W.N` — ISO year, ISO week without a leading zero, and a sequence number within the week that starts at 0. `2026.46.0` is the first release of week 46 in 2026, `2026.46.1` the second. The Git tag and GitHub release are `v2026.46.0`. Up to and including 0.3.9 the app used plain 0.x numbers.
+
+The number lives in `package.json`, `package-lock.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` and `src-tauri/Cargo.lock`. Always set it with the script, so the files stay in step:
+
+```bash
+git fetch --tags
+node scripts/versie.mjs              # next version from the date and the existing tags, set everywhere
+node scripts/versie.mjs 2026.46.1    # set this version everywhere
+node scripts/versie.mjs --controleer # check that every file carries the same number
+```
+
+An MSI allows a major version of at most 255, so the script also sets `bundle.windows.wix.version` (`2026.46.0` becomes `26.46.0`). The release workflow refuses a tag that does not match the files.
 
 ## Project Structure
 
@@ -181,18 +196,25 @@ Open-Field-Studio/
 │       └── fr.json         # French translations
 ├── scripts/
 │   ├── sync-openaec.mjs    # Copy the Blueprint web package into public/openaec/
-│   └── schermen.mjs        # Screenshots for docs/schermen/ (phone, tablet, desktop; normal and outdoor)
+│   ├── schermen.mjs        # Screenshots for docs/schermen/ (phone, tablet, desktop; normal and outdoor)
+│   ├── versie.mjs          # Set or check the version number (year.week) in every file
+│   └── generate-approved-icons.py  # App and installer icons from the approved logo
 ├── src-tauri/
 │   ├── tauri.conf.json     # Tauri window, build, plugin config
+│   ├── tauri.windows.conf.json  # Windows only: bundles WebView2Loader.dll
+│   ├── WebView2Loader.dll  # WebView2 loader, shipped with the Windows installer
 │   ├── Cargo.toml          # Rust dependencies
 │   ├── capabilities/       # Tauri permission config
 │   ├── icons/              # App icons (all sizes)
 │   └── src/
 │       └── lib.rs          # Rust: plugins, window icon
+├── snap/                   # Snap package built from the released .deb
+├── docs/                   # Branding, release notes, screenshots
 └── .github/
     └── workflows/
         ├── ci.yml          # CI: build on push/PR
         ├── release.yml     # Release: Windows + Linux + Android
+        ├── snap-logo-release.yml  # Snap package for a published release
         └── auto-assign-issues.yml
 ```
 
@@ -244,6 +266,7 @@ Open-Field-Studio/
 |--------|---------|
 | `tauri-plugin-dialog` | Native save/open file dialogs |
 | `tauri-plugin-fs` | File system read/write |
+| `tauri-plugin-http` | Connector, BAG and EP-Online requests through the Rust backend (no CORS limits) |
 | `tauri-plugin-log` | Debug logging |
 
 ## Languages
@@ -259,9 +282,20 @@ Language preference is auto-detected from the browser/OS and persisted in localS
 
 ## Changelog
 
+### v2026.46.0
+
+- **Versienummer volgt nu jaar.week** — `JJJJ.W.N`, zoals alle OpenAEC-tools; `scripts/versie.mjs` zet het nummer in alle bestanden en de release-workflow controleert het tegen de tag.
+- **Veld-UI op het Blueprint design system** — de interface voor gebruik op de bouwplaats is samengevoegd met v0.3.9; een rapport wordt als PDF-bestand opgeslagen, met het printvenster als terugval.
+- **Logo in de app-balk laadt ook onder een sub-pad** — relatief pad, zodat de webversie ook binnen een host-site werkt.
+- **Windows-installer bundelt WebView2** — de bootstrapper en de loader-DLL gaan mee, zodat de app ook start op een schone Windows-installatie.
+
 ### v0.3.9
 
 - **Fix PDF-export in de desktop-app** — "Popup geblokkeerd" is opgelost: het rapport wordt nu via een verborgen iframe geprint. Kies in het printvenster "Opslaan als PDF".
+
+### v0.3.8
+
+- **Goedgekeurde logo's** — het vastgestelde Open Field Studio-logo in de app, de installers en het Snap-pakket.
 
 ### v0.3.6
 

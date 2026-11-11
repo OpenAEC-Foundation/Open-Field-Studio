@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version tag (e.g., v2.0.0)'
+        description: 'Version tag (e.g., v2026.46.0)'
         required: true
         default: 'v0.1.0'
 
@@ -31,6 +31,11 @@ jobs:
           else
             echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           fi
+
+      # Version scheme year.week (vYYYY.W.N): every version file must carry the number of the tag.
+      # Set it before tagging with `node scripts/versie.mjs`.
+      - name: Check version numbers match the tag
+        run: node scripts/versie.mjs --controleer "${{ steps.get-version.outputs.version }}"
 
       - name: Create release
         id: create-release

@@ -1,0 +1,36 @@
+name: open-field-studio
+base: core22
+version: 0.0.0
+title: Open Field Studio
+summary: Open Field Studio for Linux
+description: Open Field Studio. This Snap packages the published OpenAEC release with its approved app
+  logo.
+grade: stable
+confinement: strict
+icon: src-tauri/icons/icon.png
+architectures:
+- amd64
+apps:
+  open-field-studio:
+    command: usr/bin/open-field-studio
+    extensions:
+    - gnome
+    desktop: usr/share/applications/open-field-studio.desktop
+    plugs:
+    - home
+    - removable-media
+    - network
+    - browser-support
+    - camera
+parts:
+  open-field-studio:
+    plugin: nil
+    stage-packages:
+    - libappindicator3-1
+    override-build: 'set -eu
+
+      dpkg-deb -x "${CRAFT_PROJECT_DIR}/release.deb" "${CRAFT_PART_INSTALL}"
+
+      python3 "${CRAFT_PROJECT_DIR}/snap/prepare-desktop.py" "${CRAFT_PART_INSTALL}"
+
+      '

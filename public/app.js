@@ -3784,23 +3784,48 @@ class OpenFieldStudio {
                 console.error('PDF export failed, falling back to print', e);
             }
         }
-        this._printHtml(html);
+        await this._printHtml(html);
     }
 
-    // Fallback: print the report from a hidden same-page frame (no window.open).
-    _printHtml(html) {
-        const frame = document.createElement('iframe');
-        frame.className = 'print-frame';
-        frame.setAttribute('aria-hidden', 'true');
-        frame.srcdoc = html;
-        frame.addEventListener('load', () => {
-            setTimeout(() => {
-                try { frame.contentWindow.focus(); frame.contentWindow.print(); }
-                catch (e) { console.error(e); this.showNotification(this.t('msg_popup_blocked'), 'error'); }
-                setTimeout(() => frame.remove(), 60000);
-            }, 300);
-        }, { once: true });
-        document.body.appendChild(frame);
+    // Fallback: print the report from a hidden frame in the page (no window.open, which is
+    // blocked in the desktop webview). The user picks "Save as PDF" in the native print dialog.
+    async _printHtml(html) {
+        const old = document.getElementById('ofs-print-frame');
+        if (old) old.remove();
+        const iframe = document.createElement('iframe');
+        iframe.id = 'ofs-print-frame';
+        iframe.setAttribute('aria-hidden', 'true');
+        iframe.className = 'print-frame';
+        document.body.appendChild(iframe);
+        const win = iframe.contentWindow;
+        const doc = win.document;
+        doc.open();
+        doc.write(html);
+        doc.close();
+
+        const waitImages = () => new Promise(resolve => {
+            const imgs = Array.from(doc.images);
+            if (!imgs.length) return resolve();
+            let left = imgs.length;
+            const done = () => { if (--left <= 0) resolve(); };
+            imgs.forEach(img => {
+                if (img.complete) done();
+                else { img.addEventListener('load', done); img.addEventListener('error', done); }
+            });
+            setTimeout(resolve, 8000); // never hang on a broken image
+        });
+        try {
+            await waitImages();
+            if (doc.fonts && doc.fonts.ready) await doc.fonts.ready;
+            await new Promise(r => setTimeout(r, 150));
+            win.focus();
+            win.print();
+        } catch (e) {
+            console.error('PDF print failed', e);
+            this.showNotification(this.t('msg_popup_blocked'), 'error');
+        }
+        // Remove the frame after printing so it doesn't linger.
+        setTimeout(() => iframe.remove(), 60000);
     }
 
     // =====================================================

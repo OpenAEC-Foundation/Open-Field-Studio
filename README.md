@@ -227,6 +227,16 @@ Language preference is auto-detected from the browser/OS and persisted in localS
 
 ## Changelog
 
+### v0.4.0
+
+Veldwerk-verbeteringen op basis van gebruik op locatie.
+
+- **Project openen staat nu op de Project-tab** (naast "Project Opslaan") in plaats van onder Export.
+- **Foto's maken op Android** — op Android opent "Maak foto met camera" nu de systeem-camera-app (betrouwbaarder dan de in-pagina camerastream die na de toestemming haperde). Foto's verschijnen direct: de GPS-lookup blokkeert niet meer (tot 6 s wachten gaf het gevoel dat taps niet registreerden). Grote camerafoto's worden verkleind (max 1920 px), dubbele taps worden genegeerd, de camera geeft haptische/visuele bevestiging en een melding als de stream nog niet klaar is.
+- **Ticketpunten zichtbaar in afdruk/PDF** — de genummerde pinnen worden nu in de plattegrond zelf getekend (canvas) in plaats van met CSS eroverheen gelegd, zodat ze altijd meekomen bij afdrukken en nummers overeenkomen met de ticketlijst.
+- **Snelle tickets** — knop "Snel plaatsen" in de plattegrondwerkbalk: elke tik op de plattegrond zet direct een ticket ("Punt 1", "Punt 2", …) zonder formulier; de modus blijft aan tot je stopt (Esc of dezelfde knop). In het gewone ticketformulier mag het label nu leeg blijven (wordt afgeleid van de beschrijving of genummerd).
+- **Tickets inspreken** — microfoonknop "Inspreken" bij de beschrijving zet gesproken tekst om in tekst (browser-spraakherkenning, taal volgt de app-taal). Waar de webview dit niet ondersteunt (o.a. Android WebView) krijg je een tip om de microfoon van het toetsenbord te gebruiken.
+
 ### v0.3.9
 
 - **Fix PDF-export in de desktop-app** — "Popup geblokkeerd" is opgelost: het rapport wordt nu via een verborgen iframe geprint. Kies in het printvenster "Opslaan als PDF".

@@ -202,6 +202,7 @@ class OpenFieldStudio {
         setText('#import-cancel', 'import_close');
         setText('#import-confirm', 'import_confirm_btn');
         setText('#project-import-btn', 'btn_project_import');
+        document.querySelectorAll('.dictate-btn .dictate-label').forEach(l => { l.textContent = this.t(this._rec ? 'dictate_stop' : 'dictate_start'); });
         this.refreshProjectImportBtn();
         const cIntro = document.getElementById('connectors-intro');
         if (cIntro) cIntro.textContent = this.t('connectors_intro');
@@ -791,6 +792,8 @@ class OpenFieldStudio {
 
         // Canvas Tools
         document.getElementById('add-point-btn').addEventListener('click', () => this.toggleAddPointMode());
+        document.getElementById('quick-point-btn').addEventListener('click', () => this.toggleQuickMode());
+        document.querySelectorAll('.dictate-btn').forEach(b => b.addEventListener('click', () => this.toggleDictation(b.dataset.dictate, b)));
         document.getElementById('zoom-in-btn').addEventListener('click', () => this.zoom(0.25));
         document.getElementById('zoom-out-btn').addEventListener('click', () => this.zoom(-0.25));
         document.getElementById('zoom-fit-btn').addEventListener('click', () => this.zoomFit());
@@ -815,7 +818,14 @@ class OpenFieldStudio {
         photoInput.addEventListener('change', (e) => { this.processPhotoFiles(e.target.files); e.target.value = ''; });
 
         // Camera
-        document.getElementById('camera-btn').addEventListener('click', () => this.openCamera());
+        document.getElementById('camera-btn').addEventListener('click', () => { this._itemPhotoIdx = undefined; this.openCamera(); });
+        // Android system-camera result (ticket photo or checklist-item photo)
+        document.getElementById('camera-native-input')?.addEventListener('change', (e) => {
+            const files = e.target.files; e.target.value = '';
+            if (!files || !files.length) return;
+            if (this._itemPhotoIdx !== undefined) { const idx = this._itemPhotoIdx; this._itemPhotoIdx = undefined; this.uploadItemPhotos(idx, files); }
+            else this.processPhotoFiles(files, 'camera');
+        });
         document.getElementById('camera-capture').addEventListener('click', () => this.capturePhoto());
         document.getElementById('camera-cancel').addEventListener('click', () => this.closeCamera());
         document.getElementById('camera-modal-close').addEventListener('click', () => this.closeCamera());
@@ -880,8 +890,7 @@ class OpenFieldStudio {
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 this.closePointModal(); this.closePhotoViewer(); this.closeContactModal();
-                this.isAddingPoint = false;
-                document.getElementById('add-point-btn')?.classList.remove('active');
+                this.isAddingPoint = false; this.quickMode = false; this._syncAddModeUI();
             }
         });
     }
@@ -1331,8 +1340,39 @@ class OpenFieldStudio {
     // =====================================================
     toggleAddPointMode() {
         this.isAddingPoint = !this.isAddingPoint;
-        document.getElementById('add-point-btn').classList.toggle('active', this.isAddingPoint);
-        document.getElementById('floor-plan-wrapper').classList.toggle('adding-point', this.isAddingPoint);
+        this.quickMode = false;               // the normal "Ticket toevoegen" mode is never quick
+        this._syncAddModeUI();
+    }
+
+    // Quick mode: every tap on the plan drops a ticket immediately (auto label, no form), and the
+    // mode stays on so a whole walk-through can be marked in seconds. Details can be added later.
+    toggleQuickMode() {
+        if (!this.activeFloorPlanId) { this.showNotification(this.t('msg_select_plan_first'), 'error'); return; }
+        this.quickMode = !this.quickMode;
+        this.isAddingPoint = this.quickMode;
+        this._syncAddModeUI();
+        if (this.quickMode) this.showNotification(this.t('msg_quick_mode_on'), 'info');
+    }
+
+    _syncAddModeUI() {
+        document.getElementById('add-point-btn')?.classList.toggle('active', !!this.isAddingPoint && !this.quickMode);
+        document.getElementById('quick-point-btn')?.classList.toggle('active', !!this.quickMode);
+        document.getElementById('floor-plan-wrapper')?.classList.toggle('adding-point', !!this.isAddingPoint);
+    }
+
+    createQuickTicket(x, y) {
+        const label = `${this.t('quick_ticket_prefix')} ${this.tickets.length + 1}`;
+        const now = new Date().toISOString();
+        this.tickets.push({
+            id: this.genId(), floorPlanId: this.activeFloorPlanId, label,
+            description: '', category: 'Bouwkundig', priority: 'medium', severity: 'cosmetic', status: 'open',
+            assignedTo: '', deadline: '', x, y, photos: [], comments: [],
+            history: [{ action: 'Aangemaakt (snel)', date: now }], createdAt: now
+        });
+        this.logActivity(this.tFormat('log_ticket_created', label));
+        this.renderLocationPoints(); this.renderPointsList(); this.saveToLocalStorage();
+        try { navigator.vibrate && navigator.vibrate(30); } catch (_) {}
+        this.showNotification(this.tFormat('msg_quick_ticket_added', label), 'success');
     }
 
     handleCanvasClick(e) {
@@ -1341,7 +1381,10 @@ class OpenFieldStudio {
         const r = img.getBoundingClientRect();
         const x = ((e.clientX - r.left) / r.width) * 100;
         const y = ((e.clientY - r.top) / r.height) * 100;
-        if (x >= 0 && x <= 100 && y >= 0 && y <= 100) { this.openPointModal(null, x, y); this.toggleAddPointMode(); }
+        if (x >= 0 && x <= 100 && y >= 0 && y <= 100) {
+            if (this.quickMode) { this.createQuickTicket(x, y); }
+            else { this.openPointModal(null, x, y); this.toggleAddPointMode(); }
+        }
     }
 
     openPointModal(pointId = null, x = 0, y = 0) {
@@ -1393,12 +1436,58 @@ class OpenFieldStudio {
         document.getElementById('point-label').focus();
     }
 
-    closePointModal() { document.getElementById('point-modal').classList.remove('active'); this.currentPhotos = []; this.editingPointId = null; }
+    // Speech-to-text into a field via the browser's SpeechRecognition (Chrome/Edge). Not available in
+    // every webview (notably Android WebView) — then we point the user at the keyboard microphone.
+    toggleDictation(targetId, btn) {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) { this.showNotification(this.t('dictate_unsupported'), 'info'); return; }
+        if (this._rec) { try { this._rec.stop(); } catch (_) {} return; }
+        const el = document.getElementById(targetId);
+        if (!el) return;
+        const rec = new SR();
+        rec.lang = ({ nl: 'nl-NL', en: 'en-GB', de: 'de-DE', fr: 'fr-FR' })[this.lang] || 'nl-NL';
+        rec.continuous = true;
+        rec.interimResults = true;
+        const base = el.value;
+        const sep = base && !/\s$/.test(base) ? ' ' : '';
+        let finalText = '';
+        rec.onresult = (ev) => {
+            let interim = '';
+            for (let i = ev.resultIndex; i < ev.results.length; i++) {
+                const r = ev.results[i];
+                if (r.isFinal) finalText += r[0].transcript; else interim += r[0].transcript;
+            }
+            let text = (finalText + interim).trim();
+            if (!base && text) text = text.charAt(0).toUpperCase() + text.slice(1);
+            el.value = base + sep + text;
+        };
+        rec.onerror = (ev) => {
+            if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') this.showNotification(this.t('dictate_denied'), 'error');
+            else if (ev.error === 'network') this.showNotification(this.t('dictate_network'), 'error');
+            else if (ev.error !== 'no-speech' && ev.error !== 'aborted') this.showNotification(this.tFormat('dictate_error', ev.error), 'error');
+        };
+        rec.onend = () => { this._rec = null; this._setDictateUI(btn, false); };
+        try { rec.start(); this._rec = rec; this._setDictateUI(btn, true); }
+        catch (e) { this._rec = null; this.showNotification(this.t('dictate_unsupported'), 'info'); }
+    }
+    _setDictateUI(btn, on) {
+        if (!btn) return;
+        btn.classList.toggle('active', on);
+        const l = btn.querySelector('.dictate-label');
+        if (l) l.textContent = this.t(on ? 'dictate_stop' : 'dictate_start');
+    }
+
+    closePointModal() { if (this._rec) { try { this._rec.stop(); } catch (_) {} } document.getElementById('point-modal').classList.remove('active'); this.currentPhotos = []; this.editingPointId = null; }
 
     savePoint() {
-        const label = document.getElementById('point-label').value.trim();
-        if (!label) { this.showNotification(this.t('msg_fill_label'), 'error'); return; }
         const existingTicket = this.editingPointId ? this.tickets.find(t => t.id === this.editingPointId) : null;
+        let label = document.getElementById('point-label').value.trim();
+        if (!label) {
+            const desc = document.getElementById('point-description').value.trim();
+            label = desc
+                ? desc.split(/\s+/).slice(0, 6).join(' ').slice(0, 40)
+                : `${this.t('quick_ticket_prefix')} ${existingTicket ? this.tickets.indexOf(existingTicket) + 1 : this.tickets.length + 1}`;
+        }
         const td = {
             id: document.getElementById('point-id').value || this.genId(),
             floorPlanId: this.activeFloorPlanId, label,
@@ -1527,22 +1616,69 @@ class OpenFieldStudio {
 
     // Build a photo object with evidentiary metadata (timestamp always, GPS best-effort).
     async buildPhoto(data, name, source) {
-        const gps = await this.getCurrentGPS();
-        return {
+        // Never block on GPS: a slow/denied location prompt used to delay the photo by up to 6 s,
+        // so users tapped repeatedly and nothing seemed to register. Use the cached fix now and
+        // fill it in later if it arrives (persisted at the next save, same object reference).
+        const c = this._gpsCache;
+        const cached = c && (Date.now() - c.at) < 5 * 60 * 1000 ? c.gps : null;
+        const photo = {
             id: this.genId(),
             data, name,
             capturedAt: new Date().toISOString(),
             source: source || 'file',
-            gps: gps || null
+            gps: cached || null
         };
+        if (!cached) {
+            this.getCurrentGPS().then(g => { if (g) photo.gps = g; }).catch(() => {});
+        }
+        return photo;
     }
 
-    processPhotoFiles(files) {
+    // Shrink big camera photos (12 MP+) before they are stored/printed: keeps IndexedDB, reports
+    // and the UI fast. Photos already <= maxSide are returned untouched.
+    _downscaleDataUrl(dataUrl, maxSide = 1920, quality = 0.82) {
+        return new Promise(resolve => {
+            const img = new Image();
+            img.onload = () => {
+                const long = Math.max(img.naturalWidth, img.naturalHeight);
+                if (!long || long <= maxSide) return resolve(dataUrl);
+                const k = maxSide / long;
+                const c = document.createElement('canvas');
+                c.width = Math.round(img.naturalWidth * k);
+                c.height = Math.round(img.naturalHeight * k);
+                c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+                try { resolve(c.toDataURL('image/jpeg', quality)); } catch (_) { resolve(dataUrl); }
+            };
+            img.onerror = () => resolve(dataUrl);
+            img.src = dataUrl;
+        });
+    }
+
+    // Grab the current camera frame as a (downscaled) JPEG data URL, or null if the stream has no frames yet.
+    _grabFrame(video, maxSide = 1920, quality = 0.82) {
+        if (!video || !video.videoWidth || !video.videoHeight) return null;
+        const k = Math.min(1, maxSide / Math.max(video.videoWidth, video.videoHeight));
+        const canvas = document.getElementById('camera-canvas');
+        canvas.width = Math.round(video.videoWidth * k);
+        canvas.height = Math.round(video.videoHeight * k);
+        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL('image/jpeg', quality);
+    }
+
+    _useNativeCamera() { return /Android/i.test(navigator.userAgent); }
+    _openNativeCamera() {
+        const input = document.getElementById('camera-native-input');
+        if (!input) { document.getElementById('photo-input')?.click(); return; }
+        input.value = '';
+        input.click();
+    }
+
+    processPhotoFiles(files, source = 'file') {
         Array.from(files).forEach(file => {
             if (!file.type.startsWith('image/')) return;
             const r = new FileReader();
             r.onload = async (e) => {
-                const photo = await this.buildPhoto(e.target.result, file.name, 'file');
+                const photo = await this.buildPhoto(await this._downscaleDataUrl(e.target.result), file.name, source);
                 this.currentPhotos.push(photo);
                 this.renderPhotoPreview();
             };
@@ -1592,6 +1728,10 @@ class OpenFieldStudio {
     // =====================================================
     async openCamera() {
         const isApp = !!window.__TAURI_INTERNALS__;
+        this.getCurrentGPS().catch(() => {}); // warm the location fix so the shot itself never waits for it
+        // Android: the system camera app (via <input capture>) is far more reliable than an in-page
+        // getUserMedia stream, which stalled after the permission prompt and dropped taps.
+        if (this._useNativeCamera()) { this._openNativeCamera(); return; }
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             this.showNotification('Camera niet beschikbaar. Gebruik HTTPS of open via bestandskeuze.', 'error');
             document.getElementById('photo-input')?.click();
@@ -1619,6 +1759,7 @@ class OpenFieldStudio {
             this._cameraStream = stream;
             const video = document.getElementById('camera-video');
             video.srcObject = stream;
+            video.play().catch(() => {});
             document.getElementById('camera-modal').classList.add('active');
         } catch (e) {
             console.error('Camera error:', e);
@@ -1637,18 +1778,23 @@ class OpenFieldStudio {
     }
 
     async capturePhoto() {
-        if (this._itemPhotoIdx !== undefined) { this.captureItemPhoto(); this.closeCamera(); return; }
         const video = document.getElementById('camera-video');
-        const canvas = document.getElementById('camera-canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        canvas.getContext('2d').drawImage(video, 0, 0);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        if (!video || !video.videoWidth) { this.showNotification(this.t('msg_camera_not_ready'), 'error'); return; }
+        if (this._capturing) return;               // ignore double-taps within 350 ms
+        this._capturing = true;
+        setTimeout(() => { this._capturing = false; }, 350);
+        // Visual + haptic confirmation that the tap registered
+        video.style.opacity = '0.25';
+        setTimeout(() => { video.style.opacity = ''; }, 120);
+        try { navigator.vibrate && navigator.vibrate(25); } catch (_) {}
+        if (this._itemPhotoIdx !== undefined) { this.captureItemPhoto(); this.closeCamera(); return; }
+        const dataUrl = this._grabFrame(video);
+        if (!dataUrl) { this.showNotification(this.t('msg_camera_not_ready'), 'error'); return; }
         const name = `foto_${new Date().toISOString().slice(11,19).replace(/:/g,'')}.jpg`;
         const photo = await this.buildPhoto(dataUrl, name, 'camera');
         this.currentPhotos.push(photo);
         this.renderPhotoPreview();
-        this.showNotification(this.t('msg_photo_captured'), 'success');
+        this.showNotification(this.tFormat('msg_photo_n', this.currentPhotos.length), 'success');
     }
 
     async switchCamera() {
@@ -1672,7 +1818,10 @@ class OpenFieldStudio {
             this._cameraStream.getTracks().forEach(t => t.stop());
             this._cameraStream = null;
         }
-        if (!keepModal) document.getElementById('camera-modal').classList.remove('active');
+        if (!keepModal) {
+            document.getElementById('camera-modal').classList.remove('active');
+            this._itemPhotoIdx = undefined; // a cancelled checklist-item shot must not hijack the next ticket photo
+        }
     }
 
     // =====================================================
@@ -1894,11 +2043,8 @@ class OpenFieldStudio {
 
     async captureItemPhoto() {
         const video = document.getElementById('camera-video');
-        const canvas = document.getElementById('camera-canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        canvas.getContext('2d').drawImage(video, 0, 0);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const dataUrl = this._grabFrame(video);
+        if (!dataUrl) { this._itemPhotoIdx = undefined; return; }
         const insp = this.inspections.find(i => i.id === this.currentInspectionId);
         if (insp && this._itemPhotoIdx !== undefined) {
             const item = insp.items[this._itemPhotoIdx];
@@ -1922,7 +2068,7 @@ class OpenFieldStudio {
             if (!file.type.startsWith('image/')) return;
             const r = new FileReader();
             r.onload = async (e) => {
-                const photo = await this.buildPhoto(e.target.result, file.name, 'file');
+                const photo = await this.buildPhoto(await this._downscaleDataUrl(e.target.result), file.name, 'file');
                 item.photos.push(photo);
                 this.saveToLocalStorage();
                 this.renderChecklistExecution();
@@ -3430,6 +3576,7 @@ class OpenFieldStudio {
 
     async exportHTML() {
         const type = document.querySelector('input[name="export-type"]:checked').value;
+        if (document.getElementById('include-map').checked) await this._prepareReportMaps(); else this._reportMaps = {};
         let html;
         if (type === 'handover') {
             const hoId = document.getElementById('export-handover-id').value;
@@ -3444,6 +3591,7 @@ class OpenFieldStudio {
 
     async exportPDF() {
         const type = document.querySelector('input[name="export-type"]:checked').value;
+        if (document.getElementById('include-map').checked) await this._prepareReportMaps(); else this._reportMaps = {};
         let html;
         if (type === 'handover') {
             const hoId = document.getElementById('export-handover-id').value;
@@ -3647,6 +3795,36 @@ class OpenFieldStudio {
         return new Blob([...parts, ...central, eocd], { type: 'application/zip' });
     }
 
+    // Burn the numbered ticket pins INTO the floor-plan image (canvas). The previous approach overlaid
+    // absolutely-positioned SVG pins with CSS, which vanished in print/PDF output and had no numbers.
+    async _prepareReportMaps() {
+        this._reportMaps = {};
+        const colors = { open: '#D97706', assigned: '#2563EB', completed: '#16A34A', verified: '#71717A', archived: '#A1A1AA' };
+        for (const fp of this.floorPlans) {
+            const pts = this.tickets.filter(t => t.floorPlanId === fp.id);
+            if (!pts.length || !fp.data) continue;
+            try {
+                const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = fp.data; });
+                const k = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight));
+                const w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k);
+                const c = document.createElement('canvas'); c.width = w; c.height = h;
+                const g = c.getContext('2d');
+                g.drawImage(img, 0, 0, w, h);
+                const r = Math.max(14, Math.round(Math.min(w, h) * 0.02));
+                pts.forEach((p, i) => {
+                    const x = (p.x / 100) * w, y = (p.y / 100) * h;
+                    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2);
+                    g.fillStyle = colors[p.status] || '#D97706'; g.fill();
+                    g.lineWidth = Math.max(2, r * 0.18); g.strokeStyle = '#fff'; g.stroke();
+                    g.fillStyle = '#fff'; g.font = `bold ${Math.round(r * 1.05)}px Arial, sans-serif`;
+                    g.textAlign = 'center'; g.textBaseline = 'middle';
+                    g.fillText(String(i + 1), x, y + 1);
+                });
+                this._reportMaps[fp.id] = c.toDataURL('image/jpeg', 0.88);
+            } catch (e) { console.warn('report map render failed', fp.name, e); }
+        }
+    }
+
     generateFullReport() {
         const incPhotos = document.getElementById('include-photos').checked;
         const incMap = document.getElementById('include-map').checked;
@@ -3669,7 +3847,7 @@ ${this.project.surveyor?`<div class="meta-item"><label>Opgenomen door</label><sp
 ${this.floorPlans.map(fp => {
     const pts = byFloor[fp.id] || [];
     return `<div class="section"><h3>${this.esc(fp.name)}</h3>
-    ${incMap?`<div style="position:relative;display:inline-block;max-width:100%;margin-bottom:1rem;"><img src="${fp.data}" style="max-width:100%;border-radius:8px;border:1px solid var(--border);">
+    ${incMap&&this._reportMaps&&this._reportMaps[fp.id]?`<div style="margin-bottom:1rem;"><img src="${this._reportMaps[fp.id]}" style="max-width:100%;border-radius:8px;border:1px solid var(--border);"></div>`:incMap?`<div style="position:relative;display:inline-block;max-width:100%;margin-bottom:1rem;"><img src="${fp.data}" style="max-width:100%;border-radius:8px;border:1px solid var(--border);">
     ${pts.map((p,i)=>`<div style="position:absolute;left:${p.x}%;top:${p.y}%;width:24px;height:24px;transform:translate(-50%,-100%);"><svg viewBox="0 0 24 24" fill="${{open:'#D97706',assigned:'#2563EB',completed:'#16A34A',verified:'#71717A'}[p.status]||'#D97706'}"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg></div>`).join('')}
     </div>`:''}
     ${pts.length?pts.map((p,i)=>`<div class="ticket-card"><div class="ticket-header"><strong>${i+1}. ${this.esc(p.label)}</strong><span class="ticket-badge tb-${p.status}">${this.statusLabel(p.status)}</span></div>

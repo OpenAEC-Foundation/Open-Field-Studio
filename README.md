@@ -227,6 +227,13 @@ Language preference is auto-detected from the browser/OS and persisted in localS
 
 ## Changelog
 
+### v0.4.1
+
+- **Update-controle met "Bijwerken"** — klik op het versienummer in de titelbalk (of op de oranje update-badge) voor een dialoog: je ziet of je de nieuwste versie hebt, kunt opnieuw controleren en bij een nieuwe versie met één klik bijwerken. Windows/Linux/Android openen het juiste installatiebestand uit de release in de systeembrowser; de webversie laadt zichzelf opnieuw. De app controleert bij het starten en daarna elke 6 uur.
+- **Veel snellere afdrukvoorbereiding** — foto's worden voor het rapport verkleind (miniaturen) in plaats van op volle camera-resolutie ingebed; 12 foto's van samen ~7 MB geven nu een rapport van <1 MB. Er verschijnt een "Rapport voorbereiden…"-melding.
+- **Snellere opslag met veel foto's** — bij elke opslag werden alle foto's en plattegronden opnieuw naar de lokale opslag geschreven (31 foto's = 31 schrijfacties per tik). Nu worden alleen nieuwe bestanden geschreven (0 bij een gewone opslag, 1 bij één nieuwe foto). Plattegronden uit camerafoto's/grote scans worden bovendien verkleind (lange zijde max. 2600 px).
+- Nieuwe plugin `tauri-plugin-opener` om downloads in de systeembrowser te openen.
+
 ### v0.4.0
 
 Veldwerk-verbeteringen op basis van gebruik op locatie.

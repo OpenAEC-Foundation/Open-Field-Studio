@@ -2,6 +2,7 @@
 // Initialize i18next, then start the app immediately, load plugins in background
 
 import i18next from './i18n';
+import { checkForUpdates, renderUpdateBadge, openUpdateDialog } from './updater';
 
 // __APP_VERSION__ is injected by Vite at build time from package.json.
 declare const __APP_VERSION__: string;
@@ -12,8 +13,15 @@ declare const __APP_VERSION__: string;
 // Keep the title-bar version label in sync with package.json.
 (function syncVersionLabel() {
   const set = () => {
-    const el = document.querySelector('.title-bar-version');
-    if (el) el.textContent = 'v' + __APP_VERSION__;
+    const el = document.querySelector('.title-bar-version') as HTMLElement | null;
+    if (el) {
+      el.textContent = 'v' + __APP_VERSION__;
+      // Clicking the version opens the update dialog (check + "Bijwerken").
+      el.style.cursor = 'pointer';
+      el.style.setProperty('-webkit-app-region', 'no-drag');
+      el.title = i18next.t('update_check_title', { defaultValue: 'Controleren op updates' });
+      el.addEventListener('click', (e) => { e.stopPropagation(); void openUpdateDialog(); });
+    }
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', set);
   else set();
@@ -24,16 +32,11 @@ declare const __APP_VERSION__: string;
 
 // Check GitHub Releases for a newer version and render a titlebar badge.
 // Silent-fails on offline/rate-limit so it never breaks the app.
-import { checkForUpdates, renderUpdateBadge } from './updater';
 function runUpdateCheck() {
-  const tGet = (key: string, ...args: string[]) => {
-    if (!(window as any).i18next) return key;
-    let s = i18next.t(key, { defaultValue: key });
-    args.forEach((a, i) => { s = s.replace(`{${i}}`, a); });
-    return s;
-  };
-  checkForUpdates().then(status => renderUpdateBadge(status, tGet)).catch(() => {});
+  checkForUpdates().then(status => renderUpdateBadge(status)).catch(() => {});
 }
+// Re-check while the app stays open (field devices often run for days).
+setInterval(runUpdateCheck, 6 * 60 * 60 * 1000);
 
 // Expose Tauri plugin APIs globally for app.js (non-blocking)
 function exposeTauriPlugins() {

@@ -1255,7 +1255,11 @@ class OpenFieldStudio {
         Array.from(files).forEach(file => {
             if (file.type.startsWith('image/')) {
                 const r = new FileReader();
-                r.onload = (e) => { this.floorPlans.push({ id:this.genId(), name:file.name.replace(/\.[^/.]+$/,''), data:e.target.result, type:file.type }); this.renderFloorPlansList(); this.updateFloorPlanSelector(); this.saveToLocalStorage(); };
+                r.onload = async (e) => {
+                    const data = await this._downscaleDataUrl(e.target.result, 2600, 0.85);
+                    this.floorPlans.push({ id:this.genId(), name:file.name.replace(/\.[^/.]+$/,''), data, type: data === e.target.result ? file.type : 'image/jpeg' });
+                    this.renderFloorPlansList(); this.updateFloorPlanSelector(); this.saveToLocalStorage();
+                };
                 r.readAsDataURL(file);
             } else if (file.type === 'application/pdf') this.processPDFFile(file);
         });
@@ -3576,7 +3580,7 @@ class OpenFieldStudio {
 
     async exportHTML() {
         const type = document.querySelector('input[name="export-type"]:checked').value;
-        if (document.getElementById('include-map').checked) await this._prepareReportMaps(); else this._reportMaps = {};
+        await this._prepareReportAssets();
         let html;
         if (type === 'handover') {
             const hoId = document.getElementById('export-handover-id').value;
@@ -3591,7 +3595,7 @@ class OpenFieldStudio {
 
     async exportPDF() {
         const type = document.querySelector('input[name="export-type"]:checked').value;
-        if (document.getElementById('include-map').checked) await this._prepareReportMaps(); else this._reportMaps = {};
+        await this._prepareReportAssets();
         let html;
         if (type === 'handover') {
             const hoId = document.getElementById('export-handover-id').value;
@@ -3797,6 +3801,28 @@ class OpenFieldStudio {
 
     // Burn the numbered ticket pins INTO the floor-plan image (canvas). The previous approach overlaid
     // absolutely-positioned SVG pins with CSS, which vanished in print/PDF output and had no numbers.
+    // Prepare everything the report embeds. Photos are shrunk to thumbnail size first: the report
+    // only shows them small, but embedding full-resolution camera photos (several MB each) made
+    // "afdrukvoorbereiding" take minutes and the print dialog sluggish.
+    async _prepareReportAssets() {
+        this.showNotification(this.t('msg_report_preparing'), 'info');
+        await new Promise(r => setTimeout(r, 30)); // let the toast paint before the heavy work
+        this._reportMaps = {};
+        this._reportPhotos = {};
+        if (document.getElementById('include-map').checked) await this._prepareReportMaps();
+        if (document.getElementById('include-photos').checked) {
+            const photos = this.tickets.flatMap(t => t.photos || []).filter(ph => ph && ph.data);
+            let i = 0;
+            const worker = async () => {
+                while (i < photos.length) {
+                    const ph = photos[i++];
+                    this._reportPhotos[ph.id] = await this._downscaleDataUrl(ph.data, 900, 0.75);
+                }
+            };
+            await Promise.all([worker(), worker(), worker(), worker()]);
+        }
+    }
+
     async _prepareReportMaps() {
         this._reportMaps = {};
         const colors = { open: '#D97706', assigned: '#2563EB', completed: '#16A34A', verified: '#71717A', archived: '#A1A1AA' };
@@ -3805,7 +3831,7 @@ class OpenFieldStudio {
             if (!pts.length || !fp.data) continue;
             try {
                 const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = fp.data; });
-                const k = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight));
+                const k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
                 const w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k);
                 const c = document.createElement('canvas'); c.width = w; c.height = h;
                 const g = c.getContext('2d');
@@ -3858,7 +3884,7 @@ ${this.floorPlans.map(fp => {
         if (ph.capturedAt) { const d = new Date(ph.capturedAt); if (!isNaN(d.getTime())) meta.push(d.toLocaleString('nl-NL')); }
         if (ph.gps) meta.push(`${ph.gps.lat.toFixed(5)}, ${ph.gps.lon.toFixed(5)}`);
         const cap = meta.length ? `<div class="photo-cap">${this.esc(meta.join(' · '))}</div>` : '';
-        return `<figure class="photo-fig"><img src="${ph.data}">${cap}</figure>`;
+        return `<figure class="photo-fig"><img src="${(this._reportPhotos&&this._reportPhotos[ph.id])||ph.data}">${cap}</figure>`;
     }).join('')}</div>`:''}
     </div>`).join(''):'<p style="color:var(--gray);">Geen tickets</p>'}
     </div>`;
@@ -4040,7 +4066,12 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
             if (isBlob) {
                 if (!node.blobRef) node.blobRef = 'b_' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
                 out.blobRef = node.blobRef;
-                pending.push(this._blobPut(node.blobRef, node.data));
+                if (!this._blobWritten) this._blobWritten = new Set();
+                if (!this._blobWritten.has(node.blobRef)) {
+                    this._blobWritten.add(node.blobRef); // mark now so concurrent saves don't double-write
+                    const ref = node.blobRef;
+                    pending.push(this._blobPut(ref, node.data).catch(err => { this._blobWritten.delete(ref); throw err; }));
+                }
             }
             return out;
         }
@@ -4053,7 +4084,10 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
         if (Array.isArray(node)) { await Promise.all(node.map(v => this._hydrateBlobs(v))); return; }
         if (node && typeof node === 'object') {
             if (node.blobRef && typeof node.data !== 'string') {
-                try { const d = await this._blobGet(node.blobRef); if (d) node.data = d; }
+                try {
+                    const d = await this._blobGet(node.blobRef);
+                    if (d) { node.data = d; if (!this._blobWritten) this._blobWritten = new Set(); this._blobWritten.add(node.blobRef); }
+                }
                 catch (e) { console.warn('blob resolve failed', node.blobRef, e); }
             }
             for (const k of Object.keys(node)) await this._hydrateBlobs(node[k]);
@@ -4108,7 +4142,7 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
         const ok = await this.asyncConfirm(this.t('msg_confirm_clear'));
         if (!ok) return;
         localStorage.removeItem('openFieldStudio');
-        try { await this._blobClearAll(); } catch (e) { console.warn('IDB clear failed', e); }
+        try { await this._blobClearAll(); this._blobWritten = new Set(); } catch (e) { console.warn('IDB clear failed', e); }
         this.project = { name:'',number:'',client:'',contactPerson:'',address:'',postalCode:'',city:'',surveyDate:'',surveyor:'',description:'',notes:'',bagData:null };
         this.contacts = []; this.floorPlans = []; this.tickets = []; this.inspections = []; this.handovers = []; this.activityLog = [];
         this.activeFloorPlanId = null;

@@ -8,6 +8,8 @@ pub fn run() {
     // HTTP via the Rust backend — connector APIs (ERPNext/AFAS/Exact/...) rarely send
     // CORS headers, so webview fetch() is blocked; this plugin is not.
     .plugin(tauri_plugin_http::init())
+    // Opens update downloads / release pages in the system browser (webview popups are blocked).
+    .plugin(tauri_plugin_opener::init())
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(

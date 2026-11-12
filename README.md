@@ -227,6 +227,10 @@ Language preference is auto-detected from the browser/OS and persisted in localS
 
 ## Changelog
 
+### v0.4.3
+
+- Testrelease voor de update-functie (alleen versienummer gewijzigd).
+
 ### v0.4.2
 
 - **Fix: Android-foto's werden niet ingeladen** — na het maken van een foto met de systeemcamera werd het invoerveld leeggemaakt voordat de bestanden waren uitgelezen, waardoor (in Chromium-webviews) de bestandslijst leeg was en de foto nooit in het ticket kwam. Bestanden worden nu eerst gekopieerd.

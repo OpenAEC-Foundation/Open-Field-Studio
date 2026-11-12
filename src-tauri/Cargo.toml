@@ -1,6 +1,6 @@
 [package]
 name = "open-field-studio"
-version = "0.4.2"
+version = "0.4.3"
 description = "Inspectie, Oplevering & Kwaliteitsborging voor bouwprojecten"
 authors = ["OpenAEC Foundation"]
 license = ""

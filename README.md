@@ -227,6 +227,12 @@ Language preference is auto-detected from the browser/OS and persisted in localS
 
 ## Changelog
 
+### v0.4.2
+
+- **Fix: Android-foto's werden niet ingeladen** — na het maken van een foto met de systeemcamera werd het invoerveld leeggemaakt voordat de bestanden waren uitgelezen, waardoor (in Chromium-webviews) de bestandslijst leeg was en de foto nooit in het ticket kwam. Bestanden worden nu eerst gekopieerd.
+- **Snelle tickets met direct een foto** — na een snelle marker opent meteen de camera en wordt de foto aan dat ticket gehangen (details vul je later in). Aan/uit met de knop "Foto erbij" in de plattegrondwerkbalk (standaard aan). Een geannuleerde camera laat geen verdwaalde koppeling achter.
+- **Inspreken**: waar de webview geen spraakherkenning heeft selecteert de knop het tekstveld en wijst naar de dictering die wél werkt — Windows-toets + H (Windows) of het microfoon-icoon op het toetsenbord (Android).
+
 ### v0.4.1
 
 - **Update-controle met "Bijwerken"** — klik op het versienummer in de titelbalk (of op de oranje update-badge) voor een dialoog: je ziet of je de nieuwste versie hebt, kunt opnieuw controleren en bij een nieuwe versie met één klik bijwerken. Windows/Linux/Android openen het juiste installatiebestand uit de release in de systeembrowser; de webversie laadt zichzelf opnieuw. De app controleert bij het starten en daarna elke 6 uur.

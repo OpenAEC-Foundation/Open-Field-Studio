@@ -33,6 +33,7 @@ class OpenFieldStudio {
 
     async init() {
         this.bindEvents();
+        this._syncAddModeUI();
         this.setDefaultDate();
         await this.loadFromLocalStorage();
         this.validateAndCleanData();
@@ -793,6 +794,7 @@ class OpenFieldStudio {
         // Canvas Tools
         document.getElementById('add-point-btn').addEventListener('click', () => this.toggleAddPointMode());
         document.getElementById('quick-point-btn').addEventListener('click', () => this.toggleQuickMode());
+        document.getElementById('quick-photo-btn').addEventListener('click', () => this.toggleQuickPhoto());
         document.querySelectorAll('.dictate-btn').forEach(b => b.addEventListener('click', () => this.toggleDictation(b.dataset.dictate, b)));
         document.getElementById('zoom-in-btn').addEventListener('click', () => this.zoom(0.25));
         document.getElementById('zoom-out-btn').addEventListener('click', () => this.zoom(-0.25));
@@ -818,13 +820,14 @@ class OpenFieldStudio {
         photoInput.addEventListener('change', (e) => { this.processPhotoFiles(e.target.files); e.target.value = ''; });
 
         // Camera
-        document.getElementById('camera-btn').addEventListener('click', () => { this._itemPhotoIdx = undefined; this.openCamera(); });
+        document.getElementById('camera-btn').addEventListener('click', () => { this._itemPhotoIdx = undefined; this._quickTarget = undefined; this.openCamera(); });
         // Android system-camera result (ticket photo or checklist-item photo)
         document.getElementById('camera-native-input')?.addEventListener('change', (e) => {
-            const files = e.target.files; e.target.value = '';
-            if (!files || !files.length) return;
+            // Copy the FileList BEFORE clearing the input: clearing value empties the (live) list in Chromium webviews.
+            const files = Array.from(e.target.files || []); e.target.value = '';
+            if (!files.length) return;
             if (this._itemPhotoIdx !== undefined) { const idx = this._itemPhotoIdx; this._itemPhotoIdx = undefined; this.uploadItemPhotos(idx, files); }
-            else this.processPhotoFiles(files, 'camera');
+            else { const tgt = this._quickTarget; this._quickTarget = undefined; this.processPhotoFiles(files, 'camera', tgt); }
         });
         document.getElementById('camera-capture').addEventListener('click', () => this.capturePhoto());
         document.getElementById('camera-cancel').addEventListener('click', () => this.closeCamera());
@@ -1361,6 +1364,7 @@ class OpenFieldStudio {
     _syncAddModeUI() {
         document.getElementById('add-point-btn')?.classList.toggle('active', !!this.isAddingPoint && !this.quickMode);
         document.getElementById('quick-point-btn')?.classList.toggle('active', !!this.quickMode);
+        document.getElementById('quick-photo-btn')?.classList.toggle('active', this._quickPhotoOn());
         document.getElementById('floor-plan-wrapper')?.classList.toggle('adding-point', !!this.isAddingPoint);
     }
 
@@ -1377,6 +1381,17 @@ class OpenFieldStudio {
         this.renderLocationPoints(); this.renderPointsList(); this.saveToLocalStorage();
         try { navigator.vibrate && navigator.vibrate(30); } catch (_) {}
         this.showNotification(this.tFormat('msg_quick_ticket_added', label), 'success');
+        if (this._quickPhotoOn()) {
+            this._itemPhotoIdx = undefined;
+            this._quickTarget = this.tickets[this.tickets.length - 1].id;
+            this.openCamera();
+        }
+    }
+
+    _quickPhotoOn() { return localStorage.getItem('ofs_quick_photo') !== '0'; }
+    toggleQuickPhoto() {
+        localStorage.setItem('ofs_quick_photo', this._quickPhotoOn() ? '0' : '1');
+        this._syncAddModeUI();
     }
 
     handleCanvasClick(e) {
@@ -1444,7 +1459,16 @@ class OpenFieldStudio {
     // every webview (notably Android WebView) — then we point the user at the keyboard microphone.
     toggleDictation(targetId, btn) {
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SR) { this.showNotification(this.t('dictate_unsupported'), 'info'); return; }
+        if (!SR) {
+            // No speech recognition in this webview (Android WebView, WebView2): focus the field and point
+            // to the system dictation that DOES work everywhere.
+            const target = document.getElementById(targetId);
+            if (target) target.focus();
+            const ua = navigator.userAgent;
+            const key = /Android/i.test(ua) ? 'dictate_unsupported_android' : /Windows/i.test(ua) ? 'dictate_unsupported_windows' : 'dictate_unsupported';
+            this.showNotification(this.t(key), 'info');
+            return;
+        }
         if (this._rec) { try { this._rec.stop(); } catch (_) {} return; }
         const el = document.getElementById(targetId);
         if (!el) return;
@@ -1677,12 +1701,25 @@ class OpenFieldStudio {
         input.click();
     }
 
-    processPhotoFiles(files, source = 'file') {
+    // Attach a photo directly to an existing ticket (quick-ticket flow: marker first, details later).
+    _attachPhotoToTicket(ticketId, photo) {
+        const t = this.tickets.find(x => x.id === ticketId);
+        if (!t) return false;
+        if (!t.photos) t.photos = [];
+        t.photos.push(photo);
+        this.saveToLocalStorage();
+        this.renderPointsList();
+        this.showNotification(this.tFormat('msg_quick_photo_added', t.label), 'success');
+        return true;
+    }
+
+    processPhotoFiles(files, source = 'file', targetTicketId = null) {
         Array.from(files).forEach(file => {
             if (!file.type.startsWith('image/')) return;
             const r = new FileReader();
             r.onload = async (e) => {
                 const photo = await this.buildPhoto(await this._downscaleDataUrl(e.target.result), file.name, source);
+                if (targetTicketId && this._attachPhotoToTicket(targetTicketId, photo)) return;
                 this.currentPhotos.push(photo);
                 this.renderPhotoPreview();
             };
@@ -1796,6 +1833,13 @@ class OpenFieldStudio {
         if (!dataUrl) { this.showNotification(this.t('msg_camera_not_ready'), 'error'); return; }
         const name = `foto_${new Date().toISOString().slice(11,19).replace(/:/g,'')}.jpg`;
         const photo = await this.buildPhoto(dataUrl, name, 'camera');
+        if (this._quickTarget) {
+            const tgt = this._quickTarget;
+            this._quickTarget = undefined;
+            this._attachPhotoToTicket(tgt, photo);
+            this.closeCamera();
+            return;
+        }
         this.currentPhotos.push(photo);
         this.renderPhotoPreview();
         this.showNotification(this.tFormat('msg_photo_n', this.currentPhotos.length), 'success');
@@ -1825,6 +1869,7 @@ class OpenFieldStudio {
         if (!keepModal) {
             document.getElementById('camera-modal').classList.remove('active');
             this._itemPhotoIdx = undefined; // a cancelled checklist-item shot must not hijack the next ticket photo
+            this._quickTarget = undefined;  // same for a cancelled quick-ticket shot
         }
     }
 

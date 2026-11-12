@@ -1,4 +1,8 @@
 {
+  "btn_quick_photo": "Foto dazu",
+  "msg_quick_photo_added": "Foto zu {0} hinzugefügt",
+  "dictate_unsupported_android": "Diktieren ist in dieser App nicht eingebaut. Das Textfeld ist ausgewählt: Mikrofon-Symbol der Tastatur (Gboard) antippen und sprechen.",
+  "dictate_unsupported_windows": "Diktieren ist in dieser App nicht eingebaut. Das Textfeld ist ausgewählt: Windows-Taste + H drücken und sprechen.",
   "update_check_title": "Nach Updates suchen",
   "update_title": "Updates",
   "update_checking": "Suche nach einer neuen Version…",

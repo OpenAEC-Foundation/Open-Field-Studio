@@ -1,4 +1,8 @@
 {
+  "btn_quick_photo": "Add photo",
+  "msg_quick_photo_added": "Photo added to {0}",
+  "dictate_unsupported_android": "Dictation is not built into this app. The text field is selected: tap the microphone icon on your keyboard (Gboard) and speak.",
+  "dictate_unsupported_windows": "Dictation is not built into this app. The text field is selected: press Windows key + H and speak.",
   "update_check_title": "Check for updates",
   "update_title": "Updates",
   "update_checking": "Checking for a new version…",

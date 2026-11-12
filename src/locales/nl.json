@@ -1,4 +1,8 @@
 {
+  "btn_quick_photo": "Foto erbij",
+  "msg_quick_photo_added": "Foto toegevoegd aan {0}",
+  "dictate_unsupported_android": "Inspreken zit niet in deze app. Het tekstveld is geselecteerd: tik op het microfoon-icoon op je toetsenbord (Gboard) en spreek in.",
+  "dictate_unsupported_windows": "Inspreken zit niet in deze app. Het tekstveld is geselecteerd: druk op Windows-toets + H en spreek in.",
   "update_check_title": "Controleren op updates",
   "update_title": "Updates",
   "update_checking": "Controleren op een nieuwe versie…",

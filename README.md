@@ -227,6 +227,10 @@ Language preference is auto-detected from the browser/OS and persisted in localS
 
 ## Changelog
 
+### v0.4.9
+
+- Testrelease voor de update-chip en het bijwerken op Android (alleen versienummer gewijzigd).
+
 ### v0.4.8
 
 - **Fix: update-melding ontbrak op Android en in de webversie** — de update-badge en het klikbare versienummer zaten in de titelbalk, die op Android en in de webversie verborgen is. Er staat nu een versie-chip in de werkbalk (naast thema/taal) die op elk platform zichtbaar is: `v0.4.8`, oranje met `⬆ v…` zodra er een nieuwere versie is; klikken opent de update-dialoog.

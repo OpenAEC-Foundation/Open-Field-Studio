@@ -1,4 +1,8 @@
 {
+  "update_downloading": "Update wird heruntergeladen… {0}%",
+  "update_verifying": "Signatur wird geprüft…",
+  "update_installing": "Installation und Neustart… die App schließt sich und startet von selbst neu.",
+  "update_auto_failed": "Automatische Aktualisierung fehlgeschlagen ({0}). Download wird manuell geöffnet.",
   "btn_quick_photo": "Foto dazu",
   "msg_quick_photo_added": "Foto zu {0} hinzugefügt",
   "dictate_unsupported_android": "Diktieren ist in dieser App nicht eingebaut. Das Textfeld ist ausgewählt: Mikrofon-Symbol der Tastatur (Gboard) antippen und sprechen.",

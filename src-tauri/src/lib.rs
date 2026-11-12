@@ -1,5 +1,7 @@
 use tauri::Manager;
 
+mod updater;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -10,6 +12,8 @@ pub fn run() {
     .plugin(tauri_plugin_http::init())
     // Opens update downloads / release pages in the system browser (webview popups are blocked).
     .plugin(tauri_plugin_opener::init())
+    // Windows: download + verify + silent-install + relaunch (see updater.rs)
+    .invoke_handler(tauri::generate_handler![updater::install_update])
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(

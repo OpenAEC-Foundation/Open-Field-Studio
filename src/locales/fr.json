@@ -1,4 +1,8 @@
 {
+  "update_downloading": "Téléchargement de la mise à jour… {0}%",
+  "update_verifying": "Vérification de la signature…",
+  "update_installing": "Installation et redémarrage… l'application va se fermer puis se rouvrir toute seule.",
+  "update_auto_failed": "La mise à jour automatique a échoué ({0}). Ouverture manuelle du téléchargement.",
   "btn_quick_photo": "Ajouter photo",
   "msg_quick_photo_added": "Photo ajoutée à {0}",
   "dictate_unsupported_android": "La dictée n'est pas intégrée à cette application. Le champ est sélectionné : touchez l'icône micro du clavier (Gboard) et parlez.",

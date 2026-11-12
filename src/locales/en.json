@@ -1,4 +1,8 @@
 {
+  "update_downloading": "Downloading update… {0}%",
+  "update_verifying": "Verifying signature…",
+  "update_installing": "Installing and restarting… the app will close and reopen by itself.",
+  "update_auto_failed": "Automatic update failed ({0}). Opening the download manually.",
   "btn_quick_photo": "Add photo",
   "msg_quick_photo_added": "Photo added to {0}",
   "dictate_unsupported_android": "Dictation is not built into this app. The text field is selected: tap the microphone icon on your keyboard (Gboard) and speak.",

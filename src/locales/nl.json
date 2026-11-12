@@ -1,4 +1,8 @@
 {
+  "update_downloading": "Update downloaden… {0}%",
+  "update_verifying": "Handtekening controleren…",
+  "update_installing": "Installeren en herstarten… de app sluit zo vanzelf en start opnieuw op.",
+  "update_auto_failed": "Automatisch bijwerken lukte niet ({0}). De download wordt handmatig geopend.",
   "btn_quick_photo": "Foto erbij",
   "msg_quick_photo_added": "Foto toegevoegd aan {0}",
   "dictate_unsupported_android": "Inspreken zit niet in deze app. Het tekstveld is geselecteerd: tik op het microfoon-icoon op je toetsenbord (Gboard) en spreek in.",

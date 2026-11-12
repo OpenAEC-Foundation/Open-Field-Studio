@@ -196,6 +196,35 @@ function ensureModal(): HTMLElement {
     return m;
 }
 
+type InstallEvent =
+    | { event: 'progress'; data: { downloaded: number; total: number } }
+    | { event: 'verifying' }
+    | { event: 'installing' };
+
+// Windows (per-user install): download + verify + silent install + relaunch, all inside the app.
+// Resolves true when the hand-over to the installer happened (the app exits shortly after).
+async function tryAutoInstall(asset: Asset, setNote: (html: string) => void): Promise<boolean> {
+    try {
+        const { invoke, Channel } = await import('@tauri-apps/api/core');
+        const channel = new Channel<InstallEvent>();
+        channel.onmessage = (ev) => {
+            if (ev.event === 'progress') {
+                const { downloaded, total } = ev.data;
+                const pct = total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : 0;
+                setNote(`${esc(tr('update_downloading', pct))}<div style="margin-top:.35rem;height:8px;background:var(--border,#e5e7eb);border-radius:4px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:var(--primary,#d97706);transition:width .15s;"></div></div>`);
+            } else if (ev.event === 'verifying') setNote(esc(tr('update_verifying')));
+            else if (ev.event === 'installing') setNote(esc(tr('update_installing')));
+        };
+        setNote(esc(tr('update_downloading', 0)));
+        await invoke('install_update', { url: asset.url, onEvent: channel });
+        return true;
+    } catch (e) {
+        console.warn('auto update failed, falling back to manual download:', e);
+        setNote(esc(tr('update_auto_failed', String(e))));
+        return false;
+    }
+}
+
 async function runUpdate(status: UpdateStatus, setNote: (html: string) => void) {
     const platform = detectPlatform();
     if (platform === 'web') {
@@ -204,6 +233,10 @@ async function runUpdate(status: UpdateStatus, setNote: (html: string) => void) 
         return;
     }
     const asset = pickAsset(platform, status.assets);
+    if (platform === 'windows' && asset && /user-setup\.exe$/i.test(asset.name)) {
+        if (await tryAutoInstall(asset, setNote)) return;
+        // otherwise continue with the manual download below
+    }
     const url = asset?.url || status.htmlUrl;
     if (!url) return;
     try {
@@ -247,7 +280,15 @@ export async function openUpdateDialog() {
 
         btn(tr('update_btn_recheck'), 'btn-secondary', async () => { render(null); render(await checkForUpdates(true)); renderUpdateBadge(await checkForUpdates()); });
         if (status.htmlUrl) btn(tr('update_btn_page'), 'btn-secondary', () => { void openExternal(status.htmlUrl!).catch(() => {}); });
-        if (status.available) btn(tr('update_btn_update', status.latestVersion || ''), 'btn-primary', () => { void runUpdate(status, (h) => { noteEl().innerHTML = h; }); });
+        if (status.available) {
+            const updBtn = btn(tr('update_btn_update', status.latestVersion || ''), 'btn-primary', () => {
+                updBtn.disabled = true;
+                void runUpdate(status, (h) => { noteEl().innerHTML = h; }).finally(() => {
+                    // re-enable only if we are still here (manual fallback / error); on success the app exits
+                    setTimeout(() => { updBtn.disabled = false; }, 1500);
+                });
+            });
+        }
         else btn(tr('update_btn_close'), 'btn-primary', () => m.classList.remove('active'));
     };
 

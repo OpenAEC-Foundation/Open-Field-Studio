@@ -227,6 +227,11 @@ Language preference is auto-detected from the browser/OS and persisted in localS
 
 ## Changelog
 
+### v0.4.4
+
+- **Automatisch bijwerken (Windows)** — 'Bijwerken' in de update-dialoog downloadt nu zelf het installatiebestand (met voortgangsbalk), controleert de digitale handtekening (alleen 'Impertio Studio B.V.'), installeert op de achtergrond en start de app opnieuw op. Alleen officiële release-installers van dit project worden geaccepteerd; bij een installatie voor alle gebruikers, bij een fout of op andere platformen valt de app terug op de handmatige download.
+- Nieuwe Rust-module src-tauri/src/updater.rs (commando install_update).
+
 ### v0.4.3
 
 - Testrelease voor de update-functie (alleen versienummer gewijzigd).

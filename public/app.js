@@ -875,7 +875,8 @@ class OpenFieldStudio {
         document.getElementById('sync-kyp').addEventListener('click', () => this.openPublishModal(null, 'kyp'));
         document.getElementById('save-json').addEventListener('click', () => this.saveJSON());
         document.getElementById('load-json').addEventListener('click', () => {
-            if (window.__tauriDialog && window.__tauriFs) { this.loadJSONTauri(); }
+            if (this._host()) { this.hostOpenChooser(); }
+            else if (window.__tauriDialog && window.__tauriFs) { this.loadJSONTauri(); }
             else { document.getElementById('load-json-input').click(); }
         });
         document.getElementById('load-json-input').addEventListener('change', (e) => this.loadJSON(e));
@@ -936,6 +937,9 @@ class OpenFieldStudio {
             erpRef: prevErpRef
         };
         this.saveToLocalStorage();
+        // Hosted (OpenAEC SuperCloud): the host stores the project file in the project's
+        // folder (Docs), with versions — no download and no ERP attachment.
+        if (showConfirmation && this._host()) { this.hostSave(); return; }
         if (showConfirmation) this.saveJSON();
         // Auto-sync to the linked ERP project on explicit saves only — autosave (typing)
         // stays local so we don't hammer the ERP on every keystroke.
@@ -1264,7 +1268,7 @@ class OpenFieldStudio {
     async processPDFFile(file) {
         try {
             this.showNotification(this.t('msg_pdf_processing'), 'info');
-            pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+            pdfjsLib.GlobalWorkerOptions.workerSrc = this._assetUrl('pdf.worker.min.js');
             const ab = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
             for (let i = 1; i <= pdf.numPages; i++) {
@@ -3196,7 +3200,12 @@ class OpenFieldStudio {
         const applyContacts = document.getElementById('imp-chk-contacts')?.checked;
         const applyDrawings = document.getElementById('imp-chk-drawings')?.checked;
         try {
-            const stats = await this.applyImport(data, { project: applyProject, contacts: applyContacts, drawings: applyDrawings });
+            // Hosted: saved field work for this project (in Docs) comes first; then only the
+            // project fields from the ERP are refreshed (contacts and drawings are already in it).
+            const loaded = data._meta?.id ? await this.hostOpenForProject(data._meta.id) : false;
+            const stats = await this.applyImport(data, loaded
+                ? { project: applyProject, contacts: false, drawings: false }
+                : { project: applyProject, contacts: applyContacts, drawings: applyDrawings });
             const skipped = (stats.contactsSkipped || 0) + (stats.drawingsSkipped || 0);
             const msg = skipped > 0
                 ? this.tFormat('import_applied_with_skipped', stats.contacts, stats.drawings, skipped)
@@ -3902,9 +3911,135 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
     }
 
     // =====================================================
+    // HOST (OpenAEC SuperCloud) — window.openaecHost, contract in OpenAEC-Blueprint
+    // docs/supercloud-koppeling.md. The host stores the project file and exports in the
+    // project's folder with versions; without a host everything works as before.
+    // =====================================================
+    _host() {
+        const h = window.openaecHost;
+        return h && typeof h.save === 'function' && typeof h.open === 'function' ? h : null;
+    }
+
+    // An asset next to app.js, also when the app is served from a sub-path.
+    _assetUrl(name) {
+        const script = document.querySelector('script[src$="app.js"]');
+        return new URL(name, script ? script.src : document.baseURI).href;
+    }
+
+    _hostFileName() {
+        const id = this.project?.erpRef?.id;
+        if (id) return `OFS_${id}.json`;
+        const slug = (this.project?.name || 'project').replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
+        return `OFS_${slug || 'project'}.json`;
+    }
+
+    async hostSave() {
+        const host = this._host();
+        if (!host || this._hostBusy) return;
+        this._hostBusy = true;
+        try {
+            const bytes = new TextEncoder().encode(JSON.stringify(this._buildProjectExport()));
+            const name = this._hostFileName();
+            const same = this._hostFile && this._hostFile.name === name;
+            const ref = await host.save(bytes, same ? { id: this._hostFile.id } : { name });
+            this._hostFile = { id: ref.id, name: ref.name || name, version: ref.version };
+            this._hostDirty = false;
+            this.showNotification(this.tFormat('host_saved', this._hostFile.name, ref.version ?? ''), 'success');
+            this.logActivity(this.tFormat('host_saved', this._hostFile.name, ref.version ?? ''));
+        } catch (err) {
+            console.error('Host save failed', err);
+            this.showNotification(this.tFormat('host_save_fail', err?.message || err), 'error');
+        } finally {
+            this._hostBusy = false;
+        }
+    }
+
+    async _hostLoad(ref) {
+        const host = this._host();
+        const file = await host.open(ref.id);
+        const text = new TextDecoder().decode(file.bytes instanceof ArrayBuffer ? new Uint8Array(file.bytes) : file.bytes);
+        // Loading is not an edit: no autosave of what was just opened.
+        this._hostBusy = true;
+        try { this.applyLoadedJSON(text, true); } finally { this._hostBusy = false; }
+        this._hostFile = file.readOnly ? null : { id: file.id, name: file.name, version: file.version };
+        this.showNotification(this.tFormat('host_loaded', file.name, file.version ?? ''), 'success');
+        return true;
+    }
+
+    // Saved work for an ERP project in the host, if any (the newest file named OFS_<id>.json).
+    async hostOpenForProject(projectId) {
+        const host = this._host();
+        if (!host || typeof host.list !== 'function') return false;
+        try {
+            const name = `OFS_${projectId}.json`;
+            const files = await host.list({ project: projectId });
+            const ref = (files || []).find(f => f.name === name);
+            return ref ? await this._hostLoad(ref) : false;
+        } catch (err) {
+            console.warn('Host open failed', err);
+            this.showNotification(this.tFormat('host_open_fail', err?.message || err), 'error');
+            return false;
+        }
+    }
+
+    // "Load" with a host: pick one of the project files the host lists.
+    async hostOpenChooser() {
+        const host = this._host();
+        if (!host || typeof host.list !== 'function') return;
+        let files = [];
+        try {
+            files = ((await host.list()) || []).filter(f => /^OFS_.*\.json$/i.test(f.name || ''));
+        } catch (err) {
+            this.showNotification(this.tFormat('host_open_fail', err?.message || err), 'error');
+            return;
+        }
+        if (!files.length) { this.showNotification(this.t('host_none'), 'info'); return; }
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+        const box = document.createElement('div');
+        box.style.cssText = 'background:var(--surface,#fff);border-radius:12px;padding:20px;max-width:440px;width:90%;max-height:70vh;overflow:auto;font-family:Inter,sans-serif;color:var(--text-primary,#333);';
+        const title = document.createElement('h3');
+        title.textContent = this.t('host_choose');
+        title.style.cssText = 'margin:0 0 12px;font-size:1rem;';
+        box.appendChild(title);
+        const close = () => overlay.remove();
+        for (const f of files) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.style.cssText = 'display:block;width:100%;text-align:left;padding:10px 12px;margin:0 0 6px;border:1px solid var(--border,#ddd);border-radius:8px;background:transparent;cursor:pointer;font:inherit;color:inherit;';
+            btn.textContent = f.project ? `${f.project} — ${f.name}` : f.name;
+            btn.addEventListener('click', async () => {
+                close();
+                try { await this._hostLoad(f); }
+                catch (err) { this.showNotification(this.tFormat('host_open_fail', err?.message || err), 'error'); }
+            });
+            box.appendChild(btn);
+        }
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.textContent = this.t('btn_cancel');
+        cancel.style.cssText = 'margin-top:8px;padding:8px 16px;border-radius:8px;border:2px solid var(--deep-forge,#36363E);background:transparent;cursor:pointer;font:inherit;color:inherit;';
+        cancel.addEventListener('click', close);
+        box.appendChild(cancel);
+        overlay.appendChild(box);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+        document.body.appendChild(overlay);
+    }
+
+    // Hosted: the frame has no storage, so changes are saved to the host a while after the
+    // last edit (only once the project file exists there, i.e. after a first explicit save).
+    _hostAutosave() {
+        if (!this._host() || !this._hostFile) return;
+        this._hostDirty = true;
+        clearTimeout(this._hostTimer);
+        this._hostTimer = setTimeout(() => { if (this._hostDirty) this.hostSave(); }, 120000);
+    }
+
+    // =====================================================
     // SAVE/LOAD
     // =====================================================
     async saveJSON() {
+        if (this._host()) return this.hostSave();
         const data = { version:'2.0', exportDate:new Date().toISOString(), project:this.project, contacts:this.contacts, floorPlans:this.floorPlans, tickets:this.tickets, inspections:this.inspections, handovers:this.handovers, checklistTemplates:this.checklistTemplates, activityLog:this.activityLog };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
         const filename = `${this.project.name||'project'}_ofs.json`;
@@ -3939,7 +4074,7 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
         }
     }
 
-    applyLoadedJSON(text) {
+    applyLoadedJSON(text, quiet = false) {
         try {
             const d = JSON.parse(text);
             if (d.project) this.project = d.project;
@@ -3952,8 +4087,8 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
             if (d.checklistTemplates) this.checklistTemplates = d.checklistTemplates;
             if (d.activityLog) this.activityLog = d.activityLog;
             this.loadProjectForm(); this.renderContacts(); this.renderFloorPlansList(); this.updateFloorPlanSelector(); this.saveToLocalStorage();
-            this.showNotification(this.t('msg_loaded'), 'success');
-        } catch(err) { this.showNotification(this.t('msg_load_error'), 'error'); console.error(err); }
+            if (!quiet) this.showNotification(this.t('msg_loaded'), 'success');
+        } catch(err) { this.showNotification(this.t('msg_load_error'), 'error'); console.error(err); if (quiet) throw err; }
     }
 
     // =====================================================
@@ -4076,6 +4211,7 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
         if (pending.length) Promise.all(pending).catch(err => console.warn('blob write failed', err));
         this._lastSaved = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
         this.updateStatusBar();
+        if (!this._hostBusy) this._hostAutosave();
     }
 
     async loadFromLocalStorage() {

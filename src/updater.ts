@@ -154,6 +154,14 @@ function esc(s: string): string {
 /* ---------- titlebar badge ---------- */
 
 export function renderUpdateBadge(status: UpdateStatus) {
+    // Toolbar chip: works on every platform (the title bar below is hidden on Android + web).
+    const chip = document.getElementById('app-update-chip');
+    if (chip) {
+        const upd = status.available && !!status.latestVersion;
+        chip.classList.toggle('has-update', upd);
+        chip.textContent = upd ? `⬆ ${status.latestVersion}` : `v${status.currentVersion}`;
+        chip.title = upd ? tr('update_available', status.latestVersion || '') : tr('update_check_title');
+    }
     const host = document.querySelector('.title-bar-version')?.parentElement;
     if (!host) return;
     let badge = document.getElementById('title-bar-update-badge') as HTMLButtonElement | null;

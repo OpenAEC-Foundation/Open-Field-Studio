@@ -569,3 +569,20 @@ body.tauri-mobile .app-toolbar {
 body.tauri-mobile .main-content {
   padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
 }
+
+/* Version / update chip (visible on every platform; the title bar is hidden on mobile + web) */
+.app-update-chip {
+  height: 32px;
+  padding: 0 10px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: rgba(250, 250, 249, 0.75);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.app-update-chip:hover { background: rgba(217, 119, 6, 0.15); border-color: rgba(217, 119, 6, 0.4); color: #fff; }
+.app-update-chip.has-update { background: #D97706; border-color: #D97706; color: #fff; }

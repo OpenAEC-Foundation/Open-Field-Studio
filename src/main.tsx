@@ -13,6 +13,13 @@ declare const __APP_VERSION__: string;
 // Keep the title-bar version label in sync with package.json.
 (function syncVersionLabel() {
   const set = () => {
+    // Toolbar chip (visible on Android + web where the title bar is hidden)
+    const chip = document.getElementById('app-update-chip');
+    if (chip) {
+      chip.textContent = 'v' + __APP_VERSION__;
+      chip.title = i18next.t('update_check_title', { defaultValue: 'Controleren op updates' });
+      chip.addEventListener('click', () => { void openUpdateDialog(); });
+    }
     const el = document.querySelector('.title-bar-version') as HTMLElement | null;
     if (el) {
       el.textContent = 'v' + __APP_VERSION__;

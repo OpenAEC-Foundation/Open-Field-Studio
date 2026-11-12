@@ -2633,7 +2633,10 @@ class OpenFieldStudio {
             apiKeyLabel: 'AppConnector token',
             infoKey: 'pub_info_afas',
             build: (ho) => this._buildAfasPayload(ho),
-            send: async (cfg, payload) => this._httpJson(cfg.endpoint, payload, `AfasToken ${cfg.apiKey}`)
+            send: async (cfg, payload) => this._httpJson(cfg.endpoint, payload, `AfasToken ${cfg.apiKey}`),
+            canImport: true,
+            runImport: (cfg) => this._importFromAfas(cfg),
+            shortLabel: 'AFAS'
         };
         const exact = {
             id: 'exact',
@@ -2643,7 +2646,10 @@ class OpenFieldStudio {
             apiKeyLabel: 'OAuth Bearer-token',
             infoKey: 'pub_info_exact',
             build: (ho) => this._buildExactPayload(ho),
-            send: async (cfg, payload) => this._httpJson(cfg.endpoint, payload, `Bearer ${cfg.apiKey}`)
+            send: async (cfg, payload) => this._httpJson(cfg.endpoint, payload, `Bearer ${cfg.apiKey}`),
+            canImport: true,
+            runImport: (cfg) => this._importFromExact(cfg),
+            shortLabel: 'Exact'
         };
         const swk = {
             id: 'swk',
@@ -2679,7 +2685,10 @@ class OpenFieldStudio {
             apiKeyLabel: 'Bouw7 API-token',
             infoKey: 'pub_info_bouw7',
             build: (ho) => this._buildBouw7Payload(ho),
-            send: async (cfg, payload) => this._httpJson(cfg.endpoint, payload, `Bearer ${cfg.apiKey}`)
+            send: async (cfg, payload) => this._httpJson(cfg.endpoint, payload, `Bearer ${cfg.apiKey}`),
+            canImport: true,
+            runImport: (cfg) => this._importFromBouw7(cfg),
+            shortLabel: 'Bouw7'
         };
         const webhook = {
             id: 'webhook',
@@ -3199,6 +3208,505 @@ class OpenFieldStudio {
         };
     }
 
+    // =====================================================
+    // IMPORT: AFAS Profit, Exact Online, Bouw7  (read-only; project-first like ERPNext)
+    // =====================================================
+    // ---- shared helpers ----
+    // Case-insensitive lookup of the first non-empty value among candidate field names.
+    _rowGet(row, keys) {
+        if (!row || typeof row !== 'object') return '';
+        const low = {};
+        for (const k of Object.keys(row)) low[k.toLowerCase()] = row[k];
+        for (const k of keys) {
+            const v = low[k.toLowerCase()];
+            if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
+        }
+        return '';
+    }
+    // The actual (original-case) key of `row` matching one of `keys`, or ''.
+    _rowKey(row, keys) {
+        if (!row || typeof row !== 'object') return '';
+        const orig = {};
+        for (const k of Object.keys(row)) orig[k.toLowerCase()] = k;
+        for (const k of keys) { const hit = orig[k.toLowerCase()]; if (hit) return hit; }
+        return '';
+    }
+    _mimeFromName(name) {
+        const m = (name || '').toLowerCase().match(/\.(png|jpe?g|gif|webp|svg|pdf)$/);
+        if (!m) return '';
+        return { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', pdf: 'application/pdf' }[m[1]];
+    }
+    _isDrawingName(name) { return /\.(png|jpe?g|gif|webp|svg|pdf)$/i.test(name || ''); }
+    // "Hoofdstraat" + "12" + "a" -> "Hoofdstraat 12a" (leaves a street that already contains a number alone)
+    _joinAddress(street, nr, add) {
+        street = (street || '').trim();
+        if (!street) return '';
+        if (/\d/.test(street) || !nr) return street;
+        return `${street} ${nr}${add ? (/^\d/.test(add) ? '-' : '') + add : ''}`.trim();
+    }
+    // Authenticated GET that returns a data: URL. Handles raw binaries, JSON wrappers holding a
+    // base64 string (AFAS fileconnector) and plain base64 text bodies (Bouw7 as_base64).
+    async _authedDataUrl(url, authHeader, nameHint) {
+        const headers = {};
+        if (authHeader) headers['Authorization'] = authHeader;
+        const res = await this._netFetch(url, { method: 'GET', headers });
+        if (!res.ok) { const e = new Error(`HTTP ${res.status}`); e.status = res.status; throw e; }
+        const ct = ((res.headers && res.headers.get && res.headers.get('content-type')) || '').toLowerCase();
+        const b64re = /^[A-Za-z0-9+/=\r\n]{40,}$/;
+        const finish = (b64, mime) => {
+            const m = (mime && /^(image\/|application\/pdf)/.test(mime)) ? mime : this._mimeFromName(nameHint);
+            if (!m) throw new Error('unsupported file type');
+            return `data:${m};base64,${b64.replace(/\s+/g, '')}`;
+        };
+        if (ct.includes('json') || ct.startsWith('text/')) {
+            const txt = (await res.text()).trim();
+            if (b64re.test(txt)) return finish(txt, '');
+            let j; try { j = JSON.parse(txt); } catch { throw new Error('unexpected response'); }
+            let best = '', mime = '';
+            const walk = (o) => {
+                if (typeof o === 'string') { if (o.length > best.length && b64re.test(o)) best = o; }
+                else if (o && typeof o === 'object') {
+                    for (const [k, v] of Object.entries(o)) {
+                        if (typeof v === 'string' && /mime|content.?type/i.test(k)) mime = v;
+                        walk(v);
+                    }
+                }
+            };
+            walk(j);
+            if (!best) throw new Error('no file data in response');
+            return finish(best, mime);
+        }
+        const blob = await res.blob();
+        const mime = (blob.type && /^(image\/|application\/pdf)/.test(blob.type)) ? blob.type : this._mimeFromName(nameHint);
+        if (!mime) throw new Error('unsupported file type');
+        const typed = blob.type === mime ? blob : new Blob([blob], { type: mime });
+        return new Promise((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(r.result);
+            r.onerror = reject;
+            r.readAsDataURL(typed);
+        });
+    }
+
+    // Optional-step wrapper: failures are logged and replaced by a fallback, except
+    // authentication errors (401/403), which must reach the user instead of a silently partial import.
+    _softStep(tag, p, fallback) {
+        return p.catch(err => {
+            if (err && (err.status === 401 || err.status === 403)) throw err;
+            console.warn(`${tag} failed:`, err);
+            return fallback;
+        });
+    }
+
+    // ---- AFAS Profit ----
+    // AFAS "GetConnectors" are tenant-defined (names + field ids differ per customer), so the
+    // user picks which connector holds projects / debtors / contacts / attachments (discovered via
+    // /metainfo, remembered per role), and the rows are mapped with tolerant field-name lists.
+    _afasAuth(cfg) {
+        const k = (cfg.apiKey || '').trim();
+        if (/^AfasToken\s+/i.test(k)) return 'AfasToken ' + k.replace(/^AfasToken\s+/i, '');
+        if (k.startsWith('<token>')) return 'AfasToken ' + btoa(k);
+        let enc = false;
+        try { enc = atob(k).trim().startsWith('<token>'); } catch { /* not base64 */ }
+        return 'AfasToken ' + (enc ? k : btoa(`<token><version>1</version><data>${k}</data></token>`));
+    }
+    _afasBase(cfg) {
+        const e = cfg.endpoint || '';
+        if (e.includes('<')) return '';
+        const m = e.match(/^(https?:\/\/[^?#]*?\/profitrestservices)/i);
+        if (m) return m[1];
+        const o = e.match(/^(https?:\/\/[^/]+)/i);
+        return o ? o[1] + '/profitrestservices' : '';
+    }
+    async _afasRows(base, auth, connector, filter, max = 2000) {
+        const take = Math.min(500, max), out = [];
+        for (let skip = 0; skip < max; skip += take) {
+            const p = { skip: String(skip), take: String(take) };
+            if (filter?.field) { p.filterfieldids = filter.field; p.filtervalues = String(filter.value); p.operatortypes = '1'; }
+            const j = await this._httpJsonGet(`${base}/connectors/${encodeURIComponent(connector)}?${new URLSearchParams(p)}`, auth);
+            const rows = Array.isArray(j) ? j : (j?.rows || j?.Rows || []);
+            out.push(...rows);
+            if (rows.length < take) break;
+        }
+        return out;
+    }
+    // Rows of `connector` that belong to `value`: server-side filter when the id field can be
+    // recognised from the first row, otherwise a bounded client-side filter.
+    async _afasRowsFor(base, auth, connector, idKeys, value) {
+        const peek = await this._afasRows(base, auth, connector, null, 1);
+        if (!peek.length) return [];
+        const field = this._rowKey(peek[0], idKeys);
+        if (field) return this._afasRows(base, auth, connector, { field, value });
+        const all = await this._afasRows(base, auth, connector, null, 2000);
+        return all.filter(r => idKeys.some(k => this._rowGet(r, [k]) === String(value)));
+    }
+    async _afasConnectorChoice(base, auth, role, promptKey, optional) {
+        const store = this._afasStoreKey(base, role);
+        let saved = '';
+        try { saved = localStorage.getItem(store) || ''; } catch { /* storage blocked */ }
+        if (saved === '-') return optional ? '' : null;
+        if (saved) return saved;
+        if (!this._afasMeta) {
+            const meta = await this._httpJsonGet(`${base}/metainfo`, auth);
+            const list = meta?.getConnectors || meta?.GetConnectors || meta?.connectors || [];
+            this._afasMeta = list.map(c => typeof c === 'string' ? { id: c, description: '' } : { id: c.id || c.Id || c.name, description: c.description || c.Description || '' }).filter(c => c.id);
+        }
+        if (!this._afasMeta.length) throw new Error(this.t('import_afas_no_connectors'));
+        const items = this._afasMeta.map(c => ({ id: c.id, label: c.id, hint: c.description }));
+        if (optional) items.unshift({ id: '__skip__', label: this.t('import_skip_step') });
+        const pick = await this._awaitImportPicker(items, promptKey);
+        if (!pick) return null;
+        const val = pick === '__skip__' ? '' : pick;
+        try { localStorage.setItem(store, val || '-'); } catch { /* storage blocked */ }
+        return val;
+    }
+    _afasStoreKey(base, role) {
+        let h = 0;
+        for (const ch of base) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+        return `ofs_afas_conn_${h.toString(36)}_${role}`;
+    }
+    _afasForget(base, role) { try { localStorage.removeItem(this._afasStoreKey(base, role)); } catch { /* ignore */ } }
+
+    async _importFromAfas(cfg) {
+        const base = this._afasBase(cfg);
+        if (!base) throw new Error(this.t('import_bad_endpoint'));
+        const auth = this._afasAuth(cfg);
+        // A failing optional connector is forgotten (so the next import asks again) unless it was an auth problem.
+        const soft = (label, p, fb, role) => this._softStep(`AFAS ${label}`, p.catch(err => { if (role && err.status !== 401 && err.status !== 403) this._afasForget(base, role); throw err; }), fb);
+        this._afasMeta = null;
+
+        this._setImportStatus(this.t('import_fetching_projects'));
+        const projConn = await this._afasConnectorChoice(base, auth, 'projects', 'import_afas_pick_projects', false);
+        if (!projConn) return null;
+        let projRows;
+        try { projRows = await this._afasRows(base, auth, projConn, null, 5000); }
+        catch (e) { if (e.status !== 401 && e.status !== 403) this._afasForget(base, 'projects'); throw e; }
+        if (!projRows.length) { this._afasForget(base, 'projects'); throw new Error(this.t('import_no_projects')); }
+
+        const ID = ['ProjectId', 'Project', 'Projectnummer', 'ProjectCode', 'ProjectNr', 'Code', 'Id'];
+        const NAME = ['Description', 'Omschrijving', 'ProjectName', 'Projectnaam', 'Name', 'Naam'];
+        const DEBT = ['DebtorId', 'DebtorNr', 'Debiteurnummer', 'Debiteur', 'BcCo', 'CustomerId', 'Klantnummer', 'Klant'];
+        const DEBT_NAME = ['DebtorName', 'Debiteurnaam', 'CustomerName', 'Klantnaam', 'OrganisationName', 'Organisatie'];
+        const pick = await this._awaitImportPicker(projRows.map((r, i) => ({
+            id: String(i),
+            label: this._rowGet(r, NAME) || this._rowGet(r, ID) || `#${i + 1}`,
+            hint: [this._rowGet(r, ID), this._rowGet(r, DEBT_NAME) || this._rowGet(r, DEBT)].filter(Boolean).join(' · ')
+        })), 'import_pick_project');
+        if (!pick) return null;
+        const prow = projRows[Number(pick)];
+        const projId = this._rowGet(prow, ID);
+        const debtorId = this._rowGet(prow, DEBT);
+
+        this._setImportStatus(this.t('import_fetching_details'));
+        // Optional connectors (customer data, contacts, attachments) — each can be skipped.
+        let debtor = {}, contactRows = [], fileRows = [];
+        if (debtorId) {
+            const c = await this._afasConnectorChoice(base, auth, 'debtors', 'import_afas_pick_debtors', true);
+            if (c === null) return null;
+            if (c) {
+                const rows = await soft('debtor', this._afasRowsFor(base, auth, c, ['DebtorId', 'DebtorNr', 'Debiteurnummer', 'Debiteur', 'BcCo', 'Number', 'Nummer', 'Id'], debtorId), [], 'debtors');
+                debtor = rows[0] || {};
+            }
+            const cc = await this._afasConnectorChoice(base, auth, 'contacts', 'import_afas_pick_contacts', true);
+            if (cc === null) return null;
+            if (cc) contactRows = await soft('contacts', this._afasRowsFor(base, auth, cc, ['DebtorId', 'DebtorNr', 'Debiteurnummer', 'Debiteur', 'BcCoOrg', 'BcCo', 'OrganisationId', 'Organisation', 'Organisatie'], debtorId), [], 'contacts');
+        }
+        if (projId) {
+            const fc = await this._afasConnectorChoice(base, auth, 'files', 'import_afas_pick_files', true);
+            if (fc === null) return null;
+            if (fc) fileRows = await soft('files', this._afasRowsFor(base, auth, fc, ['ProjectId', 'Project', 'Projectnummer', 'ProjectCode', 'SubjectId', 'Id'], projId), [], 'files');
+        }
+
+        const street = this._rowGet(debtor, ['Street', 'Straat', 'Ad', 'Address', 'Adres']) || this._rowGet(prow, ['Street', 'Straat', 'Address', 'Adres']);
+        const nr = this._rowGet(debtor, ['HouseNumber', 'Huisnummer', 'HmNr', 'Nr']) || this._rowGet(prow, ['HouseNumber', 'Huisnummer']);
+        const nrAdd = this._rowGet(debtor, ['HouseNumberAddition', 'Toevoeging', 'HmAd']) || this._rowGet(prow, ['HouseNumberAddition', 'Toevoeging']);
+        const clientName = this._rowGet(debtor, ['Name', 'Naam', 'DebtorName', 'Debiteurnaam', 'OrganisationName']) || this._rowGet(prow, DEBT_NAME) || debtorId;
+
+        const files = fileRows.map(r => {
+            const guid = this._rowGet(r, ['Guid', 'FileId', 'FileGuid', 'Code', 'Id']);
+            const name = this._rowGet(r, ['FileName', 'Filename', 'Bestandsnaam', 'Name', 'Naam']);
+            if (!guid || !this._isDrawingName(name)) return null;
+            // AFAS wants the ORIGINAL file name, URL-encoded, with "_" written as "_5f".
+            return { name, url: `${base}/fileconnector/${encodeURIComponent(guid)}/${encodeURIComponent(name).replace(/_/g, '_5f')}` };
+        }).filter(Boolean);
+
+        return {
+            project: {
+                name: this._rowGet(prow, NAME) || projId,
+                number: projId,
+                client: clientName,
+                address: this._joinAddress(street, nr, nrAdd),
+                postalCode: this._rowGet(debtor, ['ZipCode', 'Zip', 'Postcode', 'ZpCd']) || this._rowGet(prow, ['ZipCode', 'Postcode']),
+                city: this._rowGet(debtor, ['City', 'Plaats', 'Woonplaats', 'Rs']) || this._rowGet(prow, ['City', 'Plaats'])
+            },
+            contacts: contactRows.map(r => ({
+                name: this._rowGet(r, ['Name', 'FullName', 'Naam', 'Contactpersoon', 'Person'])
+                    || [this._rowGet(r, ['FirstName', 'Voornaam']), this._rowGet(r, ['LastName', 'Achternaam'])].filter(Boolean).join(' '),
+                role: this._rowGet(r, ['Function', 'Functie', 'JobTitle', 'ViFu']) || 'Contactpersoon',
+                company: clientName,
+                email: this._rowGet(r, ['Email', 'EmAd', 'Mail', 'EmailAddress', 'E-mail']),
+                phone: this._rowGet(r, ['Phone', 'Telephone', 'Telefoon', 'TeNr', 'MobilePhone', 'Mobiel', 'MbNr'])
+            })).filter(c => c.name),
+            floorPlans: files,
+            _fetchBinary: (url) => this._authedDataUrl(url, auth, decodeURIComponent((url.split('/').pop() || '').replace(/_5f/g, '_'))),
+            _meta: projId ? { connector: 'afas', doctype: 'Project', id: projId, base } : null
+        };
+    }
+
+    // ---- Exact Online ----
+    _exactAuth(cfg) { return 'Bearer ' + (cfg.apiKey || '').trim().replace(/^Bearer\s+/i, ''); }
+    async _exactGet(url, auth) {
+        try { return await this._httpJsonGet(url, auth); }
+        catch (e) {
+            if (e.status === 401) { const x = new Error(this.t('import_exact_token_expired')); x.status = 401; throw x; }
+            throw e;
+        }
+    }
+    _exactUnwrap(j) {
+        const d = j?.d;
+        if (!d) return [];
+        return Array.isArray(d) ? d : (d.results || [d]);
+    }
+    // Follows d.__next (page size is 60); stops at a foreign origin so the token never leaves Exact.
+    async _exactList(url, auth, maxPages = 20) {
+        const out = [];
+        let origin = '';
+        try { origin = new URL(url).origin; } catch { /* invalid */ }
+        let next = url;
+        for (let i = 0; i < maxPages && next; i++) {
+            const j = await this._exactGet(next, auth);
+            const d = j?.d;
+            out.push(...(Array.isArray(d) ? d : (d?.results || [])));
+            next = d?.__next || null;
+            if (next) { try { if (new URL(next).origin !== origin) break; } catch { break; } }
+        }
+        return out;
+    }
+    async _importFromExact(cfg) {
+        const ep = cfg.endpoint || '';
+        const om = ep.match(/^(https?:\/\/[^/]+)/i);
+        if (!om || ep.includes('<klant>')) throw new Error(this.t('import_bad_endpoint'));
+        const origin = om[1];
+        const auth = this._exactAuth(cfg);
+        const soft = (label, p, fb) => this._softStep(`Exact ${label}`, p, fb);
+        const isGuid = (v) => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+
+        // Division: from the endpoint (…/api/v1/<division>/…) or via current/Me.
+        let division = (ep.match(/\/api\/v1\/(\d+)\//) || [])[1];
+        if (!division) {
+            this._setImportStatus(this.t('import_fetching_projects'));
+            const me = await this._exactGet(`${origin}/api/v1/current/Me?$select=CurrentDivision`, auth);
+            division = this._exactUnwrap(me)[0]?.CurrentDivision;
+            if (!division) throw new Error(this.t('import_exact_no_division'));
+        }
+        const api = `${origin}/api/v1/${division}`;
+        const guidFilter = (field, id) => `$filter=${encodeURIComponent(`${field} eq guid'${id}'`)}`;
+
+        this._setImportStatus(this.t('import_fetching_projects'));
+        let projects = await soft('projects', this._exactList(`${api}/project/Projects?$select=ID,Code,Description,Account,AccountName&$orderby=Code`, auth), []);
+        let chosen = null, accountId = null;
+        if (projects.length) {
+            const pick = await this._awaitImportPicker(projects.map(p => ({
+                id: p.ID, label: p.Description || p.Code || p.ID,
+                hint: [p.Code, p.AccountName].filter(Boolean).join(' · ')
+            })), 'import_pick_project');
+            if (!pick) return null;
+            chosen = projects.find(p => p.ID === pick);
+            accountId = isGuid(chosen?.Account) ? chosen.Account : null;
+        } else {
+            // No Projects module (or none defined): customer-based fallback, like ERPNext.
+            this._setImportStatus(this.t('import_fetching_customers'));
+            const accounts = await this._exactList(`${api}/crm/Accounts?$select=ID,Name,Code,Email&$orderby=Name`, auth, 10);
+            if (!accounts.length) throw new Error(this.t('import_no_customers'));
+            const pick = await this._awaitImportPicker(accounts.map(a => ({ id: a.ID, label: a.Name || a.Code, hint: a.Email || a.Code || '' })));
+            if (!pick) return null;
+            accountId = isGuid(pick) ? pick : null;
+        }
+
+        this._setImportStatus(this.t('import_fetching_details'));
+        const [acc, contacts, docs] = await Promise.all([
+            accountId ? soft('account', this._exactGet(`${api}/crm/Accounts(guid'${accountId}')?$select=ID,Name,AddressLine1,Postcode,City`, auth).then(j => this._exactUnwrap(j)[0] || {}), {}) : Promise.resolve({}),
+            accountId ? soft('contacts', this._exactList(`${api}/crm/Contacts?${guidFilter('Account', accountId)}&$select=ID,FullName,FirstName,LastName,JobTitleDescription,Email,BusinessEmail,Phone,Mobile,BusinessPhone,BusinessMobile`, auth, 5), []) : Promise.resolve([]),
+            chosen && isGuid(chosen.ID) ? soft('documents', this._exactList(`${api}/documents/Documents?${guidFilter('Project', chosen.ID)}&$select=ID,Subject`, auth, 3), []) : Promise.resolve([])
+        ]);
+
+        // Attachments: one request per document (kept low — Exact allows ~60 calls/minute).
+        const files = [], byUrl = new Map();
+        for (const d of docs.filter(x => isGuid(x.ID)).slice(0, 25)) {
+            const atts = await soft('attachments', this._exactList(`${api}/documents/DocumentAttachments?${guidFilter('Document', d.ID)}&$select=ID,FileName,Url`, auth, 1), []);
+            for (const a of atts) {
+                if (!a.Url || !this._isDrawingName(a.FileName)) continue;
+                // Only follow attachment URLs on the Exact host itself (https) — never a foreign origin.
+                try { const u = new URL(a.Url); if (u.origin !== origin || u.protocol !== 'https:') continue; } catch { continue; }
+                files.push({ name: a.FileName, url: a.Url });
+                byUrl.set(a.Url, { id: a.ID, name: a.FileName });
+            }
+        }
+        const fetchBinary = async (u) => {
+            const info = byUrl.get(u) || {};
+            let sameOrigin = false;
+            try { sameOrigin = new URL(u).origin === origin; } catch { /* invalid */ }
+            try {
+                return await this._authedDataUrl(u + (u.includes('?') ? '&' : '?') + 'Download=1', sameOrigin ? auth : null, info.name);
+            } catch (e) {
+                // Fallback: the base64 Attachment property of a single attachment.
+                if (!isGuid(info.id)) throw e;
+                const j = await this._exactGet(`${api}/documents/DocumentAttachments(guid'${info.id}')?$select=Attachment`, auth);
+                const b64 = this._exactUnwrap(j)[0]?.Attachment;
+                const mime = this._mimeFromName(info.name);
+                if (!b64 || !mime) throw e;
+                return `data:${mime};base64,${b64}`;
+            }
+        };
+
+        const clientName = acc.Name || chosen?.AccountName || '';
+        return {
+            project: {
+                name: chosen ? (chosen.Description || chosen.Code) : '',
+                number: chosen ? (chosen.Code || '') : '',
+                client: clientName,
+                address: acc.AddressLine1 || '',
+                postalCode: acc.Postcode || '',
+                city: acc.City || ''
+            },
+            contacts: contacts.map(c => ({
+                name: c.FullName || [c.FirstName, c.LastName].filter(Boolean).join(' '),
+                role: c.JobTitleDescription || 'Contactpersoon',
+                company: clientName,
+                email: c.Email || c.BusinessEmail || '',
+                phone: c.Phone || c.Mobile || c.BusinessPhone || c.BusinessMobile || ''
+            })).filter(c => c.name),
+            floorPlans: files,
+            _fetchBinary: fetchBinary,
+            _meta: chosen ? { connector: 'exact', doctype: 'Project', id: chosen.Code || chosen.ID, base: api } : null
+        };
+    }
+
+    // ---- Bouw7 (API "heimdall"; documented only via an unofficial SDK, so parsing is tolerant) ----
+    _bouw7Base(cfg) {
+        const e = cfg.endpoint || '';
+        const m = e.match(/^(https?:\/\/[^/]+)/i);
+        if (!m || /<|api\.bouw7\.nl/i.test(e)) return 'https://heimdall.bouw7.nl';
+        return m[1];
+    }
+    _bouw7AuthHeader(cfg) {
+        const t = (cfg.apiKey || '').trim().replace(/^Bearer\s+/i, '');
+        return this._bouw7Raw ? t : 'Bearer ' + t;
+    }
+    // GET with the documented "Bearer <token>"; if that is rejected, retry with the bare token
+    // (the SDK says the prefix is optional) and remember what worked.
+    async _bouw7Get(base, cfg, path) {
+        this._bouw7Raw = this._bouw7Raw || false;
+        try { return await this._httpJsonGet(base + path, this._bouw7AuthHeader(cfg)); }
+        catch (e) {
+            if (e.status === 401 && !this._bouw7Raw) {
+                this._bouw7Raw = true;
+                try { return await this._httpJsonGet(base + path, this._bouw7AuthHeader(cfg)); }
+                catch (e2) { this._bouw7Raw = false; if (e2.status === 401) { const x = new Error(this.tFormat('import_auth_failed', 401)); x.status = 401; throw x; } throw e2; }
+            }
+            if (e.status === 401 || e.status === 403) { const x = new Error(this.tFormat('import_auth_failed', e.status)); x.status = e.status; throw x; }
+            throw e;
+        }
+    }
+    _bouw7Items(j) { return Array.isArray(j) ? j : (j?.items || j?.data || j?.results || []); }
+    async _bouw7List(base, cfg, path, hql, max = 1000) {
+        const out = [];
+        const limit = 200;
+        for (let off = 0; off < max; off += limit) {
+            const q = `${hql ? hql + ' ' : ''}LIMIT ${limit} OFFSET ${off}`;
+            const j = await this._bouw7Get(base, cfg, `${path}?q=${encodeURIComponent(q)}`);
+            const items = this._bouw7Items(j);
+            out.push(...items);
+            const count = typeof j?.count === 'number' ? j.count : null;
+            if (!items.length || (count !== null ? off + items.length >= count : items.length < limit)) break;
+        }
+        return out;
+    }
+    async _importFromBouw7(cfg) {
+        const base = this._bouw7Base(cfg);
+        if (!cfg.apiKey) throw new Error(this.t('wb_missing_creds'));
+        this._bouw7Raw = false; // start every import with the documented "Bearer <token>" form
+        const soft = (label, p, fb) => this._softStep(`Bouw7 ${label}`, p, fb);
+        const isId = (v) => /^\d+$/.test(String(v));
+
+        this._setImportStatus(this.t('import_fetching_projects'));
+        const projects = await this._bouw7List(base, cfg, '/list/projects', 'SORT(name, ASC)');
+        if (!projects.length) throw new Error(this.t('import_no_projects'));
+        const numOf = (p) => p.full_project_number || p.project_number || '';
+        const pick = await this._awaitImportPicker(projects.map(p => ({
+            id: String(p.id),
+            label: p.name || numOf(p) || String(p.id),
+            hint: [numOf(p), p.contact?.name, p.city].filter(Boolean).join(' · ')
+        })), 'import_pick_project');
+        if (!pick) return null;
+        if (!isId(pick)) throw new Error(this.t('import_bad_endpoint'));
+        const listItem = projects.find(p => String(p.id) === pick) || {};
+
+        this._setImportStatus(this.t('import_fetching_details'));
+        const detail = await soft('project', this._bouw7Get(base, cfg, `/project/${encodeURIComponent(pick)}`), null) || listItem;
+        const contact = detail.contact || listItem.contact || {};
+        let cust = {};
+        if (isId(contact.id) && !(detail.street_name || listItem.street_name)) {
+            cust = await soft('contact', this._bouw7Get(base, cfg, `/contact/${encodeURIComponent(contact.id)}`), {}) || {};
+        }
+        const src = (detail.street_name || detail.zip_code || detail.city) ? detail : (listItem.street_name || listItem.zip_code || listItem.city) ? listItem : cust;
+        const clientName = contact.name || cust.name || '';
+
+        // Contacts: persons of the customer + the project's own contact person.
+        let persons = [];
+        if (isId(contact.id)) {
+            persons = this._bouw7Items(await soft('contact persons', this._bouw7Get(base, cfg, `/list/contact-persons?q=${encodeURIComponent(`contact.id = ${contact.id} LIMIT 100`)}`), []));
+        }
+        const cp = detail.contact_person;
+        const mapPerson = (p) => ({
+            name: [p.first_name, p.last_name].filter(Boolean).join(' ') || p.name || p.full_name || '',
+            role: p.job_title || 'Contactpersoon',
+            company: clientName,
+            email: p.email_address || p.email || '',
+            phone: p.phone_number || p.mobile_phone_number || p.phone || ''
+        });
+        const contacts = [...(cp && typeof cp === 'object' ? [cp] : []), ...persons].map(mapPerson).filter(c => c.name);
+
+        // Files: Bouw7 has no endpoint that lists a project's files, so probe the likely ones.
+        const files = [];
+        const candidates = [
+            `/list/project-files?q=${encodeURIComponent(`project.id = ${pick} LIMIT 100`)}`,
+            `/project/${encodeURIComponent(pick)}/files`
+        ];
+        let fileItems = [];
+        for (const path of candidates) {
+            const got = this._bouw7Items(await soft('files', this._bouw7Get(base, cfg, path), []));
+            if (got.length) { fileItems = got; break; }
+        }
+        for (const it of fileItems.slice(0, 60)) {
+            let name = it.name || it.file?.name || it.file_name || '';
+            let uri = it.file?.uri || it.uri || it.hash || '';
+            if (!uri && it.id) {
+                const meta = await soft('file meta', this._bouw7Get(base, cfg, `/project/file/${encodeURIComponent(it.id)}`), null);
+                uri = meta?.file?.uri || '';
+                name = name || meta?.name || '';
+            }
+            if (!uri) continue;
+            if (name && /\.[a-z0-9]{2,4}$/i.test(name) && !this._isDrawingName(name)) continue; // known non-drawing
+            files.push({ name: name || 'Bijlage', url: `${base}/storage/${encodeURIComponent(uri)}/download` });
+        }
+
+        return {
+            project: {
+                name: detail.name || listItem.name || '',
+                number: numOf(detail) || numOf(listItem),
+                client: clientName,
+                address: this._joinAddress(src.street_name, src.house_number),
+                postalCode: src.zip_code || '',
+                city: src.city || ''
+            },
+            contacts,
+            floorPlans: files,
+            _fetchBinary: (url) => this._authedDataUrl(url, this._bouw7AuthHeader(cfg), files.find(f => f.url === url)?.name),
+            _meta: { connector: 'bouw7', doctype: 'Project', id: String(pick), base }
+        };
+    }
+
     // Importable + configured connectors (used by the Project-tab shortcut button).
     _importableConnectors() {
         this._pubMigrateLegacy();
@@ -3399,7 +3907,9 @@ class OpenFieldStudio {
             if (src.city) p.city = src.city;
             if (src.contactPerson) p.contactPerson = src.contactPerson;
             // Remember the source ERP project so saves can flow back automatically.
-            if (data._meta?.id) {
+            const linkable = data._meta?.id && typeof this._connectorGet(data._meta.connector).backSync === 'function';
+            if (data._meta?.id && !linkable) delete p.erpRef; // imported from a read-only source: no (stale) link
+            if (linkable) {
                 p.erpRef = {
                     connector: data._meta.connector, doctype: data._meta.doctype,
                     id: data._meta.id, base: data._meta.base,

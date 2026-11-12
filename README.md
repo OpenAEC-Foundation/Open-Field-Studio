@@ -227,6 +227,10 @@ Language preference is auto-detected from the browser/OS and persisted in localS
 
 ## Changelog
 
+### v0.4.12
+
+- Importeren uit AFAS Profit, Exact Online en Bouw7 (project, klant, contacten, tekeningen); AFAS: kies zelf de GetConnectors; Exact: token ±10 min geldig; Bouw7: best-effort (API niet openbaar gedocumeerd)
+
 ### v0.4.11
 
 - Project-tab: knoppen Nieuw, Opslaan en Openen bovenaan het formulier (nieuw: leeg project starten)

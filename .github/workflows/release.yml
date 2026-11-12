@@ -283,6 +283,12 @@ jobs:
 
       - name: Sign APK
         id: sign-apk
+        # A persistent signing key (repo secrets) keeps every release signed with the SAME certificate,
+        # which Android requires to install a new version over an existing one. Without the secrets we
+        # fall back to a throw-away key (updates over an installed copy will then fail).
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
           UNSIGNED_APK=$(find src-tauri/gen/android -name "*-unsigned.apk" -type f | head -1)
           if [ -z "$UNSIGNED_APK" ]; then
@@ -292,12 +298,20 @@ jobs:
           echo "Found unsigned APK: $UNSIGNED_APK"
           APK_DIR=$(dirname "$UNSIGNED_APK")
 
-          keytool -genkeypair -v \
-            -keystore "$APK_DIR/release.keystore" \
-            -alias release \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass openfieldstudio -keypass openfieldstudio \
-            -dname "CN=Open Field Studio, O=OpenAEC Foundation, L=Unknown, ST=Unknown, C=US"
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "Using the persistent Android signing key from repository secrets"
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$APK_DIR/release.keystore"
+            KS_PASS="$ANDROID_KEYSTORE_PASSWORD"
+          else
+            echo "::warning::ANDROID_KEYSTORE_BASE64 not set - generating a throw-away key. Installed copies cannot be updated over."
+            KS_PASS="openfieldstudio"
+            keytool -genkeypair -v \
+              -keystore "$APK_DIR/release.keystore" \
+              -alias release \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "$KS_PASS" -keypass "$KS_PASS" \
+              -dname "CN=Open Field Studio, O=OpenAEC Foundation, L=Unknown, ST=Unknown, C=US"
+          fi
 
           BUILD_TOOLS=$(ls -d $ANDROID_HOME/build-tools/*/ | sort -V | tail -1)
           echo "Using build-tools: $BUILD_TOOLS"
@@ -309,12 +323,13 @@ jobs:
           "${BUILD_TOOLS}apksigner" sign \
             --ks "$APK_DIR/release.keystore" \
             --ks-key-alias release \
-            --ks-pass pass:openfieldstudio \
-            --key-pass pass:openfieldstudio \
+            --ks-pass "pass:$KS_PASS" \
+            --key-pass "pass:$KS_PASS" \
             --out "$SIGNED_APK" \
             "$ALIGNED_APK"
 
-          "${BUILD_TOOLS}apksigner" verify --verbose "$SIGNED_APK"
+          VERIFY_OUT=$("${BUILD_TOOLS}apksigner" verify --verbose --print-certs "$SIGNED_APK")
+          echo "$VERIFY_OUT" | grep -E "Verifies|certificate (DN|SHA-256)" || true
           echo "signed_apk=$SIGNED_APK" >> $GITHUB_OUTPUT
           echo "Signed APK: $SIGNED_APK"
 

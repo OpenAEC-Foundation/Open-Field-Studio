@@ -227,6 +227,10 @@ Language preference is auto-detected from the browser/OS and persisted in localS
 
 ## Changelog
 
+### v0.4.7
+
+- Testrelease voor Android-updates over een bestaande installatie (alleen versienummer gewijzigd).
+
 ### v0.4.6
 
 - **Android: vaste signeersleutel** — de release-workflow tekent de APK nu met één vaste sleutel (repo-secrets ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD) in plaats van bij elke build een nieuwe aan te maken. Daardoor kan Android een nieuwe versie over een geïnstalleerde heen installeren. **Eenmalig:** wie nog een oudere APK (met een wisselende sleutel) heeft, moet die één keer verwijderen (exporteer eerst je projecten); vanaf deze versie werken updates gewoon.

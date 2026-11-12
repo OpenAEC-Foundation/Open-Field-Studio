@@ -735,6 +735,10 @@
                             <label for="point-deadline">Deadline</label>
                             <input type="date" id="point-deadline">
                         </div>
+                        <div class="form-group">
+                            <label for="point-floor">Plattegrond</label>
+                            <select id="point-floor"></select>
+                        </div>
                     </div>
                     <div class="form-group full-width">
                         <label for="point-description">Beschrijving</label>
@@ -774,6 +778,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" id="cancel-point">Annuleren</button>
+                <button type="button" class="btn btn-secondary" id="duplicate-point" style="display:none;">Dupliceren</button>
                 <button type="button" class="btn btn-danger" id="delete-point" style="display:none;">Verwijderen</button>
                 <button type="button" class="btn btn-primary" id="save-point">Opslaan</button>
             </div>

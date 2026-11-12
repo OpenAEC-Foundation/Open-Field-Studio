@@ -218,6 +218,8 @@ class OpenFieldStudio {
         lp('point-deadline','lbl_deadline');
         setText('#cancel-point', 'btn_cancel');
         setText('#delete-point', 'btn_remove');
+        setText('#duplicate-point', 'btn_duplicate');
+        setText('label[for="point-floor"]', 'lbl_plan');
         setText('#save-point', 'btn_save');
         setText('#add-comment-btn', 'btn_send');
         setText('#photo-upload p', 'upload_photos');
@@ -806,6 +808,8 @@ class OpenFieldStudio {
         document.getElementById('cancel-point').addEventListener('click', () => this.closePointModal());
         document.getElementById('save-point').addEventListener('click', () => this.savePoint());
         document.getElementById('delete-point').addEventListener('click', () => this.deletePoint());
+        document.getElementById('duplicate-point').addEventListener('click', () => this.openDuplicateDialog());
+        this._bindPinDrag();
         document.querySelector('#point-modal .modal-overlay').addEventListener('click', () => this.closePointModal());
         document.getElementById('add-comment-btn').addEventListener('click', () => this.addComment());
         document.getElementById('new-comment').addEventListener('keydown', (e) => { if (e.key === 'Enter') this.addComment(); });
@@ -1430,6 +1434,7 @@ class OpenFieldStudio {
             document.getElementById('point-y').value = t.y;
             this.currentPhotos = [...(t.photos || [])];
             delBtn.style.display = 'block';
+            document.getElementById('duplicate-point').style.display = '';
             this.editingPointId = pointId;
             commentsSection.style.display = 'block';
             this.renderComments(t.comments || []);
@@ -1447,9 +1452,15 @@ class OpenFieldStudio {
             document.getElementById('point-x').value = x;
             document.getElementById('point-y').value = y;
             delBtn.style.display = 'none';
+            document.getElementById('duplicate-point').style.display = 'none';
             this.editingPointId = null;
             commentsSection.style.display = 'none';
         }
+        // Floor plan the ticket belongs to (changing it moves the ticket to another plan)
+        const fsel = document.getElementById('point-floor');
+        fsel.innerHTML = this.floorPlans.map(fp => `<option value="${fp.id}">${this.esc(fp.name)}</option>`).join('');
+        const editing = pointId ? this.tickets.find(p => p.id === pointId) : null;
+        fsel.value = (editing ? editing.floorPlanId : this.activeFloorPlanId) || '';
         this.renderPhotoPreview();
         modal.classList.add('active');
         document.getElementById('point-label').focus();
@@ -1518,7 +1529,7 @@ class OpenFieldStudio {
         }
         const td = {
             id: document.getElementById('point-id').value || this.genId(),
-            floorPlanId: this.activeFloorPlanId, label,
+            floorPlanId: document.getElementById('point-floor').value || this.activeFloorPlanId, label,
             description: document.getElementById('point-description').value,
             category: document.getElementById('point-category').value,
             priority: document.getElementById('point-priority').value,
@@ -1543,6 +1554,119 @@ class OpenFieldStudio {
         this.logActivity(this.editingPointId ? this.tFormat('log_ticket_edited', label) : this.tFormat('log_ticket_created', label));
         this.renderLocationPoints(); this.renderPointsList(); this.saveToLocalStorage(); this.closePointModal();
         this.showNotification(this.t('msg_ticket_saved'), 'success');
+    }
+
+    // ---- Move a ticket: drag its pin on the floor plan (mouse or touch) ----
+    _bindPinDrag() {
+        const container = document.getElementById('location-points');
+        if (!container) return;
+        const THRESHOLD = 6; // px of movement before a press becomes a drag (below that it stays a tap/click)
+        let drag = null;
+
+        container.addEventListener('pointerdown', (e) => {
+            const pin = e.target.closest('.location-point');
+            if (!pin || e.button > 0) return;
+            const t = this.tickets.find(x => x.id === pin.dataset.ticketId);
+            if (!t) return;
+            drag = { pin, t, startX: e.clientX, startY: e.clientY, x0: t.x, y0: t.y, moved: false, id: e.pointerId };
+        });
+
+        window.addEventListener('pointermove', (e) => {
+            if (!drag || e.pointerId !== drag.id) return;
+            const dx = e.clientX - drag.startX, dy = e.clientY - drag.startY;
+            if (!drag.moved) {
+                if (Math.hypot(dx, dy) < THRESHOLD) return;
+                drag.moved = true;
+                drag.pin.classList.add('dragging');
+                try { drag.pin.setPointerCapture(e.pointerId); } catch (_) {}
+            }
+            const r = document.getElementById('floor-plan-image').getBoundingClientRect();
+            if (!r.width || !r.height) return;
+            drag.t.x = Math.max(0, Math.min(100, drag.x0 + (dx / r.width) * 100));
+            drag.t.y = Math.max(0, Math.min(100, drag.y0 + (dy / r.height) * 100));
+            drag.pin.style.left = drag.t.x + '%';
+            drag.pin.style.top = drag.t.y + '%';
+            e.preventDefault();
+        }, { passive: false });
+
+        const end = (e) => {
+            if (!drag || e.pointerId !== drag.id) return;
+            const d = drag; drag = null;
+            if (!d.moved) return;
+            d.pin.classList.remove('dragging');
+            // A drag must not also open the ticket: swallow the click that follows the release.
+            const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+            container.addEventListener('click', swallow, { capture: true, once: true });
+            setTimeout(() => container.removeEventListener('click', swallow, { capture: true }), 400);
+            d.t.history = d.t.history || [];
+            d.t.history.push({ action: 'Verplaatst', date: new Date().toISOString() });
+            this.saveToLocalStorage();
+            this.renderPointsList();
+            this.showNotification(this.t('msg_ticket_moved'), 'success');
+        };
+        window.addEventListener('pointerup', end);
+        window.addEventListener('pointercancel', end);
+    }
+
+    // ---- Duplicate a ticket (choice: with or without photos) ----
+    openDuplicateDialog() {
+        const src = this.tickets.find(t => t.id === this.editingPointId);
+        if (!src) return;
+        const photoCount = (src.photos || []).length;
+        let m = document.getElementById('duplicate-modal');
+        if (!m) {
+            m = document.createElement('div');
+            m.className = 'modal';
+            m.id = 'duplicate-modal';
+            m.innerHTML = `<div class="modal-overlay"></div>
+                <div class="modal-content">
+                    <div class="modal-header"><h3 id="duplicate-modal-title"></h3><button class="modal-close" id="duplicate-modal-close" type="button">&times;</button></div>
+                    <div class="modal-body" id="duplicate-modal-body"></div>
+                    <div class="modal-footer" id="duplicate-modal-footer"></div>
+                </div>`;
+            document.body.appendChild(m);
+            m.querySelector('.modal-overlay').addEventListener('click', () => this.closeDuplicateDialog());
+            m.querySelector('#duplicate-modal-close').addEventListener('click', () => this.closeDuplicateDialog());
+        }
+        m.querySelector('#duplicate-modal-title').textContent = this.t('dup_title');
+        m.querySelector('#duplicate-modal-body').innerHTML = `<p>${this.esc(this.tFormat('dup_question', src.label))}</p>` +
+            (photoCount ? '' : `<p style="font-size:.85rem;color:var(--text-muted,#6b7280);">${this.esc(this.t('dup_no_photos'))}</p>`);
+        const footer = m.querySelector('#duplicate-modal-footer');
+        footer.innerHTML = '';
+        const add = (label, cls, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn ' + cls; b.textContent = label; b.addEventListener('click', fn); footer.appendChild(b); };
+        add(this.t('btn_cancel'), 'btn-secondary', () => this.closeDuplicateDialog());
+        add(this.t('dup_without_photos'), photoCount ? 'btn-secondary' : 'btn-primary', () => this.duplicateTicket(src.id, false));
+        if (photoCount) add(this.tFormat('dup_with_photos', photoCount), 'btn-primary', () => this.duplicateTicket(src.id, true));
+        m.classList.add('active');
+    }
+    closeDuplicateDialog() { document.getElementById('duplicate-modal')?.classList.remove('active'); }
+
+    duplicateTicket(id, withPhotos) {
+        const idx = this.tickets.findIndex(t => t.id === id);
+        if (idx < 0) return;
+        const src = this.tickets[idx];
+        const now = new Date().toISOString();
+        const clamp = v => Math.max(0, Math.min(100, v));
+        const copy = {
+            id: this.genId(), floorPlanId: src.floorPlanId,
+            label: `${src.label} ${this.t('dup_suffix')}`,
+            description: src.description || '', category: src.category, priority: src.priority, severity: src.severity,
+            status: 'open', assignedTo: src.assignedTo || '', deadline: src.deadline || '',
+            // offset a little so the copy's pin does not hide behind the original
+            x: clamp((src.x || 0) + 3), y: clamp((src.y || 0) + 3),
+            // photos: fresh ids and NO blobRef, so the copy gets its own stored blobs (never shared with the original)
+            photos: withPhotos ? (src.photos || []).map(p => { const { blobRef, ...rest } = p; return { ...rest, id: this.genId(), gps: p.gps ? { ...p.gps } : null }; }) : [],
+            comments: [],
+            history: [{ action: `Gedupliceerd van "${src.label}"`, date: now }],
+            createdAt: now
+        };
+        this.tickets.splice(idx + 1, 0, copy);
+        this.logActivity(this.tFormat('log_ticket_created', copy.label));
+        this.renderLocationPoints(); this.renderPointsList(); this.saveToLocalStorage();
+        this.closeDuplicateDialog();
+        this.closePointModal();
+        this.showNotification(this.t('msg_ticket_duplicated'), 'success');
+        this.openPointModal(copy.id); // open the copy straight away so it can be adjusted
     }
 
     async deletePoint() {
@@ -1582,7 +1706,7 @@ class OpenFieldStudio {
         const pts = this.tickets.filter(p => p.floorPlanId === this.activeFloorPlanId);
         const colors = { open:'#D97706', assigned:'#2563EB', completed:'#16A34A', verified:'#71717A', archived:'#A1A1AA' };
         container.innerHTML = pts.map((p, i) => `
-            <div class="location-point" style="left:${p.x}%;top:${p.y}%;" onclick="app.openPointModal('${p.id}')" title="${this.esc(p.label)}">
+            <div class="location-point" data-ticket-id="${p.id}" style="left:${p.x}%;top:${p.y}%;" onclick="app.openPointModal('${p.id}')" title="${this.esc(p.label)}">
                 <svg viewBox="0 0 24 24" fill="${colors[p.status]||'#D97706'}"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
                 <span class="point-label">${i + 1}</span>
             </div>

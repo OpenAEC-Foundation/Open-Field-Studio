@@ -2170,3 +2170,7 @@ body {
 /* Dictation button: red + pulsing while recording */
 .dictate-btn.active { background:#dc2626; color:#fff; border-color:#dc2626; animation: dictatePulse 1.2s ease-in-out infinite; }
 @keyframes dictatePulse { 0%,100% { box-shadow:0 0 0 0 rgba(220,38,38,.45); } 50% { box-shadow:0 0 0 6px rgba(220,38,38,0); } }
+
+/* Draggable ticket pins (move a ticket by dragging its pin; works with touch) */
+.location-point { touch-action: none; cursor: grab; }
+.location-point.dragging { cursor: grabbing; z-index: 20; filter: drop-shadow(0 4px 6px rgba(0,0,0,.35)); }

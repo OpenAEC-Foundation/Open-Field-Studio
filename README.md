@@ -227,6 +227,11 @@ Language preference is auto-detected from the browser/OS and persisted in localS
 
 ## Changelog
 
+### v0.4.10
+
+- **Tickets dupliceren** — knop 'Dupliceren' in het ticketvenster met keuze 'Met foto's' of 'Zonder foto's'. De kopie krijgt de naam '… (kopie)', status Open, een iets verschoven pin en (bij 'met foto's') eigen kopieën van de foto's; opmerkingen worden niet meegenomen. De kopie opent direct om aan te passen.
+- **Tickets verplaatsen** — sleep een pin op de plattegrond (muis of vinger) om het ticket te verplaatsen; een korte tik opent het ticket nog steeds. Via de nieuwe keuzelijst 'Plattegrond' in het ticketvenster verplaats je een ticket naar een andere plattegrond. Een verplaatsing komt in de ticketgeschiedenis.
+
 ### v0.4.9
 
 - Testrelease voor de update-chip en het bijwerken op Android (alleen versienummer gewijzigd).

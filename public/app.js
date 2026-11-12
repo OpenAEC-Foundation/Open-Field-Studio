@@ -111,6 +111,7 @@ class OpenFieldStudio {
         // Project tab
         setText('#project-tab > .panel > h2', 'h_project');
         setText('#save-project', 'btn_save_project');
+        setText('#new-project', 'btn_new_project');
         setText('#add-contact-btn', 'btn_add_contact');
         setText('#project-tab > .panel > h2:nth-of-type(2)', 'h_contacts');
 
@@ -727,6 +728,7 @@ class OpenFieldStudio {
 
         // Project Form
         document.getElementById('save-project').addEventListener('click', () => this.saveProject());
+        document.getElementById('new-project').addEventListener('click', () => this.clearLocalStorage('msg_confirm_new_project'));
         document.getElementById('project-form').addEventListener('input', () => this.autoSaveProject());
 
         // Import modal (bidirectional connectors: ERPNext + n8n)
@@ -4307,8 +4309,8 @@ ${(ho.signatures||[]).map(s=>`<div class="sig-block"><p><strong>${this.esc(s.nam
         } catch(err) { console.error('localStorage load error:', err); localStorage.removeItem('openFieldStudio'); }
     }
 
-    async clearLocalStorage() {
-        const ok = await this.asyncConfirm(this.t('msg_confirm_clear'));
+    async clearLocalStorage(confirmKey = 'msg_confirm_clear') {
+        const ok = await this.asyncConfirm(this.t(confirmKey));
         if (!ok) return;
         localStorage.removeItem('openFieldStudio');
         try { await this._blobClearAll(); this._blobWritten = new Set(); } catch (e) { console.warn('IDB clear failed', e); }

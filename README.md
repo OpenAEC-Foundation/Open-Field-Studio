@@ -227,6 +227,10 @@ Language preference is auto-detected from the browser/OS and persisted in localS
 
 ## Changelog
 
+### v0.4.11
+
+- Project-tab: knoppen Nieuw, Opslaan en Openen bovenaan het formulier (nieuw: leeg project starten)
+
 ### v0.4.10
 
 - **Tickets dupliceren** — knop 'Dupliceren' in het ticketvenster met keuze 'Met foto's' of 'Zonder foto's'. De kopie krijgt de naam '… (kopie)', status Open, een iets verschoven pin en (bij 'met foto's') eigen kopieën van de foto's; opmerkingen worden niet meegenomen. De kopie opent direct om aan te passen.
